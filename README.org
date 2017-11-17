@@ -42,9 +42,14 @@ and
 i.e. it makes use of C's comma operator. However, c2nim currently
 [[https:nim-lang.org/docs/c2nim.html#limitations][has no support for it]]. Instead of porting them in some reasonable way,
 these macros were converted to simple replacements with the values,
-dropping the calls to H5check() and H5open(). As H5open() is
-important, the calls are replaced by a single call to initialize the
-library at the beginning of [[file:src/nim-hdf5.nim]] via
+dropping the calls to H5check() and H5open(). 
+
+The call to H5check() is currently not used at all. Compiling a Nim
+program with this wrapper (based on version =1.10.1=) would normally
+fail to check against the linked library, if that version is different.
+
+As H5open() is important, the calls are replaced by a single call to
+initialize the library at the beginning of [[file:src/nim-hdf5.nim]] via
 [[file:src/H5niminitialize.nim]].
 
 As HDF5 is a very macro heavy library, other important macros may not
@@ -53,7 +58,7 @@ sizes of data types.
 
 Additionally, Windows is currently not supported. In principle, adding
 support might be as easy as changing the name of libhdf5.so to
-libhdf5.dll (?). 
+libhdf5.dll (?) as well as wrapping H5FDwindows.h.
 
 ** Installation
 
