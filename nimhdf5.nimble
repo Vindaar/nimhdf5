@@ -5,7 +5,7 @@ author        = "Sebastian Schmidt"
 description   = "A wrapper for the HDF5 data format C library"
 license       = "BSD"
 srcDir        = "src"
-skipDirs      = @["examples"]
+skipDirs      = @["examples, c_headers"]
 skipExt       = @["nim~"]
 
 # Dependencies

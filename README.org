@@ -64,6 +64,12 @@ libhdf5.dll (?) as well as wrapping H5FDwindows.h.
 
 ... to be written
 
+** Files
+
+The folder =c_headers= contains the modified HDF5 headers as they were
+used with c2nim. In $\sim\SI{50}{\percent}$ of the cases the resulting
+.nim files had to be modified.
+
 ** TODO
 - update nimhdf5.nim such that we don't have to pass libhdf5.so
   manually to the linker during compilation
