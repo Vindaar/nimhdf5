@@ -65,6 +65,8 @@ libhdf5.dll (?) as well as wrapping H5FDwindows.h.
 ... to be written
 
 ** TODO
+- update nimhdf5.nim such that we don't have to pass libhdf5.so
+  manually to the linker during compilation
 - provide Nim like high level abstractions
   Eventually the idea is an interface similar to the
   [[http:www.h5py.org][HDF5 python]] bindings
