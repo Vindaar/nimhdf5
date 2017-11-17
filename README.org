@@ -1,0 +1,68 @@
+* nim-hdf5
+
+This repository contains a wrapper for the [[https:www.hdfgroup.org/HDF5/][HDF5 data format]] for the Nim
+programming language.
+
+At the moment it is a raw wrapper, which dynamically links the
+libhdf5.so (the main library) and libhdf5_hl.so (a library containing
+high-level convenience functions) libraries at runtime. All public
+functions of the two libraries are callable by their corresponding C
+names and C arguments. That means the Nim datatypes currently need to
+be manually cast to the corresponding C types.
+
+This is currently in a pre-alpha state, with no guarantees that it
+will work for you. The wrapper was built making heavy use of [[https:www.github.com/nim-lang/c2nim][c2nim]] and
+the main goal for now was to get the code to compile and be able to
+call basic HDF5 functions like opening and closing HDF5 files,
+creating a simple dataset and reading it. More advanced HDF5 features
+have not been tested. The functions are accessible, but may
+potentially be completely broken.
+
+** Compatibility
+
+The wrapper is currently tested using Nim version =0.17.2= and the
+current devel branch (=0.17.3=). The wrapper is built from HDF5
+version =1.10.1=. At the moment (maybe as a side effect from
+converting C macros to Nim code), linking to version =1.8.11= (current
+available version in Ubuntu 14.04 repository) works for the basic
+operations, too.
+
+The HDF5 headers contain macros for many variables, such as
+#+BEGIN_SRC C
+#define H5F_ACC_RDONLY	(H5CHECK H5OPEN 0x0000u)
+#+END_SRC
+where 
+#+BEGIN_SRC C
+#define H5CHECK          H5check(),
+#+END_SRC
+and
+#+BEGIN_SRC C
+#define H5OPEN        H5open(),
+#+END_SRC
+i.e. it makes use of C's comma operator. However, c2nim currently
+[[https:nim-lang.org/docs/c2nim.html#limitations][has no support for it]]. Instead of porting them in some reasonable way,
+these macros were converted to simple replacements with the values,
+dropping the calls to H5check() and H5open(). As H5open() is
+important, the calls are replaced by a single call to initialize the
+library at the beginning of [[file:src/nim-hdf5.nim]] via
+[[file:src/H5niminitialize.nim]].
+
+As HDF5 is a very macro heavy library, other important macros may not
+have been correctly wrapped to Nim, i.e. determination of correct
+sizes of data types. 
+
+Additionally, Windows is currently not supported. In principle, adding
+support might be as easy as changing the name of libhdf5.so to
+libhdf5.dll (?). 
+
+** Installation
+
+... to be written
+
+** TODO
+- provide Nim like high level abstractions
+  Eventually the idea is an interface similar to the
+  [[http:www.h5py.org][HDF5 python]] bindings
+- rebuild the HDF5 C examples to showcase their usage in Nim
+- build unit tests
+- ... lots more
