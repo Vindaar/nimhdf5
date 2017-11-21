@@ -121,7 +121,7 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
     H5G_NUSERTYPES* = (H5G_NTYPES - H5G_NLIBTYPES)
   template H5G_USERTYPE*(X: untyped): untyped =
     (8 + (X))                   ##  User defined types
-  
+
   ##  Typedefs
   ## 
   ##  An object has a certain type. The first few numbers are reserved for use
@@ -136,7 +136,8 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
       H5G_GROUP,              ##  Object is a group
       H5G_DATASET,            ##  Object is a dataset
       H5G_TYPE,               ##  Object is a named data type
-      H5G_LINK,               ##  Object is a symbolic link
+      H5G_LINK_IN_ENUM,       ##  Object is a symbolic link. NOTE: renamed from H5G_LINK,
+                              ##  to not conflict with proc H5Glink!
       H5G_UDLINK,             ##  Object is a user-defined link
       H5G_RESERVED_5,         ##  Reserved for future use
       H5G_RESERVED_6,         ##  Reserved for future use
@@ -161,14 +162,14 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
   proc H5Gopen1*(loc_id: hid_t; name: cstring): hid_t {.cdecl, importc: "H5Gopen1",
       dynlib: libname.}
 
-  when not declared(H5Glink):
-    # for some reason these two functions are supposedly already defined?
-    proc H5Glink*(cur_loc_id: hid_t; `type`: H5G_link_t; cur_name: cstring; new_name: cstring):
-                herr_t {.cdecl, importc: "H5Glink", dynlib: libname.}
-    proc H5Glink2*(cur_loc_id: hid_t; cur_name: cstring; `type`: H5G_link_t; new_loc_id: hid_t; new_name: cstring):
-                 herr_t {.cdecl, importc: "H5Glink2", dynlib: libname.}
-  else:
-    echo H5Glink
+  # for some reason these two functions are supposedly already defined?
+  # NOTE: because of H5G_LINK in enum above, due to Nim ignoring capital letters
+  # and _ 
+  proc H5Glink*(cur_loc_id: hid_t; `type`: H5G_link_t; cur_name: cstring; new_name: cstring):
+              herr_t {.cdecl, importc: "H5Glink", dynlib: libname.}
+  proc H5Glink2*(cur_loc_id: hid_t; cur_name: cstring; `type`: H5G_link_t; new_loc_id: hid_t; new_name: cstring):
+               herr_t {.cdecl, importc: "H5Glink2", dynlib: libname.}
+
   proc H5Gmove*(src_loc_id: hid_t; src_name: cstring; dst_name: cstring): herr_t {.
       cdecl, importc: "H5Gmove", dynlib: libname.}
   proc H5Gmove2*(src_loc_id: hid_t; src_name: cstring; dst_loc_id: hid_t;
