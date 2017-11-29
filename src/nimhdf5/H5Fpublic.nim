@@ -64,7 +64,7 @@ const
   H5F_ACC_RDONLY*     = cuint(0x0000)
   H5F_ACC_RDWR*       = cuint(0x0001)
   H5F_ACC_TRUNC*      = cuint(0x0002)
-  HF_ACC_EXCL*        = cuint(0x0004)
+  H5F_ACC_EXCL*        = cuint(0x0004)
   H5F_ACC_CREAT*      = cuint(0x0010)
   H5F_ACC_SWMR_WRITE* = cuint(0x0020)
 ##                                                   * open for writing in a
