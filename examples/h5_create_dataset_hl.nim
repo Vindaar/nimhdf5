@@ -34,7 +34,18 @@ const FILE = "dset.h5"
 type
   # an object to store information about a hdf5 dataset. It is a combination of
   # an HDF5 dataspace and dataset id (contains both of them)
-  H5DataSet = object
+
+  grp_str  = distinct string
+  dset_str = distinct string
+
+  H5Object = object of RootObj
+    name*: string
+    parent*: string
+    parent_id*: hid_t
+    
+
+  
+  H5DataSet = object #of H5Object
     name*: string
     # we store the shape information internally as a seq, so that we do
     # not have to know about it at compile time
@@ -47,7 +58,7 @@ type
     # parent string, which contains the name of the group in which the
     # dataset is located
     parent*: string
-    # the id of the parent (location id in HDF5 lang). Either file id or group ID
+    # # the id of the parent (location id in HDF5 lang). Either file id or group ID
     parent_id*: hid_t
     # filename string, in which the dataset is located
     file*: string
@@ -57,12 +68,12 @@ type
     dataset_id*: hid_t
 
   # an object to store information about a HDF5 group
-  H5Group = object
+  H5Group = object #of H5Object
     name*: string
-    # parent string, which contains the name of the group in which the
-    # dataset is located
+    # # parent string, which contains the name of the group in which the
+    # # dataset is located
     parent*: string
-    # the id of the parent (location id in HDF5 lang). Either file id or group ID
+    # # the id of the parent (location id in HDF5 lang). Either file id or group ID
     parent_id*: hid_t
     # filename string, in which the dataset is located
     file*: string
@@ -75,8 +86,11 @@ type
     # they are located. Easily done by keeping a table of string of each dataset, which
     # contains their location simply by the path and have a table of H5Group objects
     datasets*: Table[string, H5DataSet]
+    # each group may have subgroups itself, keep table of these
+    groups: ref Table[string, ref H5Group]
 
-  H5FileObj = object
+
+  H5FileObj = object #of H5Object
     name*: string
     # the file_id is the unique identifier of the opened file. Each
     # low level C call uses this file_id to idenfity the file to work
@@ -91,24 +105,12 @@ type
     # var to store status of C calls
     status: hid_t
     # groups is a table, which stores the names of groups stored in the file
-    groups: Table[string, H5Group]
+    groups: ref Table[string, ref H5Group]
     # datasets is a table, which stores the names of datasets by string
     # while keeping the hid_t dataset_id as the value
     datasets: Table[string, H5DataSet]
     dataspaces: Table[string, hid_t]
 
-  # H5Tree = object
-  #   file*: string
-  #   branches*: seq[ref H5Branch]
-  #   leaves*: HashSet[ref H5DataSet]
-
-  # H5Branch = object
-  #   name*: string
-  #   branches*: seq[ref H5Branch]
-  #   leaves*: HashSet[ref H5DataSet]
-  #   parent*: ref H5Branch
-  #   root*: ref H5Tree
-    
 const    
     H5_NOFILE = hid_t(-1)
     H5_OPENFILE = hid_t(1)
@@ -116,31 +118,19 @@ const
 # add an invalid rw code to handle wrong inputs in parseH5rw_type
 const H5F_INVALID_RW    = cuint(0x00FF)
 
-
-# proc hash(x: H5DataSet): Hash =
-#   # the hash value of a H5DataSet only depends on
-#   # its name, shape, dtype and file, since these
-#   # are the properties, which uniquely idenfity a
-#   # dataset in the HDF5 file
-#   var h: Hash = 0
-#   h = h !& x.name
-#   h = h !& x.shape
-#   h = h !& x.dtype
-#   h = h !& file
-#   result = !$h
-
-
 proc newH5File(): H5FileObj =
   ## default constructor for a H5File object, for internal use
   let dset = initTable[string, H5DataSet]()
-  let dspace = initTable[string, hid_t]()  
+  let dspace = initTable[string, hid_t]()
+  let groups = newTable[string, ref H5Group]()
   result = H5FileObj(name: "",
                      file_id: H5_NOFILE,
                      rw_type: H5F_INVALID_RW,
                      err: -1,
                      status: -1,
                      datasets: dset,
-                     dataspaces: dspace)
+                     dataspaces: dspace,
+                     groups: groups)
 
 proc newH5DataSet(name: string = ""): H5DataSet =
   ## default constructor for a H5File object, for internal use
@@ -154,15 +144,42 @@ proc newH5DataSet(name: string = ""): H5DataSet =
                      dataspace_id: -1,
                      dataset_id: -1)
 
-proc newH5Group(name: string = ""): H5Group =
+proc newH5Group(name: string = ""): ref H5Group =
   ## default constructor for a H5Group object, for internal use
   let datasets = initTable[string, H5DataSet]()
-  result = H5Group(name: name,
-                   parent: "",
-                   parent_id: -1,
-                   file: "",
-                   group_id: -1,
-                   datasets: datasets)
+  let groups = newTable[string, ref H5Group]()
+  result = new H5Group
+  result.name = name
+  result.parent = ""
+  result.parent_id = -1
+  result.file = ""
+  result.datasets = datasets
+  result.groups = groups
+  # result = H5Group(name: name,
+  #                  parent: "",
+  #                  parent_id: -1,
+  #                  file: "",
+  #                  group_id: -1,
+  #                  datasets: datasets,
+  #                  groups: groups)
+
+proc `$`*(group: ref H5Group): string =
+  result = "\n{\n\t'name': " & group.name & "\n\t'parent': " & group.parent & "\n\t'parent_id': " & $group.parent_id
+  result = result & "\n\t'file': " & group.file & "\n\t'group_id': " & $group.group_id & "\n\t'datasets': " & $group.datasets
+  result = result & "\n\t'groups': {"
+  for k, v in group.groups:
+    result = result & "\n\t\t" & k
+  result = result & "\n\t}\n}"
+
+proc `$`*(group: H5Group): string =
+  result = "\n{\n\t'name': " & group.name & "\n\t'parent': " & group.parent & "\n\t'parent_id': " & $group.parent_id
+  result = result & "\n\t'file': " & group.file & "\n\t'group_id': " & $group.group_id & "\n\t'datasets': " & $group.datasets
+  result = result & "\n\t'groups': {"
+  for k, v in group.groups:
+    result = result & "\n\t\t" & k
+  result = result & "\n\t}\n}"
+
+
 
 proc isInH5Root(name: string): bool =
   # this procedure returns whether the given group or dataset is in a group
@@ -181,13 +198,13 @@ template getH5Id(h5_object: typed): hid_t =
   # - a H5FileObj
   # - a H5DataSet
   # - a H5Group
-  var result: hid_t = -1
+  # var result: hid_t = -1
   when h5_object is H5FileObj:
-    result = h5_object.file_id
+    let result = h5_object.file_id
   elif h5_object is H5DataSet:
-    result = h5_object.dataspace_id
+    let result = h5_object.dataspace_id
   elif h5_object is H5Group:
-    result = h5_object.group_id
+    let result = h5_object.group_id
   result
 
 template getParent(dset_name: string): string =
@@ -199,7 +216,137 @@ template getParent(dset_name: string): string =
     result = "/"
   result
 
-proc findExistingParent(h5f: H5FileObj, name: string): Option[H5Group] =
+# template get(h5f: H5FileObj, dset_name: string): H5Object =
+#   # convenience proc to return the dataset with name dset_name
+#   # if it does not exist, KeyError is thrown
+#   # inputs:
+#   #    h5f: H5FileObj = the file object from which to get the dset
+#   #    obj_name: string = name of the dset to get
+#   # outputs:
+#   #    H5DataSet = if dataset is found
+#   # throws:
+#   #    KeyError: if dataset could not be found
+#   # let exists = hasKey(h5f.datasets, dset_name)
+#   # if exists == true:
+#   #   result = h5f.datasets[dset_name]
+#   # else:
+#   #   discard
+#   var is_dataset: bool = false
+#   let dset_exist = hasKey(h5f.datasets, dset_name)
+#   if dset_exist == false:
+#     let group_exist = hasKey(h5f.groups, dset_name)
+#     if group_exist == false:
+#       raise newException(KeyError, "Object with name: " & dset_name & " not found in file " & h5f.name)
+#     else:
+#       is_dataset = false
+#   else:
+#     is_dataset = true
+#   if is_dataset == true:
+#     let result = h5f.datasets[dset_name]
+#     result
+#   else:
+#     let result = h5f.groups[dset_name]
+#     result
+
+proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
+  # convenience proc to return the dataset with name dset_name
+  # if it does not exist, KeyError is thrown
+  # inputs:
+  #    h5f: H5FileObj = the file object from which to get the dset
+  #    obj_name: string = name of the dset to get
+  # outputs:
+  #    H5DataSet = if dataset is found
+  # throws:
+  #    KeyError: if dataset could not be found
+  # let exists = hasKey(h5f.datasets, dset_name)
+  # if exists == true:
+  #   result = h5f.datasets[dset_name]
+  # else:
+  #   discard
+  let dset_exist = hasKey(h5f.datasets, dset_name)
+  if dset_exist == false:
+    #raise newException(KeyError, "Dataset with name: " & dset_name & " not found in file " & h5f.name)
+    result = none(H5DataSet)
+  else:
+    result = some(h5f.datasets[dset_name])
+
+proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
+  # convenience proc to return the group with name grp_name
+  # if it does not exist, KeyError is thrown
+  # inputs:
+  #    h5f: H5FileObj = the file object from which to get the group
+  #    obj_name: string = name of the group to get
+  # outputs:
+  #    H5Group = if group is found
+  # throws:
+  #    KeyError: if group could not be found
+  # let exists = hasKey(h5f.groups, grp_name)
+  # if exists == true:
+  #   result = h5f.groups[grp_name]
+  # else:
+  #   discard
+  let grp_exist = hasKey(h5f.datasets, grp_name)
+  if grp_exist == false:
+    #raise newException(KeyError, "Dataset with name: " & grp_name & " not found in file " & h5f.name)
+    result = none(H5Group)
+  else:
+    result = some(h5f.groups[grp_name][])
+
+template get(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
+  # convenience proc to return the dataset with name dset_name
+  # if it does not exist, KeyError is thrown
+  # inputs:
+  #    h5f: H5FileObj = the file object from which to get the dset
+  #    obj_name: string = name of the dset to get
+  # outputs:
+  #    H5DataSet = if dataset is found
+  # throws:
+  #    KeyError: if dataset could not be found
+  # let exists = hasKey(h5f.datasets, dset_name)
+  # if exists == true:
+  #   result = h5f.datasets[dset_name]
+  # else:
+  #   discard
+  let dset_name = string(dset_in)
+  let dset_exist = hasKey(h5f.datasets, dset_name)
+  var result: H5DataSet
+  if dset_exist == false:
+    raise newException(KeyError, "Dataset with name: " & dset_name & " not found in file " & h5f.name)
+  else:
+    result = h5f.datasets[dset_name]
+  result
+
+template get(h5f: H5FileObj, group_in: grp_str): H5Group =
+  # convenience proc to return the group with name group_name
+  # if it does not exist, KeyError is thrown
+  # inputs:
+  #    h5f: H5FileObj = the file object from which to get the dset
+  #    obj_name: string = name of the dset to get
+  # outputs:
+  #    H5Group = if group is found
+  # throws:
+  #    KeyError: if group could not be found
+  # let exists = hasKey(h5f.groups, group_name)
+  # if exists == true:
+  #   result = h5f.groups[group_name]
+  # else:
+  #   discard
+  let group_name = string(group_in)  
+  let group_exist = hasKey(h5f.groups, group_name)
+  var result: H5Group
+  if group_exist == false:
+    raise newException(KeyError, "Group with name: " & group_name & " not found in file " & h5f.name)
+  else:
+    result = h5f.groups[group_name][]
+  result    
+
+    
+proc nameFirstExistingParent(h5f: H5FileObj, name: string): string =
+  # similar to firstExistingParent, except that only the name of
+  # the object is returned
+  discard
+
+proc firstExistingParent(h5f: H5FileObj, name: string): Option[H5Group] =
   # proc to find the first existing parent of a given object in H5F
   # recursively
   # inputs:
@@ -213,21 +360,21 @@ proc findExistingParent(h5f: H5FileObj, name: string): Option[H5Group] =
     # in this case we're not at the root, so check whether name exists
     let exists = hasKey(h5f.groups, name)
     if exists == true:
-      result = some(h5f.groups[name])
+      result = some(h5f.groups[name][])
     else:
-      result = findExistingParent(h5f, getParent(name))
+      result = firstExistingParent(h5f, getParent(name))
   else:
     # no parent found, first existing parent is root
     result = none(H5Group)
 
 template getParentId(h5f: H5FileObj, h5_object: typed): hid_t =
-  # template returns the id of the parent of h5_object
+  # template returns the id of the first existing parent of h5_object
   var result: hid_t = -1
   let parent = getParent(h5_object.name)
   when h5_object is H5DataSet:
     discard
   elif h5_object is H5Group:
-    let p = findExistingParent(h5f, h5_object.name)
+    let p = firstExistingParent(h5f, h5_object.name)
     if isSome(p) == true:
       result = getH5Id(unsafeGet(p))
     else:
@@ -237,6 +384,48 @@ template getParentId(h5f: H5FileObj, h5_object: typed): hid_t =
     echo "Warning: This should not happen, as we have no other types so far. If you see this"
     echo "you handed a not supported type to getParentId()"
   result
+
+proc nameExistingObjectOrParent(h5f: H5FileObj, name: string): string =
+  # this procedure can be used to get the name of the given object
+  # or its first existing parent
+  # inputs:
+  #    h5f: H5FileObj = the file object in which to check the tables
+  #    name: string = name of the object to check for
+  # outputs:
+  #    string = the name of the given object (if it exists), or the
+  #          name of the first existing parent. If root is the only
+  #          existing object, empty string is returned
+  let dset = hasKey(h5f.datasets, name)
+  if dset == false:
+    let group = hasKey(h5f.groups, name)
+    if group == false:
+      # in this case object does not yet exist, search up hierarchy from
+      # name for existing parent
+      let p = firstExistingParent(h5f, name)
+      if isSome(p) == true:
+        # in this case return the name
+        result = unsafeGet(p).name
+      else:
+        # else return nil, nothing found in file object
+        result = ""
+
+template isGroup(h5_object: typed): bool =
+  # procedure to check whether object is a H5Group
+  result: bool = false
+  if h5_object is H5Group:
+    result = true
+  else:
+    result = false
+  result
+
+template isDataSet(h5_object: typed): bool =
+  # procedure to check whether object is a H5DataSet
+  result: bool = false
+  if h5_object is H5DataSet:
+    result = true
+  else:
+    result = false
+  result  
 
 proc parseH5rw_type(rw_type: string, exists: bool): cuint =
   ## this proc simply acts as a parser for the read/write
@@ -335,11 +524,28 @@ proc H5file(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
     # use create call
     echo "rw is  ", rw
     result.file_id = H5Fcreate(name, rw, H5P_DEFAULT, H5P_DEFAULT)
-
-
   # after having opened / created the given file, we get the datasets etc.
   # which are stored in the file
-    
+
+proc close(h5f: H5FileObj): herr_t =
+  # this procedure closes all known datasets, dataspaces, groups and the HDF5 file
+  # itself to clean up
+  # inputs:
+  #    h5f: H5FileObj = file object which to close
+  # outputs:
+  #    hid_t = status of the closing of the file
+
+  for dset, id in pairs(h5f.datasets):
+    echo("Closing dset ", dset, " with id ", id)
+    result = H5Dclose(id.dataset_id)
+    result = H5Sclose(id.dataspace_id)
+
+  for group, id in pairs(h5f.groups):
+    echo("Closing group ", group, " with id ", id)
+    result = H5Gclose(id.group_id)
+  
+  result = H5Fclose(h5f.file_id)
+
 
 proc parseShapeTuple[T: tuple](dims: T): seq[hsize_t] =
   ## parses the shape tuple handed to create_dataset
@@ -442,14 +648,27 @@ proc createGroupFromParent(h5f: var H5FileObj, group_name: string): H5Group =
     # the location id is the id of the parent of group_name
     # i.e. the group is created in the parent group
     p_str = getParent(group_name)
-    let parent = h5f.groups[p_str]
+    let parent = h5f.groups[p_str][]
     location_id = getH5Id(parent)
   else:
     # the group will be created in the root of the file
     location_id = h5f.file_id
 
-  result = newH5Group(group_name)
-  result.group_id = H5Gcreate2(location_id, group_name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
+  result = newH5Group(group_name)[]
+  # before we create a greoup, check whether said group exists in the H5 file
+  # already
+  echo "Checking for existence of group ", result.name, " ", group_name
+  result.group_id = H5Lexists(location_id, result.name, H5P_DEFAULT)
+  if result.group_id > 0:
+    # group exists, open it
+    result.group_id = H5Gopen2(location_id, result.name, H5P_DEFAULT)
+    echo "Group exists H5Gopen2() returned id ", result.group_id    
+  elif result.group_id == 0:
+    echo "Group non existant, creating group ", result.name
+    # group non existant, create
+    result.group_id = H5Gcreate2(location_id, result.name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
+  else:
+    echo "create_group(): You probably see the HDF5 errors piling up..."
   result.parent = p_str
   # since we know that the parent exists, we can simply use the (recursive!) getParentId
   # to get the id of the parent, without worrying about receiving a parent id of an
@@ -459,7 +678,13 @@ proc createGroupFromParent(h5f: var H5FileObj, group_name: string): H5Group =
 
   # now that we have created the group fully (including IDs), we can add it
   # to the H5FileObj
-  h5f.groups[group_name] = result
+  var grp = new H5Group
+  grp[] = result
+  echo "Adding element to h5f groups ", group_name
+  #echo "h5f before ", h5f.groups
+  h5f.groups[group_name] = grp
+  #echo "h5f after ", h5f.groups
+  grp.groups = h5f.groups
   
   
 proc create_group(h5f: var H5FileObj, group_name: string): H5Group =
@@ -481,7 +706,7 @@ proc create_group(h5f: var H5FileObj, group_name: string): H5Group =
   let exists = hasKey(h5f.groups, group_name)
   if exists == true:
     # then we return the object
-    result = h5f.groups[group_name]
+    result = h5f.groups[group_name][]
   else:
     # we need to create it. But first check whether the parent
     # group already exists
@@ -492,8 +717,39 @@ proc create_group(h5f: var H5FileObj, group_name: string): H5Group =
       result = createGroupFromParent(h5f, group_name)
     else:
       result = createGroupFromParent(h5f, group_name)
+
+# proc create_group(h5f: var H5FileObj, group_name: string): H5Group =
+#   # checks whether the given group name already exists or not.
+#   # If yes:
+#   #   return the H5Group object,
+#   # else:
+#   #   check the parent of that group recursively as well.
+#   #   If parent exists:
+#   #     create new group and return it
+#   # inputs:
+#   #    h5f: H5FileObj = the h5f file object in which to look for the group
+#   #    group_name: string = the name of the group to check for in h5f
+#   # outputs:
+#   #    H5Group = an object containing the (newly) created group in the file
+#   # NOTE: the creation of the groups via recusion is not all that nice,
+#   #   because it relies heavily on state changes via the h5f object
+#   #   Think about a cleaner way?
+#   let exists = hasKey(h5f.groups, group_name)
+#   if exists == true:
+#     # then we return the object
+#     result = h5f.groups[group_name]
+#   else:
+#     # we need to create it. But first check whether the parent
+#     # group already exists
+#     # whether such a group already exists
+#     # in the HDF5 file and h5f is simply not aware of it yet
+#     if isInH5Root(group_name) == false:
+#       let parent = create_group(h5f, getParent(group_name))
+#       result = createGroupFromParent(h5f, group_name)
+#     else:
+#       result = createGroupFromParent(h5f, group_name)      
     
-proc create_dataset[T: tuple](h5f: var H5FileObj, dset_raw: string, shape: T, dtype: typedesc) =
+proc create_dataset[T: tuple](h5f: var H5FileObj, dset_raw: string, shape: T, dtype: typedesc): H5DataSet =
   ## proceduer to create a dataset given a H5file object. The shape of
   ## that type is given as a tuple, the datatype as a typedescription
   ## inputs:
@@ -537,10 +793,9 @@ proc create_dataset[T: tuple](h5f: var H5FileObj, dset_raw: string, shape: T, dt
   
   # TODO: CHANGE THIS; determine parent using os file functions
   echo "Getting parent Id of ", dset.name
-  dset.parent  = "/"
   dset.parent_id = getParentId(h5f, dset)
   
-  dset.parent_id = h5f.file_id
+  # dset.parent_id = h5f.file_id
   dset.shape   = map(shape_seq, (x: hsize_t) -> int => int(x))
   
   # check whether there already exists a dataset with the given name
@@ -556,6 +811,9 @@ proc create_dataset[T: tuple](h5f: var H5FileObj, dset_raw: string, shape: T, dt
     if dset.dataset_id > 0:
       # in this case successful, dataset exists already
       exists = true
+      # in this case open the dataset to read
+      dset.dataset_id   = H5Dopen2(h5f.file_id, dset.name, H5P_DEFAULT)
+      dset.dataspace_id = H5Dget_space(dset.dataset_id)
     elif dset.dataset_id == 0:
       # does not exist
       # now
@@ -570,14 +828,81 @@ proc create_dataset[T: tuple](h5f: var H5FileObj, dset_raw: string, shape: T, dt
       dset.dataspace_id = dataspace_id
       dset.dataset_id = dataset_id
     else:
-      echo "You probably see the HDF5 errors piling up..."
+      echo "create_dataset(): You probably see the HDF5 errors piling up..."
   
 
-  #h5f.dataspaces[dset_name] = dset
+  
   h5f.datasets[dset_name] = dset
+  # redundant:
+  h5f.dataspaces[dset_name] = dset.dataspace_id
   #dataset_id = H5Dcreate2(h5f.file_id, "/dset", H5T_STD_I32BE, dataspace_id, 
+
+  result = dset
+
+proc `[]=`*[T](dset: var H5DataSet, ind: int, data: var openArray[T]) =
+    # procedure to write a sequence of array to a dataset
+    # will be given to HDF5 library upon call, H5DataSet object
+    # does not store the data
+    # inputs:
+    #    dset: var H5DataSet = the dataset which contains the necessary information
+    #         about dataset shape, dtype etc. to write to
+    #    data: openArray[T] = any array type containing the data to be written
+    #         needs to be of the same size as the shape given during creation of
+    #         the dataset or smaller
+    # when data is array:
+    #   echo "ok"
+    # elif data is seq:
+    #   echo "also fine"
+    # else:
+    #   echo "what?"
+    discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                     addr(data[ind]))
+
+template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
+  # a simple wrapper around get for datasets
+  h5f.get(name)
+
+template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
+  # a simple wrapper around get for groups
+  h5f.get(name)
+
+template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
+  # a simple wrapper around get for datasets
+  h5f.get(name)
+
+template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
+  # a simple wrapper around get for groups
+  h5f.get(name)
   
-  
+
+# template `[]`*(h5f: H5FileObj, name: string): expr =
+#   # var grp = newH5Group()
+#   # var dset = newH5DataSet()
+#   # if isSome(h5f.getDset(name_in)) == true:
+#   #   dset = unsafeGet(h5f.getDset(name_in))
+#   # else:
+#   #   grp = unsafeGet(h5f.getGroup(name_in))
+#   # when grp.name != "":
+#   #   grp
+#   # else:
+#   #   dset
+#   # else:
+#   #   unsafeGet(h5f.getGroup(name))
+#   # try:
+#   #   let grp_name = grp_str(name)
+#   #   h5f.get(grp_name)
+#   # except KeyError:
+#   #   try:
+#   #     let dset_name = dset_str(name)
+#   #     h5f.get(dset_name)
+#   #   except KeyError:
+#   #     raise newException(KeyError, "Neither group nor dataset found with name " & name)
+#   when name[^1] == '/':
+#     let grp_name = grp_str(name[0..^2])
+#     h5f.get(grp_name)
+#   else:
+#     let dset_name = dset_str(name)
+#     h5f.get(dset_name)
 proc main() =
   var
     # identifiers
@@ -589,29 +914,45 @@ proc main() =
     status: herr_t
   
   # Create a new file using default properties.
-  #file_id = H5Fcreate(FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT)
   var h5f = H5file(FILE, "rw")
 
-  h5f.create_dataset("/dset", (2, 2), float)
+  # create dataset
+  var dset = h5f.create_dataset("/group1/group2/group3/dset", (2, 10), float64)
 
-  # # Create the data space for the dataset. 
-  # dims[0] = 4
-  # dims[1] = 6
-  #var d: seq[hsize_t] = @[hsize_t(4), hsize_t(6)]
-  #dataspace_id = H5Screate_simple(cint(2), addr(d[0]), nil)#cast[ptr hsize_t](addr(dims)), nil)
+  var dat: seq[float64] = newSeq[float64](20)
+  echo "ok"
+  var count = 0
+  for i in 0..<len(dat):
+    dat[i] = float64(count) + 1
+    inc count
+  echo "not ok"
 
-  # # Create the dataset. 
-  # dataset_id = H5Dcreate2(h5f.file_id, "/dset", H5T_STD_I32BE, dataspace_id, 
-  #                         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
+  # let gr: grp_str = grp_str("/group1/group2")
+  # let t = h5f[gr] #H5Group(get(h5f, gr))
+  let gg = "/group1/group2" # readLine(stdin)
   
-  # # End access to the dataset and release resources used by it.
-  # status = H5Dclose(dataset_id)
+  let t2 = h5f[gg.grp_str]
+  echo name(type(t2))
+  echo t2
 
-  # # Terminate access to the data space. 
-  # status = H5Sclose(dataspace_id)
+  var g = h5f.create_group("/test/another/group")
 
-  # # Close the file. 
-  status = H5Fclose(h5f.file_id)
+  #var h = g.create_group("more/branches")
+  echo "\n\n"
+  echo "file ", h5f#.groups
+  echo "\n\n\nnew group", g#.groups[]
+  echo "old group", t2#.groups[]
+  
+  dset[0] = dat
+
+  let dtype = getCtype(float64)
+  # status = H5Dwrite(dset.dataset_id, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+  #                   addr(dat[0]))
+  
+
+  # close datasets, groups and file
+  status = h5f.close()
+  echo "Status of file closing is ", status
 
 when isMainModule:
   main()
