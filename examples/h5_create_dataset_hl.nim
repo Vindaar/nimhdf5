@@ -77,6 +77,8 @@ type
     parent_id*: hid_t
     # filename string, in which the dataset is located
     file*: string
+    # file id of the file in which group is stored
+    file_id*: hid_t
     # the id of the HDF5 group (its location id)
     group_id*: hid_t
     # TODO: think, should H5Group contain a table about its dataspaces? Or should
@@ -346,7 +348,7 @@ proc nameFirstExistingParent(h5f: H5FileObj, name: string): string =
   # the object is returned
   discard
 
-proc firstExistingParent(h5f: H5FileObj, name: string): Option[H5Group] =
+proc firstExistingParent[T](h5f: T, name: string): Option[H5Group] =
   # proc to find the first existing parent of a given object in H5F
   # recursively
   # inputs:
@@ -367,7 +369,7 @@ proc firstExistingParent(h5f: H5FileObj, name: string): Option[H5Group] =
     # no parent found, first existing parent is root
     result = none(H5Group)
 
-template getParentId(h5f: H5FileObj, h5_object: typed): hid_t =
+template getParentId[T](h5f: T, h5_object: typed): hid_t =
   # template returns the id of the first existing parent of h5_object
   var result: hid_t = -1
   let parent = getParent(h5_object.name)
@@ -627,7 +629,7 @@ proc formatName(name: string): string =
   # whitespace, if any) and then prepending a leading /
   result = "/" & strip(name, chars = ({'/'} + Whitespace + NewLines))
 
-proc createGroupFromParent(h5f: var H5FileObj, group_name: string): H5Group =
+proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   # procedure to create a group within a H5F
   # Note: this procedure requires that the parentb of the group
   # to create exists, while the group to be created does not!
@@ -658,6 +660,7 @@ proc createGroupFromParent(h5f: var H5FileObj, group_name: string): H5Group =
   # before we create a greoup, check whether said group exists in the H5 file
   # already
   echo "Checking for existence of group ", result.name, " ", group_name
+
   result.group_id = H5Lexists(location_id, result.name, H5P_DEFAULT)
   if result.group_id > 0:
     # group exists, open it
@@ -674,8 +677,12 @@ proc createGroupFromParent(h5f: var H5FileObj, group_name: string): H5Group =
   # to get the id of the parent, without worrying about receiving a parent id of an
   # object, which is in reality not a parent
   result.parent_id = getParentId(h5f, result)
-  result.file = h5f.name
+  when h5f is H5FileObj:
+    result.file = h5f.name
+  elif h5f is H5Group:
+    result.file = h5f.file
 
+  result.file_id = h5f.file_id
   # now that we have created the group fully (including IDs), we can add it
   # to the H5FileObj
   var grp = new H5Group
@@ -687,7 +694,7 @@ proc createGroupFromParent(h5f: var H5FileObj, group_name: string): H5Group =
   grp.groups = h5f.groups
   
   
-proc create_group(h5f: var H5FileObj, group_name: string): H5Group =
+proc create_group[T](h5f: var T, group_name: string): H5Group =
   # checks whether the given group name already exists or not.
   # If yes:
   #   return the H5Group object,
@@ -703,22 +710,35 @@ proc create_group(h5f: var H5FileObj, group_name: string): H5Group =
   # NOTE: the creation of the groups via recusion is not all that nice,
   #   because it relies heavily on state changes via the h5f object
   #   Think about a cleaner way?
-  let exists = hasKey(h5f.groups, group_name)
+
+  when h5f is H5Group:
+    # in this case need to modify the path of the group from a relative path to an
+    # absolute path in the H5 file
+    var group_path: string
+    if h5f.name notin group_name and group_name notin h5f.name:
+      group_path = joinPath(h5f.name, group_name)
+    else:
+      group_path = group_name
+    echo "Group path is now ", group_path, " ", h5f.name
+  else:
+    let group_path = group_name
+  
+  let exists = hasKey(h5f.groups, group_path)
   if exists == true:
     # then we return the object
-    result = h5f.groups[group_name][]
+    result = h5f.groups[group_path][]
   else:
     # we need to create it. But first check whether the parent
     # group already exists
     # whether such a group already exists
     # in the HDF5 file and h5f is simply not aware of it yet
-    if isInH5Root(group_name) == false:
-      let parent = create_group(h5f, getParent(group_name))
-      result = createGroupFromParent(h5f, group_name)
+    if isInH5Root(group_path) == false:
+      let parent = create_group(h5f, getParent(group_path))
+      result = createGroupFromParent(h5f, group_path)
     else:
-      result = createGroupFromParent(h5f, group_name)
+      result = createGroupFromParent(h5f, group_path)
 
-# proc create_group(h5f: var H5FileObj, group_name: string): H5Group =
+# template create_group(h5_objcet: var typed, group_name: string): H5Group =
 #   # checks whether the given group name already exists or not.
 #   # If yes:
 #   #   return the H5Group object,
@@ -937,7 +957,9 @@ proc main() =
 
   var g = h5f.create_group("/test/another/group")
 
-  #var h = g.create_group("more/branches")
+  g = h5f["/test/another".grp_str]
+  
+  var h = g.create_group("/more/branches")
   echo "\n\n"
   echo "file ", h5f#.groups
   echo "\n\n\nnew group", g#.groups[]
