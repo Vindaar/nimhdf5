@@ -1,4 +1,3 @@
-
 #############################################################################
 # Copyright by The HDF Group.                                               #
 # Copyright by the Board of Trustees of the University of Illinois.         #
@@ -26,6 +25,9 @@ import sequtils
 import strutils
 import options
 import future
+#import seqmath
+#import arraymancer
+import macros
 
 import ../src/nimhdf5
 import ../src/nimhdf5/H5nimtypes
@@ -408,7 +410,7 @@ proc nameExistingObjectOrParent(h5f: H5FileObj, name: string): string =
         # in this case return the name
         result = unsafeGet(p).name
       else:
-        # else return nil, nothing found in file object
+        # else return empty string, nothing found in file object
         result = ""
 
 template isGroup(h5_object: typed): bool =
@@ -538,12 +540,12 @@ proc close(h5f: H5FileObj): herr_t =
   #    hid_t = status of the closing of the file
 
   for dset, id in pairs(h5f.datasets):
-    echo("Closing dset ", dset, " with id ", id)
+    #echo("Closing dset ", dset, " with id ", id)
     result = H5Dclose(id.dataset_id)
     result = H5Sclose(id.dataspace_id)
 
   for group, id in pairs(h5f.groups):
-    echo("Closing group ", group, " with id ", id)
+    #echo("Closing group ", group, " with id ", id)
     result = H5Gclose(id.group_id)
   
   result = H5Fclose(h5f.file_id)
@@ -738,39 +740,8 @@ proc create_group[T](h5f: var T, group_name: string): H5Group =
     else:
       result = createGroupFromParent(h5f, group_path)
 
-# template create_group(h5_objcet: var typed, group_name: string): H5Group =
-#   # checks whether the given group name already exists or not.
-#   # If yes:
-#   #   return the H5Group object,
-#   # else:
-#   #   check the parent of that group recursively as well.
-#   #   If parent exists:
-#   #     create new group and return it
-#   # inputs:
-#   #    h5f: H5FileObj = the h5f file object in which to look for the group
-#   #    group_name: string = the name of the group to check for in h5f
-#   # outputs:
-#   #    H5Group = an object containing the (newly) created group in the file
-#   # NOTE: the creation of the groups via recusion is not all that nice,
-#   #   because it relies heavily on state changes via the h5f object
-#   #   Think about a cleaner way?
-#   let exists = hasKey(h5f.groups, group_name)
-#   if exists == true:
-#     # then we return the object
-#     result = h5f.groups[group_name]
-#   else:
-#     # we need to create it. But first check whether the parent
-#     # group already exists
-#     # whether such a group already exists
-#     # in the HDF5 file and h5f is simply not aware of it yet
-#     if isInH5Root(group_name) == false:
-#       let parent = create_group(h5f, getParent(group_name))
-#       result = createGroupFromParent(h5f, group_name)
-#     else:
-#       result = createGroupFromParent(h5f, group_name)      
-    
 proc create_dataset[T: tuple](h5f: var H5FileObj, dset_raw: string, shape: T, dtype: typedesc): H5DataSet =
-  ## proceduer to create a dataset given a H5file object. The shape of
+  ## procedure to create a dataset given a H5file object. The shape of
   ## that type is given as a tuple, the datatype as a typedescription
   ## inputs:
   ##    h5file: H5FileObj = the H5FileObj received by H5file() into which the data
@@ -859,7 +830,158 @@ proc create_dataset[T: tuple](h5f: var H5FileObj, dset_raw: string, shape: T, dt
 
   result = dset
 
-proc `[]=`*[T](dset: var H5DataSet, ind: int, data: var openArray[T]) =
+
+  
+# template check_shape(shape: seq[int], data: openArray[T]): bool =
+#   if data is seq or data is array:
+#     let d
+
+template getIndexSeq(ind: int, shape: seq[int]): seq[int] =
+  # given an index for a 1D array (flattened from nD), calculate back
+  # the indices of that index in terms of N dimensions
+  # e.g. if shape is [2, 4, 10] and index ind == 54:
+  # returns a seq of: @[1, 1, 4], because:
+  # x = 1
+  # y = 1
+  # z = 4
+  # => ind = x + y * 10 + z * 4 * 10
+  let dim = foldl(shape, a * b)
+  let n_dims = len(shape)
+  var result = newSeq[int](n_dims)
+  var
+    # set our remaining variable to ind as the start
+    rem = ind
+    # variable for dimensionality, starting by 1, multiplying with each j in shape
+    d = 1
+  for i, j in shape:
+    # multiply with current dimensionality
+    d *= j
+    # given remainder, get the current index by dividing out the rest of the
+    # dimensionality 
+    result[i] = rem div int(dim / d)
+    rem = rem mod int(dim / d)
+  result
+
+macro test_access(x: typed): untyped =
+  result = newStmtList()
+  echo treeRepr(x)
+  echo treeRepr(result)
+  for el in x:
+    echo el
+  
+proc getValueFromArrayByIndexTuple[T](x: openArray[T], inds: seq[int]): float64 =
+  dumpTree:
+    result = x[inds[0]][inds[1]]
+    x
+  test_access(x)
+
+
+# proc flatten*[T](x: openArray[T], shape: seq[int], dtype: typedesc): seq[dtype] = 
+#   # procedure to flatten a nested sequence or array
+#   let dim = foldl(shape, a * b)
+#   result = newSeq[dtype](dim)
+#   var remain = dim
+#   for i in 0..<dim:
+#     # calculate current tuple of indices
+#     let inds = getIndexSeq(i, shape)
+#     # and access correct element using seq accessing; need to reinvent access of seqs...
+#     # for k in inds:
+#     #   x[k] = 
+    
+#     result[i] = getValueFromArrayByIndexTuple(x, inds)
+#     echo "result i is now ", result[i]
+
+# var x = seq[seq[seq[float]]]
+
+# var x_1: seq[seq[float]]
+# for el in x:
+#   ## el == seq[seq[float]]
+#   x_1 = concat(x_1, el)
+
+# var x_2 = seq[float]  
+# for el in x_1:
+#   x_2 = concat(x_2, el)
+
+
+# [ [ [1, 2, 3], [1, 2, 3], [1, 2, 3] ],
+#   [ [1, x, 3], [1, 2, 3], [1, 2, 3] ],
+#   [ [1, 2, 3], [1, 2, 3], [1, 2, 3] ] ]
+
+
+# x = (1 / 0 / 1)
+
+proc shape[T:SomeNumber](x: T): seq[int] = @[]
+  # Exists so that recursive template stops with this proc.
+
+proc shape[T](x: seq[T]): seq[int] =
+  # recursively determine the dimension of a nested sequence.
+  # we simply append the dimension of the current seq to the
+  # result and call this function again recursively until
+  # we hit the type at core, which is catched by the above proc
+  result = @[]
+  if len(x) > 0:
+    result.add(len(x))
+    result.add(shape(x[0]))
+
+proc getDtype[T: SomeNumber](x: seq[T]): type(T) =
+  result = type(T)
+
+proc getDtype[T: seq](x: seq[T]): typedesc =
+  let x_t = typedesc(T)
+  
+
+
+
+proc flattenImpl*[T: SomeNumber](x: seq[T]): seq[T] =
+  result = x
+
+proc flattenImpl*[T](x: seq[T], U: typedesc): seq[U] =
+  let shape = x.shape
+  for el in x:
+    let flat_el = flatten(el)    
+    type el_type = type(flat_el)
+    if el_type is SomeNumber:
+      echo el_type.name
+    else:
+      let tt = flatten(flat_el)
+      echo "adding ", tt
+      result = concat(tt)
+
+    echo "el is ", el, " and type ", type(el).name
+    echo "flat el ", flat_el, " and type ", type(flat_el).name
+  
+
+template flatten*[T: seq](x: seq[T]): untyped =
+  # using recursion to flatten a nested sequence. Does not 
+  # work for arrays, but that is no problem, because in case of
+  # arrays we know the size at compile time
+  # means x is still a nested sequence
+
+  # first determine datatype of elements in nested seq
+  type U = getDtype(x)
+  
+  result: seq[U] = @[]
+  result = flattenImpl(x, U)
+  result
+  # for i, dim in shape:
+  #   for j in 0..<dim:
+  #     let flat_el = flatten(x)
+  #     echo flat_el[i]
+  
+  # for el in x:
+  #   echo "el is something ", el, " ", type(el).name
+  #   let flat_el = flatten(el)
+  #   echo "flat el ", flat_el, " and type ", type(flat_el).name
+  #   echo "result ", result, " and type ", type(result).name
+    #result.add(flat_el)
+    #result = concat(result, flat_el)
+    # if type(el) isnot float64:
+    #   let flat_el = flatten(el)
+    #   if flat_el != nil:
+    #     result = flatten(el)#concat(result, flatten(el))
+  #result = concat(result, flatten(result))
+    
+proc `[]=`*[T](dset: var H5DataSet, ind: int, data: var seq[T]) = #openArray[T]) =
     # procedure to write a sequence of array to a dataset
     # will be given to HDF5 library upon call, H5DataSet object
     # does not store the data
@@ -875,8 +997,24 @@ proc `[]=`*[T](dset: var H5DataSet, ind: int, data: var openArray[T]) =
     #   echo "also fine"
     # else:
     #   echo "what?"
-    discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                     addr(data[ind]))
+    # first get shape of the dataset
+    let shape = dset.shape
+    echo "shape is ", shape
+    echo "shape is a ", type(shape).name, " and data is a ", type(data).name, " and data.shape = "
+    if data.shape == shape:
+      #var ten = data.toTensor()
+      # in this case run over all dimensions and flatten arrayA
+      echo "shape before is ", data.shape
+      echo data
+      var data_write = flatten(data) #, shape, type(data[0][0]))
+      echo "shape now is ", data_write.shape
+      echo data_write
+      discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                       addr(data_write[0]))
+    else:
+      echo "All bad , shapes are ", data.shape, " ", dset.shape
+    # check if shape of data is the same
+    #let shape_match = check_shape(shape, data)
 
 template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
   # a simple wrapper around get for datasets
@@ -893,37 +1031,9 @@ template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
 template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
   # a simple wrapper around get for groups
   h5f.get(name)
-  
 
-# template `[]`*(h5f: H5FileObj, name: string): expr =
-#   # var grp = newH5Group()
-#   # var dset = newH5DataSet()
-#   # if isSome(h5f.getDset(name_in)) == true:
-#   #   dset = unsafeGet(h5f.getDset(name_in))
-#   # else:
-#   #   grp = unsafeGet(h5f.getGroup(name_in))
-#   # when grp.name != "":
-#   #   grp
-#   # else:
-#   #   dset
-#   # else:
-#   #   unsafeGet(h5f.getGroup(name))
-#   # try:
-#   #   let grp_name = grp_str(name)
-#   #   h5f.get(grp_name)
-#   # except KeyError:
-#   #   try:
-#   #     let dset_name = dset_str(name)
-#   #     h5f.get(dset_name)
-#   #   except KeyError:
-#   #     raise newException(KeyError, "Neither group nor dataset found with name " & name)
-#   when name[^1] == '/':
-#     let grp_name = grp_str(name[0..^2])
-#     h5f.get(grp_name)
-#   else:
-#     let dset_name = dset_str(name)
-#     h5f.get(dset_name)
-proc main() =
+
+proc write_some() = 
   var
     # identifiers
     file_id: hid_t
@@ -937,7 +1047,7 @@ proc main() =
   var h5f = H5file(FILE, "rw")
 
   # create dataset
-  var dset = h5f.create_dataset("/group1/group2/group3/dset", (2, 10), float64)
+  var dset = h5f.create_dataset("/group1/group2/group3/dset", (2, 2, 5), float64)
 
   var dat: seq[float64] = newSeq[float64](20)
   echo "ok"
@@ -964,8 +1074,21 @@ proc main() =
   echo "file ", h5f#.groups
   echo "\n\n\nnew group", g#.groups[]
   echo "old group", t2#.groups[]
+
+  var d_ar = @[ @[ @[1, 2, 3, 4, 5],
+                   @[6, 7, 8, 9, 10] ],
+                @[ @[1, 2, 3, 4, 5],
+                   @[6, 7, 8, 9, 10] ] ]
+  var ddd = mapIt(d_ar, mapIt(it, mapIt(it, float64(it))))
+  #var ddd = mapIt(d_ar, mapIt(it, float64(it)))
+  echo ddd
   
-  dset[0] = dat
+  # d_ar[0],
+  #               (x: seq[int]) -> seq[float64] => map(x, (num: int) -> float64 => float64(num)))
+
+  echo "Before calling typename ", type(ddd).name
+  echo ddd.shape
+  dset[0] = ddd
 
   let dtype = getCtype(float64)
   # status = H5Dwrite(dset.dataset_id, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT,
@@ -976,5 +1099,55 @@ proc main() =
   status = h5f.close()
   echo "Status of file closing is ", status
 
+proc read_some() =
+  # This example writes data to the existing empty dataset created by h5_crtdat.py and then reads it back.
+  #
+  # Open an existing file using default properties.
+  #
+  var file = H5File("dset.h5", "rw")
+  #
+  # Open "dset" dataset under the root group.
+  #
+  var dataset = file["/dset".dset_str]
+  #
+  # Initialize data object with 0.
+  #
+  #var data: seq[seq[int]] = np.zeros((4,6))
+
+  # var dat: seq[int] = newSeq[int]()
+  # echo "ok"
+  # var count = 0
+  # for i in 0..<len(dat):
+  #   dat[i] = float64(count) + 1
+  #   inc count
+
+  
+  # #
+  # # Assign new values
+  # #
+  # for i in range(4):
+  #     for j in range(6):
+  #         data[i][j]= i*6+j+1
+  #
+  # Write data
+  #
+  # print "Writing data..."
+  # #dataset[...] = data
+  # #
+  # # Read data back and print it.
+  # #
+  # print "Reading data back..."
+  # #data_read = dataset[...]
+  # print "Printing data..."
+  # print data_read
+  # #
+  # Close the file before exiting
+  #
+  discard file.close()
+
+  
+proc main() =
+  write_some()
+  
 when isMainModule:
   main()
