@@ -14,6 +14,13 @@ import macros
 import ../src/hdf5_wrapper
 import ../src/nimhdf5/H5nimtypes
 
+# simple list of TODOs
+# TODO:
+#  - add ability to read / write hyperslabs
+#  - add ability to write arraymancer.Tensor
+#  - add a lot of safety checks 
+
+
 type
   # an object to store information about a hdf5 dataset. It is a combination of
   # an HDF5 dataspace and dataset id (contains both of them)
