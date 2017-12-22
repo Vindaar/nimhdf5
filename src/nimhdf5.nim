@@ -1209,22 +1209,19 @@ proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
   # throws:
   #     ValueError: in case the given typedesc t is different than
   #         the datatype of the dataset
-  
-  let shape = dset.shape
-  #echo "shape is ", shape
-  #echo "shape is a ", type(shape).name
   if $t != dset.dtype:
     raise newException(ValueError, "Wrong datatype as arg to `[]`. Given `$#`, dset is `$#`" % [$t, $dset.dtype])
-  
-  let n_elements = foldl(shape, a * b)
 
+  let
+    shape = dset.shape
+    n_elements = foldl(shape, a * b)
   # create a flat sequence of the size of the dataset in the H5 file, then read data
+  # cannot use the result sequence, since we need to hand the address of the sequence to
+  # the H5 library
   var data = newSeq[T](n_elements)
   discard H5Dread(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
                   addr(data[0]))
   result = data
-
-      
 
 template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
   # a simple wrapper around get for datasets
@@ -1234,10 +1231,3 @@ template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
   # a simple wrapper around get for groups
   h5f.get(name)
 
-# template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
-#   # a simple wrapper around get for datasets
-#   h5f.get(name)
-
-# template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
-#   # a simple wrapper around get for groups
-#   h5f.get(name)

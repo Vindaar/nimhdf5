@@ -26,7 +26,6 @@ import tables
 
 const FILE = "dset.h5"
 
-
 proc write_some() = 
   var
     # identifiers
@@ -95,7 +94,12 @@ proc read_some() =
   var dataset = file["/group1/group2/dset".dset_str]
   echo dataset
   echo file.datasets
-  echo "ok?"
+  # Note: while we could in principle try to write to the dataset, we
+  # just got from the file, this would fail (unfortunately with a libhdf5
+  # error instead of a Nim custom one. TODO...), since we only opened
+  # the file with 'r', instead of 'rw'. Opening the file properly
+  # and writing to the dataset also works
+  
   withDset(dataset):
     # this allows us to work with the dataset without
     # explicitly performing a type check. So as long as we wish
@@ -109,6 +113,7 @@ proc read_some() =
   # the data type
   let data = dataset[float64]
   echo data
+
 
   # or even another way: create a case based on the AnyKind field of the. 
   # dataset like so (this is what the withDset template does internally):
