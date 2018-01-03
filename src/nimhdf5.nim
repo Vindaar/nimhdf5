@@ -11,8 +11,8 @@ import algorithm
 #import arraymancer
 import macros
 
-import ../src/hdf5_wrapper
-import ../src/nimhdf5/H5nimtypes
+import hdf5_wrapper
+import nimhdf5/H5nimtypes
 
 # simple list of TODOs
 # TODO:
@@ -837,7 +837,7 @@ proc create_group*[T](h5f: var T, group_name: string): H5Group =
     else:
       result = createGroupFromParent(h5f, group_path)
 
-proc create_dataset*[T: tuple](h5f: var H5FileObj, dset_raw: string, shape: T, dtype: typedesc): H5DataSet =
+proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, shape_raw: T, dtype: typedesc): H5DataSet =
   ## procedure to create a dataset given a H5file object. The shape of
   ## that type is given as a tuple, the datatype as a typedescription
   ## inputs:
@@ -850,6 +850,13 @@ proc create_dataset*[T: tuple](h5f: var H5FileObj, dset_raw: string, shape: T, d
   ##    ... some dataset object, part of the file?!
   ## throws:
   ##    ... some H5 C related errors ?!
+  when T is int:
+    # in case we hand an int as the shape argument, it means we wish to write
+    # 1 column data to the file. In this case define the shape from here on
+    # as a (shape, 1) tuple instead
+    var shape = (shape_raw, 1)
+  else:
+    var shape = shape_raw
 
   # TODO: before call to create_simple and create2, we need to check whether
   # any such dataset already exists. Could include that in the opening procedure
@@ -1050,7 +1057,11 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
     let shape = dset.shape
     echo "shape is ", shape
     echo "shape is a ", type(shape).name, " and data is a ", type(data).name, " and data.shape = "
-    if data.shape == dset.shape:
+    # check whether we will write a 1 column dataset. If so, relax
+    # requirements of shape check. In this case only compare 1st element of
+    # shapes
+    if (shape.len == 2 and shape[1] == 1 and data.shape[0] == dset.shape[0]) or
+      data.shape == dset.shape:
       var data_write = flatten(data) 
       discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
                        addr(data_write[0]))
