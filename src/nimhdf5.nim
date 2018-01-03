@@ -8,8 +8,10 @@ import options
 import future
 import algorithm
 #import seqmath
-#import arraymancer
 import macros
+
+# TODO: fix requirement of arraymancer!
+import arraymancer
 
 import hdf5_wrapper
 import nimhdf5/H5nimtypes
@@ -723,7 +725,7 @@ proc parseShapeTuple[T: tuple](dims: T): seq[hsize_t] =
 
 proc formatName(name: string): string =
   # this procedure formats a given group / dataset namy by prepending
-  # a potenatially missing root / and removing a potential trailing /
+  # a potentially missing root / and removing a potential trailing /
   # do this by trying to strip any leading and trailing / from name (plus newline,
   # whitespace, if any) and then prepending a leading /
   result = "/" & strip(name, chars = ({'/'} + Whitespace + NewLines))
@@ -937,7 +939,19 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
 
   result = dset
 
-
+# proc create_dataset*[T: (tuple | int)](h5f: var H5Group, dset_raw: string, shape_raw: T, dtype: typedesc): H5DataSet =
+  # convenience wrapper around create_dataset to create a dataset within a group with a
+  # relative name
+  # TODO: problematic to implement atm, because the function still needs access to the file object
+  # Solutions:
+  #  - either redefine the code in create_datasets to work on both groups or file object
+  #  - or give the H5Group each a reference to the H5FileObj, so that it can access it
+  #    by itself. This one feels rather ugly though...
+  # Alternative solution:
+  #  Instead of being able to call create_dataset on a group, we may simply define an
+  #  active group in the H5FileObj, so that we can use relative paths from the last
+  #  accessed group. This would complicate the code however, since we'd always have
+  #  to check whether a path is relative or not!
   
 # template check_shape(shape: seq[int], data: openArray[T]): bool =
 #   if data is seq or data is array:
@@ -1073,6 +1087,26 @@ Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has sha
   else:
     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
 
+proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: AnyTensor[T]) =
+  # equivalent of above fn, to support arraymancer tensors as data input
+  if ind == RW_ALL:
+    let tensor_shape = data.squeeze.shape
+    # first check whether number of dimensions is the same
+    let dims_fit = if tensor_shape.len == dset.shape.len: true else: false
+    if dims_fit == true:
+      # check whether each dimension is the same size
+      let shape_good = foldl(mapIt(toSeq(0..dset.shape.high), tensor_shape[it] == dset.shape[it]), a == b, true)
+      var data_write = data.squeeze.toRawSeq
+      discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                       addr(data_write[0]))
+    else:
+      var msg = """
+Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has shape `$#`"""
+      msg = msg % [$data.shape, $dset.shape]
+      raise newException(ValueError, msg)
+  else:
+    echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
+
 proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #openArray[T])  
   # procedure to write a sequence of array to a dataset
   # will be given to HDF5 library upon call, H5DataSet object
@@ -1098,7 +1132,6 @@ proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: var seq[T]) = 
                      addr(data_write[0]))
   else:
     echo "All bad , shapes are ", data.shape, " ", dset.shape
-
 
 # proc buildType[T](shape: seq[int], ind: int, t: T): seq[T] =
 #   dumpTree:
