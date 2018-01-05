@@ -1,5 +1,5 @@
 import tables
-import os, ospaths
+import os,ospaths
 import typeinfo
 import typetraits
 import sequtils
@@ -20,7 +20,8 @@ import nimhdf5/H5nimtypes
 # TODO:
 #  - add ability to read / write hyperslabs
 #  - add ability to write arraymancer.Tensor
-#  - add a lot of safety checks 
+#  - add a lot of safety checks
+#  - CLEAN UP and refactor the code! way too long in a single file by now...
 
 
 type
@@ -166,13 +167,6 @@ proc newH5Group*(name: string = ""): ref H5Group =
   result.file = ""
   result.datasets = datasets
   result.groups = groups
-  # result = H5Group(name: name,
-  #                  parent: "",
-  #                  parent_id: -1,
-  #                  file: "",
-  #                  group_id: -1,
-  #                  datasets: datasets,
-  #                  groups: groups)
 
 proc `$`*(group: ref H5Group): string =
   result = "\n{\n\t'name': " & group.name & "\n\t'parent': " & group.parent & "\n\t'parent_id': " & $group.parent_id
@@ -423,11 +417,6 @@ proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
   #    H5DataSet = if dataset is found
   # throws:
   #    KeyError: if dataset could not be found
-  # let exists = hasKey(h5f.datasets, dset_name)
-  # if exists == true:
-  #   result = h5f.datasets[dset_name]
-  # else:
-  #   discard
   let dset_exist = hasKey(h5f.datasets, dset_name)
   if dset_exist == false:
     #raise newException(KeyError, "Dataset with name: " & dset_name & " not found in file " & h5f.name)
@@ -436,20 +425,15 @@ proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
     result = some(h5f.datasets[dset_name])
 
 proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
-  # convenience proc to return the group with name grp_name
-  # if it does not exist, KeyError is thrown
-  # inputs:
-  #    h5f: H5FileObj = the file object from which to get the group
-  #    obj_name: string = name of the group to get
-  # outputs:
-  #    H5Group = if group is found
-  # throws:
-  #    KeyError: if group could not be found
-  # let exists = hasKey(h5f.groups, grp_name)
-  # if exists == true:
-  #   result = h5f.groups[grp_name]
-  # else:
-  #   discard
+  ## convenience proc to return the group with name grp_name
+  ## if it does not exist, KeyError is thrown
+  ## inputs:
+  ##    h5f: H5FileObj = the file object from which to get the group
+  ##    obj_name: string = name of the group to get
+  ## outputs:
+  ##    H5Group = if group is found
+  ## throws:
+  ##    KeyError: if group could not be found
   let grp_exist = hasKey(h5f.datasets, grp_name)
   if grp_exist == false:
     #raise newException(KeyError, "Dataset with name: " & grp_name & " not found in file " & h5f.name)
@@ -459,20 +443,15 @@ proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
 
 
 template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
-  # convenience proc to return the dataset with name dset_name
-  # if it does not exist, KeyError is thrown
-  # inputs:
-  #    h5f: H5FileObj = the file object from which to get the dset
-  #    obj_name: string = name of the dset to get
-  # outputs:
-  #    H5DataSet = if dataset is found
-  # throws:
-  #    KeyError: if dataset could not be found
-  # let exists = hasKey(h5f.datasets, dset_name)
-  # if exists == true:
-  #   result = h5f.datasets[dset_name]
-  # else:
-  #   discard
+  ## convenience proc to return the dataset with name dset_name
+  ## if it does not exist, KeyError is thrown
+  ## inputs:
+  ##    h5f: H5FileObj = the file object from which to get the dset
+  ##    obj_name: string = name of the dset to get
+  ## outputs:
+  ##    H5DataSet = if dataset is found
+  ## throws:
+  ##    KeyError: if dataset could not be found
   var status: cint
   
   let dset_name = string(dset_in)
@@ -529,22 +508,18 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
   result
 
 template get(h5f: H5FileObj, group_in: grp_str): H5Group =
-  # convenience proc to return the group with name group_name
-  # if it does not exist, KeyError is thrown
-  # inputs:
-  #    h5f: H5FileObj = the file object from which to get the dset
-  #    obj_name: string = name of the dset to get
-  # outputs:
-  #    H5Group = if group is found
-  # throws:
-  #    KeyError: if group could not be found
-  # let exists = hasKey(h5f.groups, group_name)
-  # if exists == true:
-  #   result = h5f.groups[group_name]
-  # else:
-  #   discard
-  let group_name = string(group_in)  
-  let group_exist = hasKey(h5f.groups, group_name)
+  ## convenience proc to return the group with name group_name
+  ## if it does not exist, KeyError is thrown
+  ## inputs:
+  ##    h5f: H5FileObj = the file object from which to get the dset
+  ##    obj_name: string = name of the dset to get
+  ## outputs:
+  ##    H5Group = if group is found
+  ## throws:
+  ##    KeyError: if group could not be found
+  let
+    group_name = string(group_in)  
+    group_exist = hasKey(h5f.groups, group_name)
   var result: H5Group
   if group_exist == false:
     raise newException(KeyError, "Group with name: " & group_name & " not found in file " & h5f.name)
@@ -655,8 +630,6 @@ proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
   ## throws:
   ##     IOError: in case file is opened without write access, but does not exist
 
-  # TODO: implement truncate read / write option
-
   # create a new H5File object with default settings (i.e. no opened file etc)
   result = newH5File()
   # set the name of the file to be accessed
@@ -751,16 +724,16 @@ proc formatName(name: string): string =
   result = "/" & strip(name, chars = ({'/'} + Whitespace + NewLines))
 
 proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
-  # procedure to create a group within a H5F
-  # Note: this procedure requires that the parent of the group
-  # to create exists, while the group to be created does not!
-  # i.e. only call this function of you are certain of these two
-  # facts
-  # inputs:
-  #    h5f: H5FilObj = the file in which to create the group
-  #    group_name: string = the name of the group to be created
-  # outputs:
-  #    H5Group = returns a group object with the basic properties set
+  ## procedure to create a group within a H5F
+  ## Note: this procedure requires that the parent of the group
+  ## to create exists, while the group to be created does not!
+  ## i.e. only call this function of you are certain of these two
+  ## facts
+  ## inputs:
+  ##    h5f: H5FilObj = the file in which to create the group
+  ##    group_name: string = the name of the group to be created
+  ## outputs:
+  ##    H5Group = returns a group object with the basic properties set
 
   # the location id (id of group or the root) at which to create the group
   var location_id: hid_t
@@ -816,22 +789,21 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   
   
 proc create_group*[T](h5f: var T, group_name: string): H5Group =
-  # checks whether the given group name already exists or not.
-  # If yes:
-  #   return the H5Group object,
-  # else:
-  #   check the parent of that group recursively as well.
-  #   If parent exists:
-  #     create new group and return it
-  # inputs:
-  #    h5f: H5FileObj = the h5f file object in which to look for the group
-  #    group_name: string = the name of the group to check for in h5f
-  # outputs:
-  #    H5Group = an object containing the (newly) created group in the file
-  # NOTE: the creation of the groups via recusion is not all that nice,
-  #   because it relies heavily on state changes via the h5f object
-  #   Think about a cleaner way?
-
+  ## checks whether the given group name already exists or not.
+  ## If yes:
+  ##   return the H5Group object,
+  ## else:
+  ##   check the parent of that group recursively as well.
+  ##   If parent exists:
+  ##     create new group and return it
+  ## inputs:
+  ##    h5f: H5FileObj = the h5f file object in which to look for the group
+  ##    group_name: string = the name of the group to check for in h5f
+  ## outputs:
+  ##    H5Group = an object containing the (newly) created group in the file
+  ## NOTE: the creation of the groups via recusion is not all that nice,
+  ##   because it relies heavily on state changes via the h5f object
+  ##   Think about a cleaner way?
   when h5f is H5Group:
     # in this case need to modify the path of the group from a relative path to an
     # absolute path in the H5 file
@@ -958,8 +930,6 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
       dset.dataset_id = dataset_id
     else:
       echo "create_dataset(): You probably see the HDF5 errors piling up..."
-  
-
   
   h5f.datasets[dset_name] = dset
   # redundant:
@@ -1156,61 +1126,6 @@ proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: var seq[T]) = 
   else:
     echo "All bad , shapes are ", data.shape, " ", dset.shape
 
-# proc buildType[T](shape: seq[int], ind: int, t: T): seq[T] =
-#   dumpTree:
-#     shape
-#   if ind < 10:
-#     let v = newSeq[type(t)](1)
-#     let tt = buildType(shape, ind + 1, v)
-#     result = newSeq[type(tt)](1)
-#   else:
-#     result = newSeq[type(t)](1)
-
-# proc newSeqOfNest1[T](tmp: T): seq[seq[T]] =
-#   result = newSeq[seq[seq[T]]](0)
-
-# proc newSeqOfNest2[T](tmp: T): seq[seq[seq[T]]] =
-#   result = newSeq[seq[seq[seq[T]]]](0)
-  
-# proc newSeqOfNest3[T](tmp: T): seq[seq[seq[seq[T]]]] =
-#   result = newSeq[seq[seq[seq[seq[T]]]]](0)
-
-# template newSeqOfNest[T](shape: seq[int], tmp: T): typed =
-#   case len(shape)
-#   of 1:
-#     for i in 0..<1:
-#       newSeq[T](shape[i])
-#   of 2:
-#     var result = newSeq[seq[seq[T]]](0)    
-#     for i in 0..<1:
-#       newSeq[T](shape[i])    
-
-#   of 3:
-#     newSeq[seq[seq[seq[T]]]](0)
-#   of 4:
-#     newSeq[seq[seq[seq[seq[T]]]]](0)
-  
-# proc getTypeOfSeq(shape: seq[int]): auto =
-#   if len(shape) > 1:
-#     result = type(
-    
-# proc newSeqOfShape(shape: seq[int], dtype: typedesc): auto =
-#   # procedure to create a new (nested) sequence of
-#   # a given shape
-#   for dim in shape:
-#     let t = type(getTypeOfSeq(shape[1:]))
-#     var d = newSeq[](dim)
-#     echo d
-
-# proc build(typestr: string): auto =
-#   result = nnkTypeSection(parseStmt(typestr))
-
-# template test(s: AnyKind): untyped {.dirty.} =
-#   if s == akFloat64:
-#     return type(float64)#type(4.4)
-#   else:
-#     return type(int64)
-
 template getSeq(t: untyped, data: untyped): untyped =
   when t is float64:
     data = newSeq[float64](n_elements)
@@ -1221,9 +1136,9 @@ template getSeq(t: untyped, data: untyped): untyped =
   data
 
 template withDset*(h5dset: H5DataSet, actions: untyped) =
-  # convenience template to read a dataset from the file and perform actions
-  # with that dataset, without having to manually check the data type of the
-  # dataset
+  ## convenience template to read a dataset from the file and perform actions
+  ## with that dataset, without having to manually check the data type of the
+  ## dataset
   case h5dset.dtypeAnyKind
   of akBool:
     let dset {.inject.} = h5dset[bool]
@@ -1268,21 +1183,20 @@ template withDset*(h5dset: H5DataSet, actions: untyped) =
     echo "it's of type ", h5dset.dtypeAnyKind
     discard
 
-
 proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
-  # procedure to read the data of an existing dataset into 
-  # inputs:
-  #    dset: var H5DataSet = the dataset which contains the necessary information
-  #         about dataset shape, dtype etc. to read from
-  #    ind: DsetReadWrite = indicator telling us to read whole dataset,
-  #         used to differentiate from the case in which we only read a hyperslab
-  # outputs:
-  #    seq[T]: a flattened sequence of the data in the (potentially) multidimensional
-  #         dataset
-  #         TODO: return the correct data shape!
-  # throws:
-  #     ValueError: in case the given typedesc t is different than
-  #         the datatype of the dataset
+  ## procedure to read the data of an existing dataset into 
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##         about dataset shape, dtype etc. to read from
+  ##    ind: DsetReadWrite = indicator telling us to read whole dataset,
+  ##         used to differentiate from the case in which we only read a hyperslab
+  ## outputs:
+  ##    seq[T]: a flattened sequence of the data in the (potentially) multidimensional
+  ##         dataset
+  ##         TODO: return the correct data shape!
+  ## throws:
+  ##     ValueError: in case the given typedesc t is different than
+  ##         the datatype of the dataset
   if $t != dset.dtype:
     raise newException(ValueError, "Wrong datatype as arg to `[]`. Given `$#`, dset is `$#`" % [$t, $dset.dtype])
   let
@@ -1321,9 +1235,6 @@ proc read*[T: seq, U](dset: var H5DataSet, coord: seq[T], buf: var seq[U]) =
                     addr(buf[0]))
   else:
     echo "Provided buffer is not of same length as number of points to read"
-
-# template set_element2D[T](buf: var seq[T], inds: seq[int], val: ) = 
-#   buf[inds[0]][inds[1]] = 
 
 proc read*[T](dset: var H5DataSet, buf: var seq[T]) =
   # read whole dataset
