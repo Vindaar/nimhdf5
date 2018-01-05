@@ -1,3 +1,4 @@
 nimcache/
 *~
 /src/failures.nim
+/examples/*.c
