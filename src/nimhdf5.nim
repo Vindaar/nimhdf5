@@ -24,12 +24,20 @@ import nimhdf5/H5nimtypes
 
 
 type
-  # an object to store information about a hdf5 dataset. It is a combination of
-  # an HDF5 dataspace and dataset id (contains both of them)
-
+  # these distinct types provide the ability to distinguish the `[]` function
+  # acting on H5FileObj between a dataset and a group, s.t. we can access groups
+  # as well as datasets from the object using `[]`. Typecast the name (as a string) 
+  # of the object to either of the two types (you have to know the type of the
+  # dset / group you want to access of course!)
   grp_str*  = distinct string
   dset_str* = distinct string
 
+  #special_vlen = hid_t
+  #special_str  = hid_t
+
+  # an enum, which is used for the `[]=` functions of H5DataSets. By handing
+  # RW_ALL as the argument to said function, we declare to write all data contained
+  # in the object on the RHS of the `=`
   DsetReadWrite = enum
     RW_ALL
 
@@ -37,7 +45,9 @@ type
     name*: string
     parent*: string
     parent_id*: hid_t
-    
+
+  # an object to store information about a hdf5 dataset. It is a combination of
+  # an HDF5 dataspace and dataset id (contains both of them)
   H5DataSet* = object #of H5Object
     name*: string
     # we store the shape information internally as a seq, so that we do
@@ -49,6 +59,8 @@ type
     # actual HDF5 datatype used as a hid_t, this can be handed to functions needing
     # its datatype
     dtype_c*: hid_t
+    # H5 datatype class, useful to check what kind of data we're dealing with (VLEN etc.)
+    dtype_class: H5T_class_t
     # parent string, which contains the name of the group in which the
     # dataset is located
     parent*: string
@@ -87,7 +99,6 @@ type
     datasets*: Table[string, H5DataSet]
     # each group may have subgroups itself, keep table of these
     groups: ref Table[string, ref H5Group]
-
 
   H5FileObj* = object #of H5Object
     name*: string
@@ -276,6 +287,14 @@ template nimToH5type*(dtype: typedesc): hid_t =
     # Nim's char is an unsigned char!
     result_type = H5T_NATIVE_UCHAR
   result_type
+
+template special_type*(dtype: typedesc): untyped =
+  # calls the H5Tvlen_create() to create a special datatype
+  # for variable length data
+  when dtype isnot string:
+    H5Tvlen_create(nimToH5type(dtype))
+  else:
+    echo "Currently not implemented to create variable string datatype" 
 
 proc isInH5Root(name: string): bool =
   # this procedure returns whether the given group or dataset is in a group
@@ -475,6 +494,7 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       result.dtype = strip($f, chars = {'a', 'k'}).toLowerAscii
       result.dtypeAnyKind = f
       result.dtype_c = H5Tget_native_type(datatype_id, H5T_DIR_ASCEND)
+      result.dtype_class = H5Tget_class(datatype_id)
 
       echo H5Tget_class(datatype_id)
       
@@ -839,7 +859,7 @@ proc create_group*[T](h5f: var T, group_name: string): H5Group =
     else:
       result = createGroupFromParent(h5f, group_path)
 
-proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, shape_raw: T, dtype: typedesc): H5DataSet =
+proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, shape_raw: T, dtype: (typedesc | hid_t)): H5DataSet =
   ## procedure to create a dataset given a H5file object. The shape of
   ## that type is given as a tuple, the datatype as a typedescription
   ## inputs:
@@ -855,7 +875,7 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
   when T is int:
     # in case we hand an int as the shape argument, it means we wish to write
     # 1 column data to the file. In this case define the shape from here on
-    # as a (shape, 1) tuple instead
+    # as a (shape, 1) tuple instead. 
     var shape = (shape_raw, 1)
   else:
     var shape = shape_raw
@@ -868,7 +888,10 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
   var dset_name = formatName(dset_raw)
 
   # first get the appropriate datatype for the given Nim type
-  let dtype_c = nimToH5type(dtype)
+  when dtype is hid_t:
+    let dtype_c = dtype
+  else:
+    let dtype_c = nimToH5type(dtype)
 
   # need to deal with the shape of the dataset to be created
   #let shape_ar = parseShapeTuple(shape)
@@ -876,8 +899,14 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
 
   # set up the dataset object
   var dset = newH5DataSet(dset_name)
-  dset.dtype   = name(dtype)
+  when dtype is hid_t:
+    # for now we only support vlen arrays, later we need to
+    # differentiate between the different H5T class types
+    dset.dtype = "vlen"
+  else:
+    dset.dtype   = name(dtype)
   dset.dtype_c = dtype_c
+  dset.dtype_class = H5Tget_class(dtype_c)
   dset.file    = h5f.name
   dset.parent  = getParent(dset_name)
 
@@ -952,12 +981,9 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
   #  active group in the H5FileObj, so that we can use relative paths from the last
   #  accessed group. This would complicate the code however, since we'd always have
   #  to check whether a path is relative or not!
-  
-# template check_shape(shape: seq[int], data: openArray[T]): bool =
-#   if data is seq or data is array:
-#     let d
 
 template getIndexSeq(ind: int, shape: seq[int]): seq[int] =
+  # not used
   # given an index for a 1D array (flattened from nD), calculate back
   # the indices of that index in terms of N dimensions
   # e.g. if shape is [2, 4, 10] and index ind == 54:
@@ -991,47 +1017,13 @@ macro test_access(x: typed): untyped =
     echo el
   
 proc getValueFromArrayByIndexTuple[T](x: openArray[T], inds: seq[int]): float64 =
+  # not needed
   dumpTree:
     result = x[inds[0]][inds[1]]
     x
   test_access(x)
 
-
-# proc flatten*[T](x: openArray[T], shape: seq[int], dtype: typedesc): seq[dtype] = 
-#   # procedure to flatten a nested sequence or array
-#   let dim = foldl(shape, a * b)
-#   result = newSeq[dtype](dim)
-#   var remain = dim
-#   for i in 0..<dim:
-#     # calculate current tuple of indices
-#     let inds = getIndexSeq(i, shape)
-#     # and access correct element using seq accessing; need to reinvent access of seqs...
-#     # for k in inds:
-#     #   x[k] = 
-    
-#     result[i] = getValueFromArrayByIndexTuple(x, inds)
-#     echo "result i is now ", result[i]
-
-# var x = seq[seq[seq[float]]]
-
-# var x_1: seq[seq[float]]
-# for el in x:
-#   ## el == seq[seq[float]]
-#   x_1 = concat(x_1, el)
-
-# var x_2 = seq[float]  
-# for el in x_1:
-#   x_2 = concat(x_2, el)
-
-
-# [ [ [1, 2, 3], [1, 2, 3], [1, 2, 3] ],
-#   [ [1, x, 3], [1, 2, 3], [1, 2, 3] ],
-#   [ [1, 2, 3], [1, 2, 3], [1, 2, 3] ] ]
-
-
-# x = (1 / 0 / 1)
-
-proc shape[T: SomeNumber](x: T): seq[int] = @[]
+proc shape[T: (SomeNumber | bool | char | string)](x: T): seq[int] = @[]
   # Exists so that recursive template stops with this proc.
 
 proc shape*[T](x: seq[T]): seq[int] =
@@ -1046,6 +1038,13 @@ proc shape*[T](x: seq[T]): seq[int] =
 
 proc flatten[T: SomeNumber](a: seq[T]): seq[T] = a
 proc flatten*[T: seq](a: seq[T]): auto =  a.concat.flatten
+
+template toH5vlen[T](data: var seq[T]): untyped =
+  when T is seq:
+    mapIt(toSeq(0..mdata.high), hvl_t(`len`: csize(mdata[it].len), p: addr(mdata[it][0])))
+  else:
+    # this doesn't make sense ?!...
+    mapIt(toSeq(0..mdata.high), hvl_t(`len`: csize(mdata[it]), p: addr(mdata[it][0])))
     
 proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArray[T])  
   # procedure to write a sequence of array to a dataset
@@ -1066,19 +1065,43 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
 
   # TODO: IMPORTANT: think about whether we should be using array types instead
   # of a dataspace of certain dimensions for arrays / nested seqs we're handed
-  
   if ind == RW_ALL:
     let shape = dset.shape
     echo "shape is ", shape
     echo "shape is a ", type(shape).name, " and data is a ", type(data).name, " and data.shape = "
     # check whether we will write a 1 column dataset. If so, relax
     # requirements of shape check. In this case only compare 1st element of
-    # shapes
+    # shapes. We compare shape[1] with 1, because atm we demand VLEN data to be
+    # a 2D array with one column. While in principle it's a N element vector
+    # it is always promoted to a (N, 1) array.
     if (shape.len == 2 and shape[1] == 1 and data.shape[0] == dset.shape[0]) or
       data.shape == dset.shape:
-      var data_write = flatten(data) 
-      discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                       addr(data_write[0]))
+      
+      if dset.dtype_class == H5T_VLEN:
+        # TODO: should we also check whether data really is 1D? or let user deal with that?
+        # will flatten the array anyways, so in case on tries to write a 2D array as vlen,
+        # the flattened array will end up as vlen in the file
+        # in this case we need to prepare the data further by assigning the data to
+        # a hvl_t struct
+        when T is seq:
+          var mdata = data
+          # var data_hvl = newSeq[hvl_t](mdata.len)
+          # var i = 0
+          # for d in mitems(mdata):
+          #   data_hvl[i].`len` = d.len
+          #   data_hvl[i].p = addr(d[0])#cast[pointer]()
+          #   inc i
+          var data_hvl = mdata.toH5vlen
+          discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                           addr(data_hvl[0]))
+        else:
+          echo "VLEN datatype does not make sense, if the data is of type seq[$#]" % T.name
+          echo "Use normal datatype instead. Or did you only hand a single element"
+          echo "of your vlen data?"
+      else:
+        var data_write = flatten(data) 
+        discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                         addr(data_write[0]))
     else:
       var msg = """
 Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has shape `$#`"""
@@ -1088,7 +1111,7 @@ Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has sha
     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
 
 proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: AnyTensor[T]) =
-  # equivalent of above fn, to support arraymancer tensors as data input
+  # equivalent of above fn, to support arraymancer tensors as input data
   if ind == RW_ALL:
     let tensor_shape = data.squeeze.shape
     # first check whether number of dimensions is the same
