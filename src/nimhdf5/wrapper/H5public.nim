@@ -30,7 +30,7 @@ when not declared(libname):
 ##  prevent repeated include.
 ##
 
-import H5nimtypes
+import ../H5nimtypes
 ## define types used by all modules?
 # type
 #   herr_t* = cint

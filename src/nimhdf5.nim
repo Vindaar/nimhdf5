@@ -13,7 +13,7 @@ import macros
 # TODO: fix requirement of arraymancer!
 import arraymancer
 
-import hdf5_wrapper
+import nimhdf5/hdf5_wrapper
 import nimhdf5/H5nimtypes
 
 # simple list of TODOs

@@ -20,7 +20,7 @@
 ##  Public header files needed by this file
 
 import
-  H5public, H5ACpublic, H5Ipublic, H5nimtypes
+  H5public, H5ACpublic, H5Ipublic, ../H5nimtypes
 
 when not declared(libname):
   const

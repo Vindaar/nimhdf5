@@ -10,27 +10,31 @@
 ##  If you do not have access to either file, you may request a copy from     *
 ##  help@hdfgroup.org.                                                        *
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-## 
-##  Programmer:  Robb Matzke <matzke@llnl.gov>
-##               Monday, August  2, 1999
-## 
-##  Purpose:	The public header file for the sec2 driver.
-## 
 
 {.deadCodeElim: on.}
 
-import
-  H5Ipublic,
-  H5nimtypes
+import ../H5nimtypes
 
 when not declared(libname):
   const
-    libname* = "libhdf5.so"  
+    libname* = "libhdf5.so"
 
+## 
+##  Programmer:  Robb Matzke <matzke@llnl.gov>
+##               Monday, August  4, 1999
+## 
+##  Purpose:	The public header file for the family driver.
+## 
 
-proc H5FD_stdio_init*(): hid_t {.cdecl, importc: "H5FD_stdio_init", dynlib: libname.}
-proc H5Pset_fapl_stdio*(fapl_id: hid_t): herr_t {.cdecl,
-    importc: "H5Pset_fapl_stdio", dynlib: libname.}
+proc H5FD_family_init*(): hid_t {.cdecl, importc: "H5FD_family_init", dynlib: libname.}
+proc H5Pset_fapl_family*(fapl_id: hid_t; memb_size: hsize_t; memb_fapl_id: hid_t): herr_t {.
+    cdecl, importc: "H5Pset_fapl_family", dynlib: libname.}
+proc H5Pget_fapl_family*(fapl_id: hid_t; memb_size: ptr hsize_t; ## out
+                        memb_fapl_id: ptr hid_t): herr_t {.cdecl,
+    importc: "H5Pget_fapl_family", dynlib: libname.}
+  ## out
+
 
 let
-  H5FD_STDIO* = (H5FD_stdio_init())
+  H5FD_FAMILY* = (H5FD_family_init())
+

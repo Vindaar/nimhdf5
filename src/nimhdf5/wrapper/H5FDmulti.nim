@@ -13,28 +13,39 @@
 
 {.deadCodeElim: on.}
 
-import H5nimtypes
-
+import
+  H5public,
+  H5FDpublic,
+  ../H5nimtypes
+  
 when not declared(libname):
   const
     libname* = "libhdf5.so"
 
+  
 ## 
 ##  Programmer:  Robb Matzke <matzke@llnl.gov>
-##               Monday, August  4, 1999
+##               Monday, August  2, 1999
 ## 
-##  Purpose:	The public header file for the family driver.
+##  Purpose:	The public header file for the "multi" driver.
 ## 
 
-proc H5FD_family_init*(): hid_t {.cdecl, importc: "H5FD_family_init", dynlib: libname.}
-proc H5Pset_fapl_family*(fapl_id: hid_t; memb_size: hsize_t; memb_fapl_id: hid_t): herr_t {.
-    cdecl, importc: "H5Pset_fapl_family", dynlib: libname.}
-proc H5Pget_fapl_family*(fapl_id: hid_t; memb_size: ptr hsize_t; ## out
-                        memb_fapl_id: ptr hid_t): herr_t {.cdecl,
-    importc: "H5Pget_fapl_family", dynlib: libname.}
+
+proc H5FD_multi_init*(): hid_t {.cdecl, importc: "H5FD_multi_init", dynlib: libname.}
+proc H5Pset_fapl_multi*(fapl_id: hid_t; memb_map: ptr H5FD_mem_t;
+                       memb_fapl: ptr hid_t; memb_name: cstringArray;
+                       memb_addr: ptr haddr_t; relax: hbool_t): herr_t {.cdecl,
+    importc: "H5Pset_fapl_multi", dynlib: libname.}
+proc H5Pget_fapl_multi*(fapl_id: hid_t; memb_map: ptr H5FD_mem_t; ## out
+                       memb_fapl: ptr hid_t; ## out
+                       memb_name: cstringArray; ## out
+                       memb_addr: ptr haddr_t; ## out
+                       relax: ptr hbool_t): herr_t {.cdecl,
+    importc: "H5Pget_fapl_multi", dynlib: libname.}
   ## out
-
+proc H5Pset_fapl_split*(fapl: hid_t; meta_ext: cstring; meta_plist_id: hid_t;
+                       raw_ext: cstring; raw_plist_id: hid_t): herr_t {.cdecl,
+    importc: "H5Pset_fapl_split", dynlib: libname.}
 
 let
-  H5FD_FAMILY* = (H5FD_family_init())
-
+  H5FD_MULTI* = (H5FD_multi_init())

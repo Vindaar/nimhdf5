@@ -27,36 +27,36 @@
 ]#
 
 include
-  nimhdf5/H5public, nimhdf5/H5Apublic,        ##  Attributes
-  nimhdf5/H5ACpublic,                 ##  Metadata cache
-  nimhdf5/H5Dpublic,                  ##  Datasets
-  nimhdf5/H5Epublic,                  ##  Errors
-  nimhdf5/H5Fpublic,                  ##  Files
-  nimhdf5/H5FDpublic,                 ##  File drivers
-  nimhdf5/H5Gpublic,                  ##  Groups
-  nimhdf5/H5Ipublic,                  ##  ID management
-  nimhdf5/H5Lpublic,                  ##  Links
-  nimhdf5/H5MMpublic,                 ##  Memory management
-  nimhdf5/H5Opublic,                  ##  Object headers
-  nimhdf5/H5Ppublic,                  ##  Property lists
-  nimhdf5/H5PLpublic,                 ##  Plugins
-  nimhdf5/H5Rpublic,                  ##  References
-  nimhdf5/H5Spublic,                  ##  Dataspaces
-  nimhdf5/H5Tpublic,                  ##  Datatypes
-  nimhdf5/H5Zpublic
+  nimhdf5/wrapper/H5public, nimhdf5/wrapper/H5Apublic,        ##  Attributes
+  nimhdf5/wrapper/H5ACpublic,                 ##  Metadata cache
+  nimhdf5/wrapper/H5Dpublic,                  ##  Datasets
+  nimhdf5/wrapper/H5Epublic,                  ##  Errors
+  nimhdf5/wrapper/H5Fpublic,                  ##  Files
+  nimhdf5/wrapper/H5FDpublic,                 ##  File drivers
+  nimhdf5/wrapper/H5Gpublic,                  ##  Groups
+  nimhdf5/wrapper/H5Ipublic,                  ##  ID management
+  nimhdf5/wrapper/H5Lpublic,                  ##  Links
+  nimhdf5/wrapper/H5MMpublic,                 ##  Memory management
+  nimhdf5/wrapper/H5Opublic,                  ##  Object headers
+  nimhdf5/wrapper/H5Ppublic,                  ##  Property lists
+  nimhdf5/wrapper/H5PLpublic,                 ##  Plugins
+  nimhdf5/wrapper/H5Rpublic,                  ##  References
+  nimhdf5/wrapper/H5Spublic,                  ##  Dataspaces
+  nimhdf5/wrapper/H5Tpublic,                  ##  Datatypes
+  nimhdf5/wrapper/H5Zpublic
 
 ##  Data filters
 ##  Predefined file drivers
 
 include
-  nimhdf5/H5FDcore,                   ##  Files stored entirely in memory
-  nimhdf5/H5FDdirect,                 ##  Linux direct I/O
-  nimhdf5/H5FDfamily,                 ##  File families
-  nimhdf5/H5FDlog,                    ##  sec2 driver with I/O logging (for debugging)
-  nimhdf5/H5FDmpi,                    ##  MPI-based file drivers
-  nimhdf5/H5FDmulti,                  ##  Usage-partitioned file family
-  nimhdf5/H5FDsec2,                   ##  POSIX unbuffered file I/O
-  nimhdf5/H5FDstdio
+  nimhdf5/wrapper/H5FDcore,                   ##  Files stored entirely in memory
+  nimhdf5/wrapper/H5FDdirect,                 ##  Linux direct I/O
+  nimhdf5/wrapper/H5FDfamily,                 ##  File families
+  nimhdf5/wrapper/H5FDlog,                    ##  sec2 driver with I/O logging (for debugging)
+  nimhdf5/wrapper/H5FDmpi,                    ##  MPI-based file drivers
+  nimhdf5/wrapper/H5FDmulti,                  ##  Usage-partitioned file family
+  nimhdf5/wrapper/H5FDsec2,                   ##  POSIX unbuffered file I/O
+  nimhdf5/wrapper/H5FDstdio
 
 when defined(H5_HAVE_WINDOWS): ##  Standard C buffered I/O
   import

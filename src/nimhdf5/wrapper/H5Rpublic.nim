@@ -23,7 +23,7 @@ import
   H5public,
   H5Gpublic,
   H5Ipublic,
-  H5nimtypes
+  ../H5nimtypes
 
 when not declared(libname):
   const

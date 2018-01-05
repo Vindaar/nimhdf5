@@ -19,7 +19,7 @@
 ##  Purpose:	The public header file for the log driver.
 ##
 
-import H5nimtypes
+import ../H5nimtypes
 
 when not declared(libname):
   const

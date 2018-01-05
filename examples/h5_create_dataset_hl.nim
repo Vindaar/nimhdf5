@@ -17,9 +17,9 @@
 ## adapted to Nim by S. Schmidt (s.schmidt@physik.uni-bonn.de)
 ## used to illustrate low level access via C API
 
-import ../src/nimhdf5
-import ../src/hdf5_wrapper
-import ../src/nimhdf5/H5nimtypes
+import nimhdf5
+import nimhdf5/hdf5_wrapper
+import nimhdf5/H5nimtypes
 import typetraits
 import typeinfo
 import sequtils

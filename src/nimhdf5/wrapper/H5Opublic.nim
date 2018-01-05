@@ -31,7 +31,7 @@ import
   H5public,                   ##  Generic Functions
   H5Ipublic,                  ##  IDs
   H5Lpublic,
-  H5nimtypes
+  ../H5nimtypes
 
 when not declared(libname):
   const

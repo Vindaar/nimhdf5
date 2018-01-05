@@ -28,7 +28,7 @@
 {.deadCodeElim: on.}
 
 import
-  H5public, H5Cpublic, H5nimtypes
+  H5public, H5Cpublic, ../H5nimtypes
 
 when not declared(libname):
   const

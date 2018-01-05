@@ -19,7 +19,7 @@
 
 {.deadCodeElim: on.}
 
-import H5nimtypes
+import ../H5nimtypes
 
 when not declared(libname):
   const
