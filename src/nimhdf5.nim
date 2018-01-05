@@ -1285,18 +1285,188 @@ proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
   #         the datatype of the dataset
   if $t != dset.dtype:
     raise newException(ValueError, "Wrong datatype as arg to `[]`. Given `$#`, dset is `$#`" % [$t, $dset.dtype])
-
   let
     shape = dset.shape
     n_elements = foldl(shape, a * b)
   # create a flat sequence of the size of the dataset in the H5 file, then read data
   # cannot use the result sequence, since we need to hand the address of the sequence to
   # the H5 library
-  var data = newSeq[T](n_elements)
-  discard H5Dread(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                  addr(data[0]))
+  var data = newSeq[T](n_elements)    
+  dset.read(data)
+  
   result = data
 
+proc select_elements[T](dset: var H5DataSet, coord: seq[T]) =
+  ## convenience proc to select specific coordinates in the dataspace of
+  ## the given dataset
+  # first flatten coord tuples
+  var flat_coord = mapIt(coord.flatten, hsize_t(it))
+  discard H5Sselect_elements(dset.dataspace_id, H5S_SELECT_SET, csize(coord.len), addr(flat_coord[0]))
+
+proc create_simple_memspace_1d[T](coord: seq[T]): hid_t =
+  ## convenience proc to create a simple 1D memory space for N coordinates
+  ## in memory
+  # get enough space for the N coordinates in coord
+  var tmp_size = @[hsize_t(coord.len)]
+  # first argument is rank of H5 dataspace, 1 for 1D
+  result = H5Screate_simple(cint(1), addr(tmp_size[0]), nil)
+  
+proc read*[T: seq, U](dset: var H5DataSet, coord: seq[T], buf: var seq[U]) =
+  # select the coordinates in the dataset
+  dset.select_elements(coord)
+  let memspace_id = create_simple_memspace_1d(coord)
+  # now read the elements
+  if buf.len == coord.len:
+    discard H5Dread(dset.dataset_id, dset.dtype_c, memspace_id, dset.dataspace_id, H5P_DEFAULT,
+                    addr(buf[0]))
+  else:
+    echo "Provided buffer is not of same length as number of points to read"
+
+# template set_element2D[T](buf: var seq[T], inds: seq[int], val: ) = 
+#   buf[inds[0]][inds[1]] = 
+
+proc read*[T](dset: var H5DataSet, buf: var seq[T]) =
+  # read whole dataset
+  if buf.len == foldl(dset.shape, a * b, 1):
+    discard H5Dread(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                    addr(buf[0]))
+    # now write data back into the buffer
+    # for ind in 0..data.high:
+    #   let inds = getIndexSeq(ind, shape)
+    #   buf.set_element(inds, data[ind])
+  else:
+    var msg = """
+Wrong input shape of buffer to write to in `read`. Buffer shape `$#`, dataset has shape `$#`"""
+    msg = msg % [$buf.shape, $dset.shape]
+    raise newException(ValueError, msg)
+
+proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
+  # check whehter we have data for each coordinate
+  when U isnot seq:
+    var mdata = @[data]
+  else:
+    var mdata = data
+  let valid_data = if coord.len == mdata.len: true else: false
+  if valid_data == true:
+    let memspace_id = create_simple_memspace_1d(coord)
+    dset.select_elements(coord)
+    var data_hvl = mdata.toH5vlen
+
+    # DEBUGGING H5 calls
+    # echo "memspace select ", H5Sget_select_npoints(memspace_id)
+    # echo "dataspace select ", H5Sget_select_npoints(dset.dataspace_id)
+    # echo "dataspace select ", H5Sget_select_elem_npoints(dset.dataspace_id)
+    # echo "dataspace is valid ", H5Sselect_valid(dset.dataspace_id)
+    # echo "memspace is valid ", H5Sselect_valid(memspace_id)    
+
+    # var start: seq[hsize_t] = @[hsize_t(999), 999]
+    # var ending: seq[hsize_t] = @[hsize_t(999), 999]     
+    # echo H5Sget_select_bounds(dset.dataspace_id, addr(start[0]), addr(ending[0]))
+    # echo "start and ending ", start, " ", ending
+    
+    discard H5Dwrite(dset.dataset_id,
+                     dset.dtype_c,
+                     memspace_id,
+                     dset.dataspace_id,
+                     H5P_DEFAULT,
+                     addr(data_hvl[0]))
+  else:
+    var msg = """
+Invalid coordinates or corresponding data to write in `write_vlen`. Coord shape `$#`, data shape `$#`"""
+    msg = msg % [$coord.shape, $data.shape]
+    raise newException(ValueError, msg)
+
+proc write_norm*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
+  ## write procedure for normal (read non-vlen) data based on a set of coordinates 'coord'
+  ## to write 'data' to. Need to have one element in data for each coord and
+  ## data needs to be of shape corresponding to coord
+  # mutable copy
+  var mdata = data
+  let
+    # check if coordinates are valid, i.e. each coordinate has rank of dataset
+    # only checked whether dimensions are correct, we do NOT check whehter
+    # coordinates are within the dataset!
+    valid_coords = if coord[0].len == dset.shape.len: true else: false
+    # check whehter we have data for each coordinate
+    valid_data = if coord.len == mdata.len: true else: false
+  if valid_coords == true and valid_data == true:
+    let memspace_id = create_simple_memspace_1d(coord)
+    dset.select_elements(coord)
+    discard H5Dwrite(dset.dataset_id,
+                     dset.dtype_c,
+                     memspace_id,
+                     dset.dataspace_id,
+                     H5P_DEFAULT,
+                     addr(mdata[0]))
+  else:
+    var msg = """
+Invalid coordinates or corresponding data to write in `write_norm`. Coord shape `$#`, data shape `$#`"""
+    msg = msg % [$coord.shape, $data.shape]
+    raise newException(ValueError, msg)
+
+  
+template write*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
+  # template around both write fns for normal and vlen data
+  if dset.dtype_class == H5T_VLEN:
+    dset.write_vlen(coord, data)
+  else:
+    dset.write_norm(coord, data)
+  
+
+template write*[T: (SomeNumber | bool | char | string), U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
+  # template around both write fns for normal and vlen data in case the coordinates are given as
+  # a seq of numbers (i.e. for 1D datasets!)
+  if dset.dtype_class == H5T_VLEN:
+    # we convert the list of indices to corresponding (y, x) coordinates, because
+    # each VLEN table with 1 column, still is a 2D array, which only has the
+    # x == 0 column
+    dset.write_vlen(mapIt(coord, @[it, 0]), data)
+  else:
+    # need to differentiate 2 cases:
+    # - either normal data is N dimensional (N > 1) in which case
+    #   coord is a SINGLE coordinate for the array
+    # - or data is 1D (read (N, 1) dimensional) in which case we have
+    #   handed 1 or more indices to write 1 or more elements!
+    if dset.shape[1] != 1:
+      dset.write_norm(@[coord], data)
+    else:
+      # in case of 1D data, need to separate each element into 1 element
+      dset.write_norm(mapIt(coord, @[it, 0]), data)
+
+template write*[T: (seq | SomeNumber | bool | char | string)](dset: var H5DataSet, ind: int, data: T, column = false) =
+  ## template around both write fns for normal and vlen data in case we're dealing with 1D
+  ## arrays and want to write a single value at index `ind`
+  ## throws:
+  ##    ValueError: in case data does not fit to whole row or column, if we want to write
+  ##                whole row or column by giving index and broadcasting the indices to
+  ##                cover whole row
+  
+  when T is seq:
+    # if this is the case we either want to write a whole row (2D array) or
+    # a single value in VLEN data
+    if dset.dtype_class == H5T_VLEN:
+      dset.write(@[ind], data)
+    else:
+      # want to write the whole row, need to broadcast the index
+      let shape = dset.shape
+      if data.len != shape[0] or data.len != shape[1]:
+        raise newException(ValueError, "Cannot broadcast ind to dataset in `write`, because data does not fit into array row / column wise")
+      # NOTE: currently broadcasting ONLY works on 2D arrays!
+      let inds = toSeq(0..<shape[1])
+      echo inds
+      var coord: seq[seq[int]]
+      if column == true:
+        # fixed column
+        coord = mapIt(inds, @[it, ind])
+      else:
+        # fixed row
+        coord = mapIt(inds, @[ind, it])
+      dset.write(coord, data)
+  else:
+    # in this case we're dealing with a single value for a single element
+    # do not have to differentiate between VLEN and normal data
+    dset.write(@[ind], @[data])
+  
 template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
   # a simple wrapper around get for datasets
   h5f.get(name)
