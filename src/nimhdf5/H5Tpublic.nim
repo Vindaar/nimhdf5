@@ -229,7 +229,7 @@ type
 
 type
   hvl_t* = object
-    len*: csize                ##  Length of VL data (in base type units)
+    `len`*: csize                ##  Length of VL data (in base type units)
     p*: pointer                ##  Pointer to VL data
   
 
