@@ -1,14 +1,15 @@
 * nimhdf5
 
 This repository contains a wrapper for the [[https:www.hdfgroup.org/HDF5/][HDF5 data format]] for the Nim
-programming language.
+programming language as well as some /very/ work in progress
+high-level bindings. 
 
-At the moment it is a raw wrapper, which dynamically links the
-libhdf5.so (the main library) and libhdf5_hl.so (a library containing
-high-level convenience functions) libraries at runtime. All public
-functions of the two libraries are callable by their corresponding C
-names and C arguments. That means the Nim datatypes currently need to
-be manually cast to the corresponding C types.
+The raw wrapper dynamically links the libhdf5.so (the main library)
+and libhdf5_hl.so (a library containing high-level convenience
+functions) libraries at runtime. All public functions of the two
+libraries are callable by their corresponding C names and C
+arguments. That means the Nim datatypes need to be manually cast to
+the corresponding compatible types, if only the wrapper is used.
 
 This is currently in a pre-alpha state, with no guarantees that it
 will work for you. The wrapper was built making heavy use of [[https:www.github.com/nim-lang/c2nim][c2nim]] and
@@ -18,12 +19,16 @@ creating a simple dataset and reading it. More advanced HDF5 features
 have not been tested. The functions are accessible, but may
 potentially be completely broken.
 
+The high-level bindings are now at a point where most basic operations
+/sort of/ work. See [[file:examples/h5_create_dataset_hl.nim]] as an
+example of writing arbitrary groups and datasets and reading them back.
+
 ** Compatibility
 
 The wrapper is currently tested using Nim version =0.17.2= and the
 current devel branch (=0.17.3=). The wrapper is built from HDF5
-version =1.10.1=. At the moment (maybe as a side effect from
-converting C macros to Nim code), linking to version =1.8.11= (current
+version =1.10.1=. At the moment (probably as a side effect from having
+to convert C macros to Nim code), linking to version =1.8.11= (current
 available version in Ubuntu 14.04 repository) works for the basic
 operations, too.
 
@@ -42,19 +47,19 @@ and
 i.e. it makes use of C's comma operator. However, c2nim currently
 [[https:nim-lang.org/docs/c2nim.html#limitations][has no support for it]]. Instead of porting them in some reasonable way,
 these macros were converted to simple replacements with the values,
-dropping the calls to H5check() and H5open(). 
+dropping the calls to H5check() and H5open().
 
 The call to H5check() is currently not used at all. Compiling a Nim
 program with this wrapper (based on version =1.10.1=) would normally
 fail to check against the linked library, if that version is different.
 
 As H5open() is important, the calls are replaced by a single call to
-initialize the library at the beginning of [[file:src/nimhdf5.nim]] via
-[[file:src/H5niminitialize.nim]].
+initialize the library at the beginning upon the first call of the
+library via [[file:src/nimhdf5/wrapper/H5niminitialize.nim]].
 
 As HDF5 is a very macro heavy library, other important macros may not
-have been correctly wrapped to Nim, i.e. determination of correct
-sizes of data types. 
+have been correctly wrapped to Nim, e.g. determination of correct
+sizes of data types. This may cause some weird side-effects.
 
 Additionally, Windows is currently not supported. In principle, adding
 support might be as easy as changing the name of libhdf5.so to
@@ -62,20 +67,38 @@ libhdf5.dll (?) as well as wrapping H5FDwindows.h.
 
 ** Installation
 
-... to be written
+As the state of the library is still in such an early stage, it's not
+yet added to the nimble repository. You can clone this repository
+manually 
+#+BEGIN_SRC sh
+git clone https://github.com/vindaar/nimhdf5
+#+END_SRC
+in a folder of your choice and call nimble install afterwards:
+#+BEGIN_SRC sh
+cd nimhdf5
+nimble install
+#+END_SRC
+
+** Dependencies
+
+Since I personally need to write [[https://github.com/mratsim/Arraymancer][arraymancer]] tensors into HDF5 files,
+the requirement of arraymancer is currently hardcoded, despite not
+being needed for the library.
 
 ** Files
 
-The folder =c_headers= contains the modified HDF5 headers as they were
-used with c2nim. In $\sim\SI{50}{\percent}$ of the cases the resulting
-.nim files had to be modified.
+The folder [[file:c_headers/][c_headers]] contains the modified HDF5 headers in the state
+they were in for a successful c2nim conversion. In some cases the C
+header file had to be modified, in others modification to the
+resulting .nim file was still necessary.
+
+The folder [[file:examples/][examples]] contains the basic HDF5 C examples (see here:
+[[https://support.hdfgroup.org/HDF5/examples/intro.html#c]]) converted to
+Nim utilizing the wrapper. [[file:examples/h5_create_dataset_hl.nim][h5_create_dataset_hl.nim]] is an example,
+which uses the currently available high-level bindings. 
 
 ** TODO
-- update nimhdf5.nim such that we don't have to pass libhdf5.so
-  manually to the linker during compilation
-- provide Nim like high level abstractions
-  Eventually the idea is an interface similar to the
-  [[http:www.h5py.org][HDF5 python]] bindings
-- rebuild the HDF5 C examples to showcase their usage in Nim
+- clean up the code and refactor into several files!
 - build unit tests
-- ... lots more
+- add more basic features, e.g. writing attributes to data
+- ... lots and lots more
