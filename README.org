@@ -1,6 +1,6 @@
 * nimhdf5
 
-This repository contains a wrapper for the [[https:www.hdfgroup.org/HDF5/][HDF5 data format]] for the Nim
+This repository contains a wrapper for the [[https://www.hdfgroup.org/HDF5/][HDF5 data format]] for the Nim
 programming language as well as some /very/ work in progress
 high-level bindings. 
 
@@ -12,7 +12,7 @@ arguments. That means the Nim datatypes need to be manually cast to
 the corresponding compatible types, if only the wrapper is used.
 
 This is currently in a pre-alpha state, with no guarantees that it
-will work for you. The wrapper was built making heavy use of [[https:www.github.com/nim-lang/c2nim][c2nim]] and
+will work for you. The wrapper was built making heavy use of [[https://www.github.com/nim-lang/c2nim][c2nim]] and
 the main goal for now was to get the code to compile and be able to
 call basic HDF5 functions like opening and closing HDF5 files,
 creating a simple dataset and reading it. More advanced HDF5 features
@@ -45,7 +45,7 @@ and
 #define H5OPEN        H5open(),
 #+END_SRC
 i.e. it makes use of C's comma operator. However, c2nim currently
-[[https:nim-lang.org/docs/c2nim.html#limitations][has no support for it]]. Instead of porting them in some reasonable way,
+[[https://nim-lang.org/docs/c2nim.html#limitations][has no support for it]]. Instead of porting them in some reasonable way,
 these macros were converted to simple replacements with the values,
 dropping the calls to H5check() and H5open().
 
