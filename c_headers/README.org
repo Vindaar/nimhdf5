@@ -1,0 +1,10 @@
+This folder contains the HDF5 header files, which were converted using
+c2nim. Some of them had to be modified for c2nim to successfully
+convert them. 
+
+The files themselves are not needed, they are here for reference in
+the future, in case bugs happen due to unwarranted / breaking changes
+to these header files. 
+
+This might quite possibly be the case, due to my lack of understanding
+of the HDF5 library / desire to get it working in the first place.
