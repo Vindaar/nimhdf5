@@ -14,10 +14,11 @@ import macros
 import arraymancer
 
 import nimhdf5/hdf5_wrapper
-import nimhdf5/H5nimtypes
+include nimhdf5/H5nimtypes
 
 # simple list of TODOs
 # TODO:
+#  - remove most of the debugging output
 #  - add ability to read / write hyperslabs
 #  - add ability to write arraymancer.Tensor
 #  - add a lot of safety checks

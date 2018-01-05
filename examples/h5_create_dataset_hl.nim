@@ -1,25 +1,10 @@
-#############################################################################
-# Copyright by The HDF Group.                                               #
-# Copyright by the Board of Trustees of the University of Illinois.         #
-# All rights reserved.                                                      #
-#                                                                           #
-# This file is part of HDF5.  The full HDF5 copyright notice, including     #
-# terms governing use, modification, and redistribution, is contained in    #
-# the COPYING file, which can be found at the root of the source code       #
-# distribution tree, or in https://support.hdfgroup.org/ftp/HDF5/releases.  #
-# If you do not have access to either file, you may request a copy from     #
-# help@hdfgroup.org.                                                        #
-#############################################################################
-
-## This example illustrates how to create a dataset that is a 4 x 6 
-## array.  It is used in the HDF5 Tutorial.
-
-## adapted to Nim by S. Schmidt (s.schmidt@physik.uni-bonn.de)
-## used to illustrate low level access via C API
+# a simple example showing the so far available nimhdf5
+# high level bindings
 
 import nimhdf5
+# wrapper is normally not needed to be imported, here only
+# to showcase
 import nimhdf5/hdf5_wrapper
-import nimhdf5/H5nimtypes
 import typetraits
 import typeinfo
 import sequtils
@@ -35,37 +20,37 @@ proc write_some() =
   # Create a new file using default properties.
   var h5f = H5file(FILE, "rw")
 
-  # create dataset
+  # create datasets
   var dset = h5f.create_dataset("/group1/group2/dset", (2, 2, 5), float64)
   var dset1D = h5f.create_dataset("/group1/dset1D", 5, float64)
-  var dset_broadcast = h5f.create_dataset("/group1/dsetbroadcast", (3, 3), int)  
+  var dset_broadcast = h5f.create_dataset("/group1/dsetbroadcast", (3, 3), int)
+  # define special type for variable length datatype
   let vlen_type = special_type(int)
   var dset_vlen = h5f.create_dataset("/group1/dset_vlen", 5, vlen_type)
 
-  # var dat: seq[float64] = newSeq[float64](20)
-  # var count = 0
-  # for i in 0..<len(dat):
-  #   dat[i] = float64(count) + 1
-  #   inc count
+  # define a group name and
+  let g1_name = "/group1"
+  # and get the corresponding group from the file
+  # we get the group using the string by converting the string
+  # to a distinct string type called grp_str. Used to differentiate
+  # between groups and datasets, which both can the retrieved from
+  # the H5FileObj
+  let g1 = h5f[g1_name.grp_str]
+  # print type and group itself
+  echo name(type(g1))
+  echo g1
 
-  # let gr: grp_str = grp_str("/group1/group2")
-  # let t = h5f[gr] #H5Group(get(h5f, gr))
-  let gg = "/group1" # readLine(stdin)
-  
-  let t2 = h5f[gg.grp_str]
-  echo name(type(t2))
-  echo t2
-
-  var g = h5f.create_group("/test/another/group")
-
-  g = h5f["/test/another".grp_str]
-  
-  var h = g.create_group("/more/branches")
+  # create another nested group
+  var g2 = h5f.create_group("/test/another/group")
+  # and create groups based on the just created group relative
+  # from its location in the file
+  var h = g2.create_group("/more/branches")
   echo "\n\n"
-  echo "file ", h5f#.groups
-  echo "\n\n\nnew group", g#.groups[]
-  echo "old group", t2#.groups[]
+  echo "file ", h5f
+  echo "\n\n\nnew group", g2
+  echo "old group", g1
 
+  # define some arrays to write
   var d_ar = @[ @[ @[1'f64, 2, 3, 4, 5],
                    @[6'f64, 7, 8, 9, 10] ],
                 @[ @[1'f64, 2, 3, 4, 5],
@@ -76,20 +61,20 @@ proc write_some() =
   var d_br = @[ @[1, 1, 1],
                 @[1, 1, 1],
                 @[1, 1, 1] ]
-  
+
+  # and a variable length array
   var d_vlen = @[ @[1, 2, 3],
                   @[4, 5],
                   @[6, 7, 8, 9, 10],
                   @[11, 12, 13, 14, 15],
                   @[16, 17, 18, 19, 20, 21, 22, 22, 23, 24, 25] ]
   
-  # if we simply want to write over the whole dataset 
+  # if we simply want to write over the whole dataset, use the .all field of
+  # the H5DataSet object. It's a simple enum, used to differentiate between
+  # this and using indices (which ironically isn't implemented...)
   dset[dset.all] = d_ar
-
   dset1D[dset1D.all] = d1d
-
   dset_broadcast[dset_broadcast.all] = d_br
-
   dset_vlen[dset_vlen.all] = d_vlen
 
   # write values for multiple coordinates by handing sequences of coordinates and
@@ -114,9 +99,6 @@ proc write_some() =
   # write single element into single index
   dset_vlen.write(3, 1337)
   
-
-  let dtype = nimToH5type(float64)
-
   # close datasets, groups and file
   status = h5f.close()
   echo "Status of file closing is ", status
@@ -128,12 +110,15 @@ proc read_some() =
   #
   var file = H5File("dset.h5", "r")
   #
-  # Open "dset" dataset under the root group.
-  #
+  # Open "dset" dataset in the nested groups
+  # done using distinct string type dset_str, to differentiate between groups
+  # and dataset
   var dataset = file["/group1/group2/dset".dset_str]
   echo dataset
   # # read some specific elements from the dataset
   let inds = @[@[0, 0, 0], @[1, 1, 1], @[1, 1, 4]]
+  # to read specific indices from a dataset, we need to hand a mutable
+  # sequence in which the data will be stored
   var data_read = newSeq[float64](3)
   dataset.read(inds, data_read)
   echo data_read
@@ -159,7 +144,6 @@ proc read_some() =
   let data = dataset[float64]
   echo data
 
-
   # or even another way: create a case based on the AnyKind field of the. 
   # dataset like so (this is what the withDset template does internally):
   case dataset.dtypeAnyKind
@@ -171,6 +155,7 @@ proc read_some() =
     # whatever else you may think is in this dataset
     discard
 
+  # close the file again
   discard file.close()
 
   
