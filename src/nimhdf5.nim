@@ -688,8 +688,25 @@ proc close*(h5f: H5FileObj): herr_t =
   
   result = H5Fclose(h5f.file_id)
 
+template simple_dataspace[T: (seq | int)](shape: T): hid_t =
+  # create a simple dataspace with max dimension == current_dimension
+  when T is seq:
+    # convert ints to hsize_t (== culonglong) and create mutable copy (need
+    # an address to hand it to C function as pointer)
+    var mshape = mapIt(shape, hsize_t(it))
+    H5Screate_simple(cint(len(mshape)), addr(mshape[0]), nil)
+  elif T is int:
+    # in this case 1D
+    var mshape = hsize_t(shape)
+    H5Screate_simple(cint(1), addr(mshape), nil)
 
-proc parseShapeTuple[T: tuple](dims: T): seq[hsize_t] =
+proc create_simple_memspace_1d[T](coord: seq[T]): hid_t {.inline.} =
+  ## convenience proc to create a simple 1D memory space for N coordinates
+  ## in memory
+  # get enough space for the N coordinates in coord
+  result = simple_dataspace(coord.len)
+  
+proc parseShapeTuple[T: tuple](dims: T): seq[int] =
   ## parses the shape tuple handed to create_dataset
   ## receives a tuple of one datatype, which was previously
   ## determined using getCtype()
@@ -697,16 +714,19 @@ proc parseShapeTuple[T: tuple](dims: T): seq[hsize_t] =
   ##    dims: T = tuple of type T for which we need to allocate
   ##              space
   ## outputs:
-  ##    seq[hsize_t] = seq of hsize_t of length len(dims), containing
+  ##    seq[int] = seq of int of length len(dims), containing
   ##            the size of each dimension of dset
   ##            Note: H5File needs to be aware of that size!
+  # NOTE: previously we returned a seq[hsize_t], but we now perform the
+  # conversion from int to hsize_t in simple_dataspace() (which is the
+  # only place we use the result of this proc!)
   var n_dims: int
   # count the number of fields in the array, since that is number
   # of dimensions we have
   for field in dims.fields:
     inc n_dims
 
-  result = newSeq[hsize_t](n_dims)
+  result = newSeq[int](n_dims)
   # now set the elements of result to the values in the tuple
   var count: int = 0
   for el in dims.fields:
@@ -714,7 +734,7 @@ proc parseShapeTuple[T: tuple](dims: T): seq[hsize_t] =
     # enter the shape in reverse order, since H5 expects data in other notation
     # as we do in Nim
     #result[^(count + 1)] = hsize_t(el)
-    result[count] = hsize_t(el)    
+    result[count] = int(el)
     inc count
 
 proc formatName(name: string): string =
@@ -893,10 +913,9 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
   # TODO: CHANGE THIS; determine parent using os file functions
   echo "Getting parent Id of ", dset.name
   dset.parent_id = getParentId(h5f, dset)
-  
+  dset.shape = shape_seq  
   # dset.parent_id = h5f.file_id
-  dset.shape = map(shape_seq, (x: hsize_t) -> int => int(x))
-  echo dset.shape, " ", shape_seq
+
   # check whether there already exists a dataset with the given name
   # first in H5FileObj:
   var exists = hasKey(h5f.datasets, dset_name)
@@ -920,7 +939,7 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
       # does not exist
       # now
       echo "Does not exist, so create dataspace ", dset.name, " with shape ", shape_seq
-      let dataspace_id = H5Screate_simple(cint(len(shape_seq)), addr(shape_seq[0]), nil)
+      let dataspace_id = simple_dataspace(shape_seq) #H5Screate_simple(cint(len(shape_seq)), addr(shape_seq[0]), nil)      
       
       # using H5Dcreate2, try to create the dataset
       echo "Does not exist, so create dataset via H5create2 ", dset.name                
@@ -1211,21 +1230,13 @@ proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
   
   result = data
 
-proc select_elements[T](dset: var H5DataSet, coord: seq[T]) =
+proc select_elements[T](dset: var H5DataSet, coord: seq[T]) {.inline.} =
   ## convenience proc to select specific coordinates in the dataspace of
   ## the given dataset
   # first flatten coord tuples
   var flat_coord = mapIt(coord.flatten, hsize_t(it))
   discard H5Sselect_elements(dset.dataspace_id, H5S_SELECT_SET, csize(coord.len), addr(flat_coord[0]))
 
-proc create_simple_memspace_1d[T](coord: seq[T]): hid_t =
-  ## convenience proc to create a simple 1D memory space for N coordinates
-  ## in memory
-  # get enough space for the N coordinates in coord
-  var tmp_size = @[hsize_t(coord.len)]
-  # first argument is rank of H5 dataspace, 1 for 1D
-  result = H5Screate_simple(cint(1), addr(tmp_size[0]), nil)
-  
 proc read*[T: seq, U](dset: var H5DataSet, coord: seq[T], buf: var seq[U]) =
   # select the coordinates in the dataset
   dset.select_elements(coord)
