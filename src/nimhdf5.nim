@@ -1245,8 +1245,12 @@ proc read*[T: seq, U](dset: var H5DataSet, coord: seq[T], buf: var seq[U]) =
   if buf.len == coord.len:
     discard H5Dread(dset.dataset_id, dset.dtype_c, memspace_id, dset.dataspace_id, H5P_DEFAULT,
                     addr(buf[0]))
+    
   else:
     echo "Provided buffer is not of same length as number of points to read"
+  # close memspace again
+  discard H5Sclose(memspace_id)
+  
 
 proc read*[T](dset: var H5DataSet, buf: var seq[T]) =
   # read whole dataset
@@ -1293,6 +1297,7 @@ proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
                      dset.dataspace_id,
                      H5P_DEFAULT,
                      addr(data_hvl[0]))
+    discard H5Sclose(memspace_id)
   else:
     var msg = """
 Invalid coordinates or corresponding data to write in `write_vlen`. Coord shape `$#`, data shape `$#`"""
@@ -1321,6 +1326,7 @@ proc write_norm*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
                      dset.dataspace_id,
                      H5P_DEFAULT,
                      addr(mdata[0]))
+    discard H5Sclose(memspace_id)
   else:
     var msg = """
 Invalid coordinates or corresponding data to write in `write_norm`. Coord shape `$#`, data shape `$#`"""
