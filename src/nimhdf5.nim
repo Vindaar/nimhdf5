@@ -153,6 +153,11 @@ const
 # add an invalid rw code to handle wrong inputs in parseH5rw_type
 const H5F_INVALID_RW    = cuint(0x00FF)
 
+template withDebug(actions: untyped) =
+  when defined(DEBUG_HDF5):
+    actions
+  
+
 proc newH5File*(): H5FileObj =
   ## default constructor for a H5File object, for internal use
   let dset = initTable[string, H5DataSet]()
@@ -229,17 +234,17 @@ proc h5ToNimType(dtype_id: hid_t): AnyKind =
   ##    KeyError: if the given H5 data type is currently not mapped to a Nim type
   ##              (see src/nimhdf5/H5Tpublic.nim for a list of *all* H5 types...)
   
-  echo "dtype is ", dtype_id
   # TODO: we may can seperate the dtypes by class using H5Tget_class, which returns a value
   # of the H5T_class_t enum (e.g. H5T_FLOAT)
   echo H5Tget_class(dtype_id)
-  echo "native is ", H5Tget_native_type(dtype_id, H5T_DIR_ASCEND)
+  withDebug:
+    echo "dtype is ", dtype_id
+    echo "native is ", H5Tget_native_type(dtype_id, H5T_DIR_ASCEND)
   # TODO: make sure the types are correctly identified!
   # MAKING PROBLEMS ALREADY! int64 is read back as a NATIVE_LONG, which thus needs to be
   # converted to int64
   
   if H5Tequal(H5T_NATIVE_DOUBLE, dtype_id) == 1:
-    echo "is float64"
     result = akFloat64
   elif H5Tequal(H5T_NATIVE_FLOAT, dtype_id) == 1:
     result = akFloat32
@@ -407,6 +412,7 @@ template getParentId[T](h5f: T, h5_object: typed): hid_t =
       # this means the only existing parent is root
       result = h5f.file_id
   else:
+    #TODO: replace by exception
     echo "Warning: This should not happen, as we have no other types so far. If you see this"
     echo "you handed a not supported type to getParentId()"
   result
@@ -497,14 +503,14 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
   if dset_exist == false:
     # before we raise an exception, because the dataset does not yet exist,
     # check whether such a dataset exists in the file we're not aware of yet
-    echo "file id is ", h5f.file_id
-    echo "name is ", result.name
+    withDebug:
+      echo "file id is ", h5f.file_id
+      echo "name is ", result.name
     let exists = existsInFile(h5f.file_id, result.name)
     if exists > 0:
       result.dataset_id   = H5Dopen2(h5f.file_id, result.name, H5P_DEFAULT)
       result.dataspace_id = H5Dget_space(result.dataset_id)
       # does exist, add to H5FileObj
-      echo result.dataset_id
       let datatype_id = H5Dget_type(result.dataset_id)
       let f = h5ToNimType(datatype_id)
       result.dtype = strip($f, chars = {'a', 'k'}).toLowerAscii
@@ -512,7 +518,8 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       result.dtype_c = H5Tget_native_type(datatype_id, H5T_DIR_ASCEND)
       result.dtype_class = H5Tget_class(datatype_id)
 
-      echo H5Tget_class(datatype_id)
+      withDebug:
+        echo H5Tget_class(datatype_id)
       
       # get the shape of the dataset
       let ndims = H5Sget_simple_extent_ndims(result.dataspace_id)
@@ -521,7 +528,8 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       var shapes = newSeq[hsize_t](ndims)
       var max_sizes = newSeq[hsize_t](ndims)
       let s = H5Sget_simple_extent_dims(result.dataspace_id, addr(shapes[0]), addr(max_sizes[0]))
-      echo "dimensions seem to be ", shapes
+      withDebug:
+        echo "dimensions seem to be ", shapes
       result.shape = mapIt(shapes, int(it))
 
       # still need to determine the parents of the dataset
@@ -538,6 +546,7 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       # need to close the datatype again, otherwise cause resource leak
       status = H5Tclose(datatype_id)
       if status < 0:
+        #TODO: replace by exception
         echo "Status of H5Tclose() returned non-negative value. H5 will probably complain now..."
       
       h5f.datasets[result.name] = result
@@ -691,7 +700,8 @@ proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
     if exists == true:
       # then we call H5Fopen, last argument is fapl_id, specifying file access
       # properties (...somehwat unclear to me so far...)
-      echo "exists and read only"
+      withDebug:
+        echo "exists and read only"
       result.file_id = H5Fopen(name, rw, H5P_DEFAULT)
     else:
       # cannot open a non existing file with read only properties
@@ -699,11 +709,13 @@ proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
   elif rw == H5F_ACC_RDWR:
     # check whether file exists already
     # then use open call
-    echo "exists and read write"      
+    withDebug:
+      echo "exists and read write"      
     result.file_id = H5Fopen(name, rw, H5P_DEFAULT)
   elif rw == H5F_ACC_EXCL:
     # use create call
-    echo "rw is  ", rw
+    withDebug:
+      echo "rw is  ", rw
     result.file_id = H5Fcreate(name, rw, H5P_DEFAULT, H5P_DEFAULT)
   # after having opened / created the given file, we get the datasets etc.
   # which are stored in the file
@@ -718,12 +730,16 @@ proc close*(h5f: H5FileObj): herr_t =
   #    hid_t = status of the closing of the file
 
   for dset, id in pairs(h5f.datasets):
-    #echo("Closing dset ", dset, " with id ", id)
+    withDebug:
+      discard
+      #echo("Closing dset ", dset, " with id ", id)
     result = H5Dclose(id.dataset_id)
     result = H5Sclose(id.dataspace_id)
 
   for group, id in pairs(h5f.groups):
-    #echo("Closing group ", group, " with id ", id)
+    withDebug:
+      discard
+      #echo("Closing group ", group, " with id ", id)
     result = H5Gclose(id.group_id)
   
   result = H5Fclose(h5f.file_id)
@@ -814,18 +830,22 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   result = newH5Group(group_name)[]
   # before we create a greoup, check whether said group exists in the H5 file
   # already
-  echo "Checking for existence of group ", result.name, " ", group_name
+  withDebug:
+    echo "Checking for existence of group ", result.name, " ", group_name
 
   let exists = location_id.existsInFile(result.name)
   if exists > 0:
     # group exists, open it
     result.group_id = H5Gopen2(location_id, result.name, H5P_DEFAULT)
-    echo "Group exists H5Gopen2() returned id ", result.group_id    
+    withDebug:
+      echo "Group exists H5Gopen2() returned id ", result.group_id    
   elif exists == 0:
-    echo "Group non existant, creating group ", result.name
+    withDebug:
+      echo "Group non existant, creating group ", result.name
     # group non existant, create
     result.group_id = H5Gcreate2(location_id, result.name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
   else:
+    #TODO: replace by exception
     echo "create_group(): You probably see the HDF5 errors piling up..."
   result.parent = p_str
   # since we know that the parent exists, we can simply use the (recursive!) getParentId
@@ -846,10 +866,9 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   # to the H5FileObj
   var grp = new H5Group
   grp[] = result
-  echo "Adding element to h5f groups ", group_name
-  #echo "h5f before ", h5f.groups
+  withDebug:
+    echo "Adding element to h5f groups ", group_name
   h5f.groups[group_name] = grp
-  #echo "h5f after ", h5f.groups
   grp.groups = h5f.groups
   
   
@@ -877,7 +896,8 @@ proc create_group*[T](h5f: var T, group_name: string): H5Group =
       group_path = joinPath(h5f.name, group_name)
     else:
       group_path = group_name
-    echo "Group path is now ", group_path, " ", h5f.name
+    withDebug:
+      echo "Group path is now ", group_path, " ", h5f.name
   else:
     let group_path = group_name
   
@@ -955,7 +975,8 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
     group = create_group(h5f, dset.parent)
   
   # TODO: CHANGE THIS; determine parent using os file functions
-  echo "Getting parent Id of ", dset.name
+  withDebug:
+    echo "Getting parent Id of ", dset.name
   dset.parent_id = getParentId(h5f, dset)
   dset.shape = shape_seq  
   # dset.parent_id = h5f.file_id
@@ -968,7 +989,8 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
     # TODO: FOR NOW the location id given to H5Dopen2 is only the file id
     # once we have the parent properly determined, we can also check for
     # the parent (group) id!
-    echo "Checking if dataset exists via H5Lexists ", dset.name
+    withDebug:
+      echo "Checking if dataset exists via H5Lexists ", dset.name
     dset.dataset_id = existsInFile(h5f.file_id, dset.name) # H5Lexists(h5f.file_id, dset.name, H5P_DEFAULT)
     if dset.dataset_id > 0:
       # in this case successful, dataset exists already
@@ -982,17 +1004,20 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
     elif dset.dataset_id == 0:
       # does not exist
       # now
-      echo "Does not exist, so create dataspace ", dset.name, " with shape ", shape_seq
+      withDebug:
+        echo "Does not exist, so create dataspace ", dset.name, " with shape ", shape_seq
       let dataspace_id = simple_dataspace(shape_seq) #H5Screate_simple(cint(len(shape_seq)), addr(shape_seq[0]), nil)      
       
       # using H5Dcreate2, try to create the dataset
-      echo "Does not exist, so create dataset via H5create2 ", dset.name                
+      withDebug:
+        echo "Does not exist, so create dataset via H5create2 ", dset.name                
       let dataset_id = H5Dcreate2(h5f.file_id, dset_name, dtype_c, dataspace_id,
                                   H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
 
       dset.dataspace_id = dataspace_id
       dset.dataset_id = dataset_id
     else:
+      # TODO: replace by exception
       echo "create_dataset(): You probably see the HDF5 errors piling up..."
 
   # now create attributes field
@@ -1045,19 +1070,20 @@ template getIndexSeq(ind: int, shape: seq[int]): seq[int] =
     rem = rem mod int(dim / d)
   result
 
-macro test_access(x: typed): untyped =
-  result = newStmtList()
-  echo treeRepr(x)
-  echo treeRepr(result)
-  for el in x:
-    echo el
-  
-proc getValueFromArrayByIndexTuple[T](x: openArray[T], inds: seq[int]): float64 =
-  # not needed
-  dumpTree:
-    result = x[inds[0]][inds[1]]
-    x
-  test_access(x)
+withDebug:
+  macro test_access(x: typed): untyped =
+    result = newStmtList()
+    echo treeRepr(x)
+    echo treeRepr(result)
+    for el in x:
+      echo el
+    
+  proc getValueFromArrayByIndexTuple[T](x: openArray[T], inds: seq[int]): float64 =
+    # not needed
+    dumpTree:
+      result = x[inds[0]][inds[1]]
+      x
+    test_access(x)
 
 proc shape[T: (SomeNumber | bool | char | string)](x: T): seq[int] = @[]
   # Exists so that recursive template stops with this proc.
@@ -1103,8 +1129,9 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
   # of a dataspace of certain dimensions for arrays / nested seqs we're handed
   if ind == RW_ALL:
     let shape = dset.shape
-    echo "shape is ", shape
-    echo "shape is a ", type(shape).name, " and data is a ", type(data).name, " and data.shape = "
+    withDebug:
+      echo "shape is ", shape
+      echo "shape is a ", type(shape).name, " and data is a ", type(data).name, " and data.shape = "
     # check whether we will write a 1 column dataset. If so, relax
     # requirements of shape check. In this case only compare 1st element of
     # shapes. We compare shape[1] with 1, because atm we demand VLEN data to be
@@ -1164,6 +1191,7 @@ Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has sha
       msg = msg % [$data.shape, $dset.shape]
       raise newException(ValueError, msg)
   else:
+    # TODO: replace by exception
     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
 
 proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #openArray[T])  
@@ -1184,12 +1212,14 @@ proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: var seq[T]) = 
   if dset.shape == data.shape:
     #var ten = data.toTensor()
     # in this case run over all dimensions and flatten arrayA
-    echo "shape before is ", data.shape
-    echo data
+    withDebug:
+      echo "shape before is ", data.shape
+      echo data
     var data_write = flatten(data) 
     discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
                      addr(data_write[0]))
   else:
+    # TODO: replace by exception
     echo "All bad , shapes are ", data.shape, " ", dset.shape
 
 template getSeq(t: untyped, data: untyped): untyped =
@@ -1327,16 +1357,17 @@ proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
     var data_hvl = mdata.toH5vlen
 
     # DEBUGGING H5 calls
-    # echo "memspace select ", H5Sget_select_npoints(memspace_id)
-    # echo "dataspace select ", H5Sget_select_npoints(dset.dataspace_id)
-    # echo "dataspace select ", H5Sget_select_elem_npoints(dset.dataspace_id)
-    # echo "dataspace is valid ", H5Sselect_valid(dset.dataspace_id)
-    # echo "memspace is valid ", H5Sselect_valid(memspace_id)    
+    withDebug:
+      echo "memspace select ", H5Sget_select_npoints(memspace_id)
+      echo "dataspace select ", H5Sget_select_npoints(dset.dataspace_id)
+      echo "dataspace select ", H5Sget_select_elem_npoints(dset.dataspace_id)
+      echo "dataspace is valid ", H5Sselect_valid(dset.dataspace_id)
+      echo "memspace is valid ", H5Sselect_valid(memspace_id)    
 
-    # var start: seq[hsize_t] = @[hsize_t(999), 999]
-    # var ending: seq[hsize_t] = @[hsize_t(999), 999]     
-    # echo H5Sget_select_bounds(dset.dataspace_id, addr(start[0]), addr(ending[0]))
-    # echo "start and ending ", start, " ", ending
+      var start: seq[hsize_t] = @[hsize_t(999), 999]
+      var ending: seq[hsize_t] = @[hsize_t(999), 999]     
+      echo H5Sget_select_bounds(dset.dataspace_id, addr(start[0]), addr(ending[0]))
+      echo "start and ending ", start, " ", ending
     
     discard H5Dwrite(dset.dataset_id,
                      dset.dtype_c,
