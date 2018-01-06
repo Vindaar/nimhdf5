@@ -48,6 +48,23 @@ type
     parent*: string
     parent_id*: hid_t
 
+  # object which stores information about the attributes of a H5 object
+  # each dataset, group etc. has a field .attr, which contains a H5Attributes
+  # object
+  H5Attributes = object
+    # attr_tab is a table containing names and corresponding
+    # H5 info
+    attr_tab: Table[string, H5Attr]
+    parent_name: string
+    parent_id: hid_t
+    parent_type: string
+
+  # a tuple which stores information about a single attribute
+  H5Attr = tuple[
+    attr_id: hid_t,
+    dtype_c: hid_t,
+    dtypeAnyKind: AnyKind]
+
   # an object to store information about a hdf5 dataset. It is a combination of
   # an HDF5 dataspace and dataset id (contains both of them)
   H5DataSet* = object #of H5Object
@@ -77,6 +94,8 @@ type
     # `all` index, to indicate that we wish to set the whole dataset to the
     # value on the RHS (has to be exactly the same shape!)
     all*: DsetReadWrite
+    # attr stores information about attributes
+    attrs*: H5Attributes
 
   # an object to store information about a HDF5 group
   H5Group* = object #of H5Object
@@ -101,6 +120,8 @@ type
     datasets*: Table[string, H5DataSet]
     # each group may have subgroups itself, keep table of these
     groups: ref Table[string, ref H5Group]
+    # attr stores information about attributes
+    attrs*: H5Attributes    
 
   H5FileObj* = object #of H5Object
     name*: string
@@ -122,6 +143,8 @@ type
     # while keeping the hid_t dataset_id as the value
     datasets*: Table[string, H5DataSet]
     dataspaces: Table[string, hid_t]
+    # attr stores information about attributes
+    attrs*: H5Attributes    
 
 const    
     H5_NOFILE = hid_t(-1)
@@ -168,6 +191,14 @@ proc newH5Group*(name: string = ""): ref H5Group =
   result.file = ""
   result.datasets = datasets
   result.groups = groups
+
+proc newH5Attributes(p_name: string = "", p_id: hid_t = -1, p_type: string = ""): H5Attributes =
+  let attr = initTable[string, H5Attr]()
+  result = H5Attributes(attr_tab: attr,
+                        parent_name: p_name,
+                        parent_id: p_id,
+                        parent_type: p_type)
+                      
 
 proc `$`*(group: ref H5Group): string =
   result = "\n{\n\t'name': " & group.name & "\n\t'parent': " & group.parent & "\n\t'parent_id': " & $group.parent_id
@@ -307,6 +338,11 @@ proc existsInFile(h5_id: hid_t, name: string): hid_t =
   # convenience function to check whether a given object exists in a
   # H5 file
   result = H5Lexists(h5_id, name, H5P_DEFAULT)
+
+proc existsAttribute[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: string): bool =
+  # proc to check whether a given
+
+  echo "\n\n\n\n EHREHREHREHHRE \n\n\n\n\n"
 
 template getH5Id(h5_object: typed): hid_t =
   # this template returns the correct location id of either
@@ -496,6 +532,9 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
 
       result.file = h5f.name
 
+      # create attributes field
+      result.attrs = newH5Attributes(result.name, result.dataset_id, "H5DataSet")
+
       # need to close the datatype again, otherwise cause resource leak
       status = H5Tclose(datatype_id)
       if status < 0:
@@ -668,6 +707,7 @@ proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
     result.file_id = H5Fcreate(name, rw, H5P_DEFAULT, H5P_DEFAULT)
   # after having opened / created the given file, we get the datasets etc.
   # which are stored in the file
+  result.attrs = newH5Attributes("/", result.file_id, "H5FileObj")
 
 proc close*(h5f: H5FileObj): herr_t =
   # this procedure closes all known datasets, dataspaces, groups and the HDF5 file
@@ -798,6 +838,10 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
     result.file = h5f.file
 
   result.file_id = h5f.file_id
+
+  # create attributes field
+  result.attrs = newH5Attributes(result.name, result.group_id, "H5Group")
+  
   # now that we have created the group fully (including IDs), we can add it
   # to the H5FileObj
   var grp = new H5Group
@@ -924,8 +968,8 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
     # TODO: FOR NOW the location id given to H5Dopen2 is only the file id
     # once we have the parent properly determined, we can also check for
     # the parent (group) id!
-    echo "Checking if dataset exists via H5Lexists ", dset.name    
-    dset.dataset_id = H5Lexists(h5f.file_id, dset.name, H5P_DEFAULT)
+    echo "Checking if dataset exists via H5Lexists ", dset.name
+    dset.dataset_id = existsInFile(h5f.file_id, dset.name) # H5Lexists(h5f.file_id, dset.name, H5P_DEFAULT)
     if dset.dataset_id > 0:
       # in this case successful, dataset exists already
       exists = true
@@ -950,7 +994,9 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
       dset.dataset_id = dataset_id
     else:
       echo "create_dataset(): You probably see the HDF5 errors piling up..."
-  
+
+  # now create attributes field
+  dset.attrs = newH5Attributes(dset.name, dset.dataset_id, "H5DataSet")
   h5f.datasets[dset_name] = dset
   # redundant:
   h5f.dataspaces[dset_name] = dset.dataspace_id
@@ -1238,6 +1284,8 @@ proc select_elements[T](dset: var H5DataSet, coord: seq[T]) {.inline.} =
   discard H5Sselect_elements(dset.dataspace_id, H5S_SELECT_SET, csize(coord.len), addr(flat_coord[0]))
 
 proc read*[T: seq, U](dset: var H5DataSet, coord: seq[T], buf: var seq[U]) =
+  # proc to read specific coordinates (or single values) from a dataset
+  
   # select the coordinates in the dataset
   dset.select_elements(coord)
   let memspace_id = create_simple_memspace_1d(coord)
@@ -1250,7 +1298,6 @@ proc read*[T: seq, U](dset: var H5DataSet, coord: seq[T], buf: var seq[U]) =
     echo "Provided buffer is not of same length as number of points to read"
   # close memspace again
   discard H5Sclose(memspace_id)
-  
 
 proc read*[T](dset: var H5DataSet, buf: var seq[T]) =
   # read whole dataset
@@ -1404,3 +1451,56 @@ template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
   # a simple wrapper around get for groups
   h5f.get(name)
 
+
+proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T) =
+  # writes the attribute `name` of value `val` to the object `h5o`
+  # easiest to implement?
+  # need to
+  # - create simple dataspace
+  # - create attribute
+  # - write attribute
+  # - add attribute to h5attr
+  # - later close attribute when closing parent of h5attr
+  when T is SomeNumber or T is char:
+    let
+      dtype = nimToH5type(T)
+      # create dataspace for single element attribute
+      attr_dspace_id = simple_dataspace(1)
+      # create the attribute
+      attribute_id = H5Acreate2(h5attr.parent_id, name, dtype, attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT)
+      # mutable copy for address
+    var mval = val
+    # write the value
+    discard H5Awrite(attribute_id, dtype, addr(mval))
+  elif T is seq:
+    discard
+  elif T is char:
+    discard
+  elif T is bool:
+    discard
+  elif T is string:
+    discard
+  else:
+    discard
+
+template `[]=`*[T](h5attr: var H5Attributes, name: string, val: T) =
+  # convenience access to write_attribue
+  h5attr.write_attribute(name, val)
+
+proc read_attribute*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[T]): T =
+  discard
+
+template `[]`*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[T]): T =
+  # convenience access to read_attribute
+  h5attr.read_attribute(name, dtype)
+
+template `[]`*(h5attr: H5Attributes, name: string): AnyKind =
+  # accessing H5Attributes by string simply returns the datatype of the stored
+  # attribute as an AnyKind value
+  h5attr.attr_tab[name].dtypeAnyKind
+
+#proc attrs*[T](h5attr: var H5Attributes): Table[string, AnyKind] =
+  # proc to iterate over all attributes of the given object and return a table
+  # of the attribute names and their types as AnyKind type
+  # probably the hardest to implement...
+#  discard

@@ -35,7 +35,7 @@ proc write_some() =
   # to a distinct string type called grp_str. Used to differentiate
   # between groups and datasets, which both can the retrieved from
   # the H5FileObj
-  let g1 = h5f[g1_name.grp_str]
+  var g1 = h5f[g1_name.grp_str]
   # print type and group itself
   echo name(type(g1))
   echo g1
@@ -98,6 +98,38 @@ proc write_some() =
   dset_vlen.write(@[1], @[8, 3, 12, 3, 3, 555, 23234234])
   # write single element into single index
   dset_vlen.write(3, 1337)
+
+  # # now write some attributes
+  # g1.attrs["HODL"] = true
+  # g1.attrs["Time"] = "21:19"
+  g1.attrs["Counter"]= 125
+  # will be visible in file as 73 (decimal value of ascii for 'I')
+  g1.attrs["Type"]= 'I'
+
+  # # get table of attributes
+  #var attr = g1.attrs
+  #echo attr
+  # # attr contains keys: string, values: AnyKind
+  # # where the value describes the data type of the attribute
+  # # so if we want to read some attribute now, simply
+  # case attr["Counter"]
+  # of akInt:
+  #   let val = g1.attrs["Counter", int]
+  #   echo "Counter is int with val = ", val
+  # of akFloat:
+  #   let val = g1.attrs["Counter", float]
+  #   echo "Counter is is float with val = ", val    
+  # else:
+  #   discard
+  # # of course, if you know the data type, feel free to just call
+  # # take note however, that each call to attr(<key>, <type>) performs a call
+  # # to the HDF5 library. So if you wish to avoid the overhead of performing
+  # # repetetive calls, store the attributes!
+  # let val = g1.attrs["Counter", int]
+  # echo "Counter type value is still = ", val
+  # from the get go
+
+
   
   # close datasets, groups and file
   status = h5f.close()
