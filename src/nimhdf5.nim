@@ -1700,9 +1700,9 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
       # write information to H5Attr tuple
       attr.attr_id = attribute_id
       attr.dtype_c = dtype
+      attr.attr_dspace_id = attr_dspace_id
       # set any kind fields (check whether is sequence)
       setAttrAnyKind(attr)
-      attr.attr_dspace_id = attr_dspace_id
       
     elif T is seq or T is string:
       # NOTE:
@@ -1733,9 +1733,9 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
       # write information to H5Attr tuple
       attr.attr_id = attribute_id
       attr.dtype_c = dtype
+      attr.attr_dspace_id = attr_dspace_id
       # set any kind fields (check whether is sequence)
       setAttrAnyKind(attr)
-      attr.attr_dspace_id = attr_dspace_id
     elif T is bool:
       # NOTE: in order to support booleans, we need to use HDF5 enums, since HDF5 does not support
       # a native boolean type. H5 enums not supported yet though...
