@@ -18,6 +18,9 @@ include nimhdf5/H5nimtypes
 
 # simple list of TODOs
 # TODO:
+#  - CHECK: does opening an dataset in a file, and trying to write a larger
+#    dataset to it than the one currently in the file work? Does not seem to
+#    be the case, but I didn't t see any errors either?!
 #  - add iterators for attributes, groups etc..!
 #  - add ability to read / write hyperslabs
 #  - add ability to write arraymancer.Tensor
@@ -276,8 +279,9 @@ proc getNumAttrs(h5attr: var H5Attributes): int =
   var h5info: H5O_info_t
   let err = H5Oget_info(h5attr.parent_id, addr(h5info))
   if err >= 0:
-    # successful    
-    echo h5info
+    # successful
+    withDebug:
+      echo "getNumAttrs(): ", h5attr
     var status: hid_t
     var loc = cstring(".")
     result = int(h5info.num_attrs)
