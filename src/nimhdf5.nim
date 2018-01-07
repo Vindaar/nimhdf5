@@ -18,7 +18,7 @@ include nimhdf5/H5nimtypes
 
 # simple list of TODOs
 # TODO:
-#  - remove most of the debugging output
+#  - add iterators for attributes, groups etc..!
 #  - add ability to read / write hyperslabs
 #  - add ability to write arraymancer.Tensor
 #  - add a lot of safety checks
@@ -51,10 +51,11 @@ type
   # object which stores information about the attributes of a H5 object
   # each dataset, group etc. has a field .attr, which contains a H5Attributes
   # object
-  H5Attributes = object
+  H5Attributes* = object
     # attr_tab is a table containing names and corresponding
     # H5 info
-    attr_tab: Table[string, H5Attr]
+    attr_tab*: Table[string, H5Attr]
+    num_attrs: int
     parent_name: string
     parent_id: hid_t
     parent_type: string
@@ -63,7 +64,11 @@ type
   H5Attr = tuple[
     attr_id: hid_t,
     dtype_c: hid_t,
-    dtypeAnyKind: AnyKind]
+    dtypeAnyKind: AnyKind,
+    # BaseKind contains the type within a (nested) seq iff
+    # dtypeAnyKind is akSequence
+    dtypeBaseKind: AnyKind,
+    attr_dspace_id: hid_t]
 
   # an object to store information about a hdf5 dataset. It is a combination of
   # an HDF5 dataspace and dataset id (contains both of them)
@@ -156,13 +161,38 @@ const H5F_INVALID_RW    = cuint(0x00FF)
 template withDebug(actions: untyped) =
   when defined(DEBUG_HDF5):
     actions
-  
+
+
+# forward declare procs, which we need to read the attributes from file
+proc read_all_attributes(h5attr: var H5Attributes)
+proc h5ToNimType(dtype_id: hid_t): AnyKind
+
+proc newH5Attributes(): H5Attributes =
+  let attr = initTable[string, H5Attr]()  
+  result = H5Attributes(attr_tab: attr,
+                        num_attrs: -1,
+                        parent_name: "",
+                        parent_id: -1,
+                        parent_type: "")
+
+proc initH5Attributes(p_name: string = "", p_id: hid_t = -1, p_type: string = ""): H5Attributes =
+  let attr = initTable[string, H5Attr]()
+  var h5attr = H5Attributes(attr_tab: attr,
+                            num_attrs: -1,
+                            parent_name: p_name,
+                            parent_id: p_id,
+                            parent_type: p_type)
+  read_all_attributes(h5attr)
+  result = h5attr
+
+    
 
 proc newH5File*(): H5FileObj =
   ## default constructor for a H5File object, for internal use
   let dset = initTable[string, H5DataSet]()
   let dspace = initTable[string, hid_t]()
   let groups = newTable[string, ref H5Group]()
+  let attrs = newH5Attributes()
   result = H5FileObj(name: "",
                      file_id: H5_NOFILE,
                      rw_type: H5F_INVALID_RW,
@@ -170,11 +200,14 @@ proc newH5File*(): H5FileObj =
                      status: -1,
                      datasets: dset,
                      dataspaces: dspace,
-                     groups: groups)
+                     groups: groups,
+                     attrs: attrs)
+
 
 proc newH5DataSet*(name: string = ""): H5DataSet =
   ## default constructor for a H5File object, for internal use
   let shape: seq[int] = @[]
+  let attrs = newH5Attributes()  
   result = H5DataSet(name: name,
                      shape: shape,
                      dtype: nil,
@@ -183,12 +216,14 @@ proc newH5DataSet*(name: string = ""): H5DataSet =
                      file: "",
                      dataspace_id: -1,
                      dataset_id: -1,
-                     all: RW_ALL)
+                     all: RW_ALL,
+                     attrs: attrs)
 
 proc newH5Group*(name: string = ""): ref H5Group =
   ## default constructor for a H5Group object, for internal use
   let datasets = initTable[string, H5DataSet]()
   let groups = newTable[string, ref H5Group]()
+  let attrs = newH5Attributes()  
   result = new H5Group
   result.name = name
   result.parent = ""
@@ -196,14 +231,89 @@ proc newH5Group*(name: string = ""): ref H5Group =
   result.file = ""
   result.datasets = datasets
   result.groups = groups
+  result.attrs = attrs
 
-proc newH5Attributes(p_name: string = "", p_id: hid_t = -1, p_type: string = ""): H5Attributes =
-  let attr = initTable[string, H5Attr]()
-  result = H5Attributes(attr_tab: attr,
-                        parent_name: p_name,
-                        parent_id: p_id,
-                        parent_type: p_type)
-                      
+proc openAttrByIdx(h5attr: var H5Attributes, idx: int): hid_t =
+  # proc to open an attribute by its id in the H5 file and returns
+  # attribute id if succesful
+  # need to hand H5Aopen_by_idx the location relative to the location_id,
+  # if I understand correctly
+  let loc = "."
+  # we read by creation order, increasing from 0
+  result = H5Aopen_by_idx(h5attr.parent_id,
+                          loc,
+                          H5_INDEX_CRT_ORDER,
+                          H5_ITER_INC,
+                          hsize_t(idx),
+                          H5P_DEFAULT,
+                          H5P_DEFAULT)
+
+proc getAttrName(attr_id: hid_t, buf_space = 20): string =
+  # proc to get the attribute name of the attribute with the given id
+  # reserves space for the name to be written to
+  withDebug:
+    echo "Call to getAttrName! with size $#" % $buf_space
+  var name = newString(buf_space)
+  # read the name
+  let length = attr_id.H5Aget_name(len(name), name)
+  # H5Aget_name returns the length of the name. In case the name
+  # is longer than the given buffer, we call this function again with
+  # a buffer with the correct length
+  if length <= name.len:
+    result = name.strip
+    # now set the length of the resulting string to the size
+    # it actually occupies
+    result.setLen(length)
+  else:
+    result = getAttrName(attr_id, length)
+
+proc getNumAttrs(h5attr: var H5Attributes): int =
+  # proc to get the number of attributes of the parent
+  # uses H5Oget_info, which returns a struct containing the
+  # metadata of the object (incl type etc.). Might be useful
+  # at other places too?
+  # reserve space for the info object
+  var h5info: H5O_info_t
+  let err = H5Oget_info(h5attr.parent_id, addr(h5info))
+  if err >= 0:
+    # successful    
+    echo h5info
+    var status: hid_t
+    var loc = cstring(".")
+    result = int(h5info.num_attrs)
+  else:
+    raise newException(LibraryError, "Call to HDF5 library failed in `getNumAttr`")
+
+proc setAttrAnyKind(attr: var H5Attr) =
+  # proc which sets the AnyKind fields of a H5Attr
+  let npoints = H5Sget_simple_extent_npoints(attr.attr_dspace_id)
+  if npoints > 1:
+    attr.dtypeAnyKind = akSequence
+    # set the base type based on what's contained in the sequence
+    attr.dtypeBaseKind = h5ToNimType(attr.dtype_c)
+  else:
+    attr.dtypeAnyKind = h5ToNimType(attr.dtype_c)
+
+proc read_all_attributes(h5attr: var H5Attributes) =
+  # proc to read all attributes of the parent from file and store the names
+  # and attribute ids in `h5attr`
+
+  # first get how many objects there are
+  h5attr.num_attrs = h5attr.getNumAttrs
+  for i in 0..<h5attr.num_attrs:
+    var attr: H5Attr
+    let idx = hsize_t(i)
+    attr.attr_id = openAttrByIdx(h5attr, i)
+    let name = getAttrName(attr.attr_id)
+    withDebug:
+      echo "Found? ", attr.attr_id, " with name ", name
+    # get dtypes and dataspace id
+    attr.dtype_c = H5Aget_type(attr.attr_id)
+    attr.attr_dspace_id = H5Aget_space(attr.attr_id)
+    # now set the attribute any kind fields (checks whether attr is a sequence)
+    setAttrAnyKind(attr)
+    # add to this attribute object
+    h5attr.attr_tab[name] = attr
 
 proc `$`*(group: ref H5Group): string =
   result = "\n{\n\t'name': " & group.name & "\n\t'parent': " & group.parent & "\n\t'parent_id': " & $group.parent_id
@@ -243,7 +353,7 @@ proc h5ToNimType(dtype_id: hid_t): AnyKind =
   # TODO: make sure the types are correctly identified!
   # MAKING PROBLEMS ALREADY! int64 is read back as a NATIVE_LONG, which thus needs to be
   # converted to int64
-  
+
   if H5Tequal(H5T_NATIVE_DOUBLE, dtype_id) == 1:
     result = akFloat64
   elif H5Tequal(H5T_NATIVE_FLOAT, dtype_id) == 1:
@@ -264,6 +374,8 @@ proc h5ToNimType(dtype_id: hid_t): AnyKind =
     result = akChar
   elif H5Tequal(H5T_NATIVE_UCHAR, dtype_id) == 1:
     result = akUint8
+  elif H5Tget_class(dtype_id) == H5T_STRING:
+    result = akString
   else:
     raise newException(KeyError, "Warning: the following H5 type could not be converted: $#" % $dtype_id)
   
@@ -317,6 +429,18 @@ template nimToH5type*(dtype: typedesc): hid_t =
   elif dtype is char:
     # Nim's char is an unsigned char!
     result_type = H5T_NATIVE_UCHAR
+  elif dtype is string:
+    # NOTE: in case a string is desired, we still have to prepare it later, because
+    # a normal string will end up as a sequence of characters otherwise. Instead
+    # to get a continous string, need to set the size of the individual string
+    # datatype (the result of this), to the size of the string and instead set
+    # the size of the dataspace we reserve back to 1!
+    # Also we need to copy the datatype, in order to be able to change its size
+    # later
+    result_type = H5Tcopy(H5T_C_S1)
+    # -> call string_dataspace(str: string, dtype: hid_t) with
+    # `result_type` as the second argument and the string you wish to
+    # write as 1st after the call to this fn    
   result_type
 
 template special_type*(dtype: typedesc): untyped =
@@ -344,10 +468,34 @@ proc existsInFile(h5_id: hid_t, name: string): hid_t =
   # H5 file
   result = H5Lexists(h5_id, name, H5P_DEFAULT)
 
-proc existsAttribute[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: string): bool =
+proc existsAttribute(h5id: hid_t, name: string): bool =
   # proc to check whether a given
+  # simply check if the given attribute name corresponds to an attribute
+  # of the given object
+  # throws:
+  #    
+  let exists = H5Aexists(h5id, name)
+  if exists > 0:
+    result = true
+  elif exists == 0:
+    result = false
+  else:
+    raise newException(LibraryError, "HDF5 library called returned bad value in `existsAttribute` function")
 
-  echo "\n\n\n\n EHREHREHREHHRE \n\n\n\n\n"
+template existsAttribute[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: string): bool =
+  # proc to check whether a given
+  # simply check if the given attribute name corresponds to an attribute
+  # of the given object
+  existsAttribute(h5o.getH5Id, name)
+
+proc deleteAttribute(h5id: hid_t, name: string): bool =
+  withDebug:
+    echo "Deleting attribute $# on id $#" % [name, $h5id]
+  let success = H5Adelete(h5id, name)
+  result = if success >= 0: true else: false
+
+template deleteAttribute[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: string): bool =  
+  deleteAttribute(h5o.getH5Id, name)
 
 template getH5Id(h5_object: typed): hid_t =
   # this template returns the correct location id of either
@@ -541,7 +689,7 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       result.file = h5f.name
 
       # create attributes field
-      result.attrs = newH5Attributes(result.name, result.dataset_id, "H5DataSet")
+      result.attrs = initH5Attributes(result.name, result.dataset_id, "H5DataSet")
 
       # need to close the datatype again, otherwise cause resource leak
       status = H5Tclose(datatype_id)
@@ -719,7 +867,7 @@ proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
     result.file_id = H5Fcreate(name, rw, H5P_DEFAULT, H5P_DEFAULT)
   # after having opened / created the given file, we get the datasets etc.
   # which are stored in the file
-  result.attrs = newH5Attributes("/", result.file_id, "H5FileObj")
+  result.attrs = initH5Attributes("/", result.file_id, "H5FileObj")
 
 proc close*(h5f: H5FileObj): herr_t =
   # this procedure closes all known datasets, dataspaces, groups and the HDF5 file
@@ -729,18 +877,34 @@ proc close*(h5f: H5FileObj): herr_t =
   # outputs:
   #    hid_t = status of the closing of the file
 
-  for dset, id in pairs(h5f.datasets):
-    withDebug:
-      discard
-      #echo("Closing dset ", dset, " with id ", id)
-    result = H5Dclose(id.dataset_id)
-    result = H5Sclose(id.dataspace_id)
+  # TODO: can we use iterate and H5Oclose to close all this stuff
+  # somewhat cleaner?
 
-  for group, id in pairs(h5f.groups):
+  for name, dset in pairs(h5f.datasets):
     withDebug:
       discard
-      #echo("Closing group ", group, " with id ", id)
-    result = H5Gclose(id.group_id)
+      #echo("Closing dset ", name, " with dset ", dset)
+    # close attributes
+    for attr in values(dset.attrs.attr_tab):
+      result = H5Aclose(attr.attr_id)
+      result = H5Sclose(attr.attr_dspace_id)
+    result = H5Dclose(dset.dataset_id)
+    result = H5Sclose(dset.dataspace_id)
+
+  for name, group in pairs(h5f.groups):
+    withDebug:
+      discard
+      #echo("Closing group ", name, " with id ", group)
+    # close attributes
+    for attr in values(group.attrs.attr_tab):
+      result = H5Aclose(attr.attr_id)
+      result = H5Sclose(attr.attr_dspace_id)
+    result = H5Gclose(group.group_id)
+
+  # close attributes
+  for attr in values(h5f.attrs.attr_tab):
+    result = H5Aclose(attr.attr_id)
+    result = H5Sclose(attr.attr_dspace_id)
   
   result = H5Fclose(h5f.file_id)
 
@@ -761,6 +925,16 @@ proc create_simple_memspace_1d[T](coord: seq[T]): hid_t {.inline.} =
   ## in memory
   # get enough space for the N coordinates in coord
   result = simple_dataspace(coord.len)
+
+proc string_dataspace(str: string, dtype: hid_t): hid_t =
+  # returns a dataspace of size 1 for a string of length N, by
+  # changing the size of the datatype given
+  discard H5Tset_size(dtype, len(str))
+  # append null termination
+  discard H5Tset_strpad(dtype, H5T_STR_NULLTERM)
+  # now return dataspace of size 1
+  result = simple_dataspace(1)
+
   
 proc parseShapeTuple[T: tuple](dims: T): seq[int] =
   ## parses the shape tuple handed to create_dataset
@@ -860,7 +1034,7 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   result.file_id = h5f.file_id
 
   # create attributes field
-  result.attrs = newH5Attributes(result.name, result.group_id, "H5Group")
+  result.attrs = initH5Attributes(result.name, result.group_id, "H5Group")
   
   # now that we have created the group fully (including IDs), we can add it
   # to the H5FileObj
@@ -1021,7 +1195,7 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
       echo "create_dataset(): You probably see the HDF5 errors piling up..."
 
   # now create attributes field
-  dset.attrs = newH5Attributes(dset.name, dset.dataset_id, "H5DataSet")
+  dset.attrs = initH5Attributes(dset.name, dset.dataset_id, "H5DataSet")
   h5f.datasets[dset_name] = dset
   # redundant:
   h5f.dataspaces[dset_name] = dset.dataspace_id
@@ -1420,7 +1594,9 @@ template write*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
     dset.write_norm(coord, data)
   
 
-template write*[T: (SomeNumber | bool | char | string), U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
+template write*[T: (SomeNumber | bool | char | string), U](dset: var H5DataSet,
+                                                           coord: seq[T],
+                                                           data: seq[U]) =
   # template around both write fns for normal and vlen data in case the coordinates are given as
   # a seq of numbers (i.e. for 1D datasets!)
   if dset.dtype_class == H5T_VLEN:
@@ -1440,7 +1616,10 @@ template write*[T: (SomeNumber | bool | char | string), U](dset: var H5DataSet, 
       # in case of 1D data, need to separate each element into 1 element
       dset.write_norm(mapIt(coord, @[it, 0]), data)
 
-template write*[T: (seq | SomeNumber | bool | char | string)](dset: var H5DataSet, ind: int, data: T, column = false) =
+template write*[T: (seq | SomeNumber | bool | char | string)](dset: var H5DataSet,
+                                                              ind: int,
+                                                              data: T,
+                                                              column = false) =
   ## template around both write fns for normal and vlen data in case we're dealing with 1D
   ## arrays and want to write a single value at index `ind`
   ## throws:
@@ -1460,7 +1639,6 @@ template write*[T: (seq | SomeNumber | bool | char | string)](dset: var H5DataSe
         raise newException(ValueError, "Cannot broadcast ind to dataset in `write`, because data does not fit into array row / column wise")
       # NOTE: currently broadcasting ONLY works on 2D arrays!
       let inds = toSeq(0..<shape[1])
-      echo inds
       var coord: seq[seq[int]]
       if column == true:
         # fixed column
@@ -1483,43 +1661,144 @@ template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
   h5f.get(name)
 
 
-proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T) =
+proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_check = false) =
   # writes the attribute `name` of value `val` to the object `h5o`
-  # easiest to implement?
+  # NOTE: by defalt this function overwrites an attribute, if an attribute
+  # of the same name already exists!
   # need to
   # - create simple dataspace
   # - create attribute
   # - write attribute
   # - add attribute to h5attr
   # - later close attribute when closing parent of h5attr
-  when T is SomeNumber or T is char:
-    let
-      dtype = nimToH5type(T)
-      # create dataspace for single element attribute
-      attr_dspace_id = simple_dataspace(1)
+
+  var attr_exists = false
+  # the first check is done, since we may be calling this function KNOWING that
+  # the attribute does not exist. This should normally not be done by a user,
+  # but only in case we have previously succesfully deleted the attribute
+  if skip_check == false:
+    attr_exists = existsAttribute(h5attr.parent_id, name)
+    withDebug:
+      echo "Attribute $# exists $#" % [name, $attr_exists]
+  if attr_exists == false:
+    # create a H5Attr, which we add to the table attr_tab of the given
+    # h5attr object once we wrote it to file
+    var attr: H5Attr
+    
+    when T is SomeNumber or T is char:
+      let
+        dtype = nimToH5type(T)
+        # create dataspace for single element attribute
+        attr_dspace_id = simple_dataspace(1)
+        # create the attribute
+        attribute_id = H5Acreate2(h5attr.parent_id, name, dtype, attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT)
+        # mutable copy for address
+      var mval = val
+      # write the value
+      discard H5Awrite(attribute_id, dtype, addr(mval))
+
+      # write information to H5Attr tuple
+      attr.attr_id = attribute_id
+      attr.dtype_c = dtype
+      # set any kind fields (check whether is sequence)
+      setAttrAnyKind(attr)
+      attr.attr_dspace_id = attr_dspace_id
+      
+    elif T is seq or T is string:
+      # NOTE:
+      # in principle we need to differentiate between simple sequences and nested
+      # sequences. However, for now only support normal seqs.
+      # extension to nested seqs should be easy (using shape, handed simple_dataspace),
+      # however we still need to have a good function to get the basetype of a nested
+      # sequence for that
+      when T is seq:
+        # take first element of sequence to get the datatype
+        let dtype = nimToH5type(type(val[0]))
+        # create dataspace for attribute
+        # 1D so call simple_dataspace with integer, instead of seq
+        let attr_dspace_id = simple_dataspace(len(val))
+      else:
+        let
+          # get copy of string type
+          dtype = nimToH5type(type(val))
+          # and reserve dataspace for string
+          attr_dspace_id = string_dataspace(val, dtype)
       # create the attribute
-      attribute_id = H5Acreate2(h5attr.parent_id, name, dtype, attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT)
+      let attribute_id = H5Acreate2(h5attr.parent_id, name, dtype, attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT)
       # mutable copy for address
-    var mval = val
-    # write the value
-    discard H5Awrite(attribute_id, dtype, addr(mval))
-  elif T is seq:
-    discard
-  elif T is char:
-    discard
-  elif T is bool:
-    discard
-  elif T is string:
-    discard
+      var mval = val
+      # write the value
+      discard H5Awrite(attribute_id, dtype, addr(mval[0]))
+
+      # write information to H5Attr tuple
+      attr.attr_id = attribute_id
+      attr.dtype_c = dtype
+      # set any kind fields (check whether is sequence)
+      setAttrAnyKind(attr)
+      attr.attr_dspace_id = attr_dspace_id
+    elif T is bool:
+      # NOTE: in order to support booleans, we need to use HDF5 enums, since HDF5 does not support
+      # a native boolean type. H5 enums not supported yet though...
+      echo "Type `bool` currently not supported as attribute"
+      discard
+    else:
+      echo "Type `$#` currently not supported as attribute" % $T.name
+      discard
+
+    # add H5Attr tuple to H5Attributes table
+    h5attr.attr_tab[name] = attr
   else:
-    discard
+    # if it does exist, we delete the attribute and call this function again, with
+    # exists = true, i.e. without checking again whether element exists. Saves us
+    # a call to the hdf5 library
+    let success = deleteAttribute(h5attr.parent_id, name)
+    if success == true:
+      write_attribute(h5attr, name, val, true)
+    else:
+      raise newException(LibraryError, "Call to HDF5 library failed on call in `deleteAttribute`")
 
 template `[]=`*[T](h5attr: var H5Attributes, name: string, val: T) =
   # convenience access to write_attribue
   h5attr.write_attribute(name, val)
 
 proc read_attribute*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[T]): T =
-  discard
+  # now implement reading of attributes
+  # finally still need a read_all attribute. This function only reads a single one, if
+  # it exists.
+  # check existence, since we read all attributes upon creation of H5Attributes object
+  # (attr as small, so the performance overhead should be minimal), we can just access
+  # the attribute table to check for existence
+
+  # TODO: check err values!
+  
+  let attr_exists = hasKey(h5attr.attr_tab, name)
+  var err: herr_t
+  if attr_exists:
+    # in case of existence, read the data and return
+    let attr = h5attr.attr_tab[name]
+    when T is SomeNumber or T is char:
+      var at_val: T
+      err = H5Aread(attr.attr_id, attr.dtype_c, addr(at_val))
+      result = at_val
+    elif T is seq:
+      # determine number of elements in seq
+      let npoints = H5Sget_simple_extent_npoints(attr.attr_dspace_id)
+      # return correct type based on base kind
+      var buf_seq: T = @[]
+      buf_seq.setLen(npoints)
+      # read data
+      err = H5Aread(attr.attr_id, attr.dtype_c, addr(buf_seq[0]))
+      result = buf_seq
+    elif T is string:
+      # in case of string, need to determine size. use:
+      let string_len = H5Aget_storage_size(attr.attr_id)
+      var buf_string = newString(string_len)
+      # read data
+      err = H5Aread(attr.attr_id, attr.dtype_c, addr(buf_string[0]))
+      result = buf_string
+  else:
+    # raise error
+    discard
 
 template `[]`*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[T]): T =
   # convenience access to read_attribute
@@ -1530,8 +1809,3 @@ template `[]`*(h5attr: H5Attributes, name: string): AnyKind =
   # attribute as an AnyKind value
   h5attr.attr_tab[name].dtypeAnyKind
 
-#proc attrs*[T](h5attr: var H5Attributes): Table[string, AnyKind] =
-  # proc to iterate over all attributes of the given object and return a table
-  # of the attribute names and their types as AnyKind type
-  # probably the hardest to implement...
-#  discard
