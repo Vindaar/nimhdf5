@@ -100,36 +100,16 @@ proc write_some() =
   dset_vlen.write(3, 1337)
 
   # # now write some attributes
-  # g1.attrs["HODL"] = true
-  # g1.attrs["Time"] = "21:19"
-  g1.attrs["Counter"]= 125
+  g1.attrs["Time"] = "21:19"
+  g1.attrs["Counter"]= 128
+  g1.attrs["Seq"] = @[1, 2, 3, 4]
   # will be visible in file as 73 (decimal value of ascii for 'I')
   g1.attrs["Type"]= 'I'
+  # boolean type not yet supported
+  # g1.attrs["HODL"] = true
+  # g1.attrs["UnsupportedType"] = [1, 2, 3]
 
-  # # get table of attributes
-  #var attr = g1.attrs
-  #echo attr
-  # # attr contains keys: string, values: AnyKind
-  # # where the value describes the data type of the attribute
-  # # so if we want to read some attribute now, simply
-  # case attr["Counter"]
-  # of akInt:
-  #   let val = g1.attrs["Counter", int]
-  #   echo "Counter is int with val = ", val
-  # of akFloat:
-  #   let val = g1.attrs["Counter", float]
-  #   echo "Counter is is float with val = ", val    
-  # else:
-  #   discard
-  # # of course, if you know the data type, feel free to just call
-  # # take note however, that each call to attr(<key>, <type>) performs a call
-  # # to the HDF5 library. So if you wish to avoid the overhead of performing
-  # # repetetive calls, store the attributes!
-  # let val = g1.attrs["Counter", int]
-  # echo "Counter type value is still = ", val
-  # from the get go
-
-
+  echo g1.attrs
   
   # close datasets, groups and file
   status = h5f.close()
@@ -175,6 +155,40 @@ proc read_some() =
   # the data type
   let data = dataset[float64]
   echo data
+
+
+  # read attributes back
+  let g1_name = "/group1"
+  var g1 = file[g1_name.grp_str]
+  echo g1.attrs.read_attribute("Counter", int)
+
+  # get table of attributes
+  var attr = g1.attrs
+  echo attr
+  # attr contains keys: string, values: AnyKind
+  # where the value describes the data type of the attribute
+  # so if we want to read some attribute now, simply
+  case attr["Counter"]
+  of akInt, akInt64:
+    let val = g1.attrs["Counter", int]
+    echo "Counter is int with val = ", val
+  of akFloat:
+    let val = g1.attrs["Counter", float]
+    echo "Counter is is float with val = ", val    
+  else:
+    echo "somethign weird somethingsomething ", attr["Counter"]
+    discard
+  # of course, if you know the data type, feel free to just call
+  let val = g1.attrs["Counter", int]
+  # from the get go
+  # take note however, that each call to attr(<key>, <type>) performs a call
+  # to the HDF5 library. So if you wish to avoid the overhead of performing
+  # repetetive calls, store the attributes!
+  echo "Counter type value is still = ", val
+  let seq_val = g1.attrs["Seq", seq[int]]
+  echo "Seq val is = ", seq_val
+  let time = g1.attrs["Time", string]
+  echo "Time val is = ", time
 
   # or even another way: create a case based on the AnyKind field of the. 
   # dataset like so (this is what the withDset template does internally):
