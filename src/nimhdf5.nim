@@ -1813,3 +1813,48 @@ template `[]`*(h5attr: H5Attributes, name: string): AnyKind =
   # attribute as an AnyKind value
   h5attr.attr_tab[name].dtypeAnyKind
 
+proc getObjectTypeByName(h5id: hid_t, name: string): H5O_type_t =
+  # proc to retrieve the type of an object (dataset or group etc) based on
+  # a location in the HDF5 file and a relative name from there
+  var h5info: H5O_info_t
+  let err = H5Oget_info_by_name(h5id, name, addr(h5info), H5P_DEFAULT)
+  withDebug:
+    echo "Getting Type of object ", name
+  if err >= 0:
+    result = h5info.`type`
+  else:
+    raise newException(LibraryError, "Call to HDF5 library failed in `getObjectTypeByName`")
+
+proc getObjectIdByName(h5file: var H5FileObj, name: string): hid_t =
+  # proc to retrieve the location ID of a H5 object based its relative path
+  # to the given id
+  let h5type = getObjectTypeByName(h5file.file_id, name)
+  # get type
+  withDebug:
+    echo "Getting ID of object ", name
+  if h5type == H5O_TYPE_GROUP:
+    result = h5file[name.grp_str].group_id
+  elif h5type == H5O_TYPE_DATASET:
+    result = h5file[name.dset_str].dataset_id
+
+proc create_hardlink*(h5file: var H5FileObj, target: string, link_name: string) =
+  # proc to create hardlinks between pointing to an object `target`. Can be either a group
+  # or a dataset, defined by its name (full path!)
+  # the target has to exist, while the link_name must be free
+  var err: herr_t
+  if existsInFile(h5file.file_id, target) > 0:
+    if existsInFile(h5file.file_id, link_name) == 0:
+      # get the information about the existing link by its name
+      let target_id = getObjectIdByName(h5file, target)
+      # to get the id of the link name, we need to first determine the parent
+      # of the link
+      let parent = getParent(link_name)
+      let link_id   = getObjectIdByName(h5file, parent)
+      err = H5Lcreate_hard(h5file.file_id, target, link_id, link_name, H5P_DEFAULT, H5P_DEFAULT)
+      if err < 0:
+        raise newException(LibraryError, "Call to HDF5 library failed in `create_hardlink` upon trying to link $# -> $#" % [link_name, target])
+    else:
+      echo "Warning: Did not create hard link $# -> $# in file, already exists in file $#" % [link_name, target, h5file.name]
+  else:
+    raise newException(KeyError, "Cannot create link to $#, does not exist in file $#" % [$target, $h5file.name])
+  
