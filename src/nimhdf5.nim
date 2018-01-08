@@ -1280,10 +1280,14 @@ proc flatten*[T: seq](a: seq[T]): auto =  a.concat.flatten
 
 template toH5vlen[T](data: var seq[T]): untyped =
   when T is seq:
-    mapIt(toSeq(0..mdata.high), hvl_t(`len`: csize(mdata[it].len), p: addr(mdata[it][0])))
+    mapIt(toSeq(0..data.high)) do:
+      if data[it].len > 0:
+        hvl_t(`len`: csize(data[it].len), p: addr(data[it][0]))
+      else:
+        hvl_t(`len`: csize(0), p: nil)
   else:
     # this doesn't make sense ?!...
-    mapIt(toSeq(0..mdata.high), hvl_t(`len`: csize(mdata[it]), p: addr(mdata[it][0])))
+    mapIt(toSeq(0..data.high), hvl_t(`len`: csize(data[it]), p: addr(data[it][0])))
     
 proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArray[T])  
   # procedure to write a sequence of array to a dataset
