@@ -350,7 +350,6 @@ proc h5ToNimType(dtype_id: hid_t): AnyKind =
   
   # TODO: we may can seperate the dtypes by class using H5Tget_class, which returns a value
   # of the H5T_class_t enum (e.g. H5T_FLOAT)
-  echo H5Tget_class(dtype_id)
   withDebug:
     echo "dtype is ", dtype_id
     echo "native is ", H5Tget_native_type(dtype_id, H5T_DIR_ASCEND)
