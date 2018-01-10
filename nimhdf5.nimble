@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.1"
+version       = "0.2.2"
 author        = "Sebastian Schmidt"
 description   = "A wrapper for the HDF5 data format C library"
 license       = "BSD"
