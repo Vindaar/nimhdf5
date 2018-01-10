@@ -3,7 +3,7 @@
 version       = "0.2.2"
 author        = "Sebastian Schmidt"
 description   = "A wrapper for the HDF5 data format C library"
-license       = "BSD"
+license       = "MIT"
 srcDir        = "src"
 skipDirs      = @["examples, c_headers"]
 skipExt       = @["nim~"]

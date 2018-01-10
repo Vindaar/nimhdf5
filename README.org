@@ -100,5 +100,5 @@ which uses the currently available high-level bindings.
 ** To be done
 - clean up the code and refactor into several files!
 - build unit tests
-- add more basic features, e.g. writing attributes to data
+- add reading / writing of hyperslabs
 - ... lots and lots more
