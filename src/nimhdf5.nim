@@ -2068,8 +2068,14 @@ proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
     # dataspace, since this internally refreshes the dataset. Important
     # since the dataset might be opened for reading when this
     # proc is called
-    dset.dataspace_id = H5Dget_space(dset.dataset_id)    
+    dset.dataspace_id = H5Dget_space(dset.dataset_id)
     let status = H5Dset_extent(dset.dataset_id, addr(newshape[0]))
+    # set the shape we just resized to as the current shape
+    dset.shape = mapIt(newshape, int(it))
+
+    # after all is said and done, refresh again
+    dset.dataspace_id = H5Dget_space(dset.dataset_id)
+        
     if status < 0:
       raise newException(HDF5LibraryError, "Call to HDF5 library failed in `resize` calling `H5Dset_extent`")
   else:
