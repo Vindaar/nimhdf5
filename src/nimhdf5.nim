@@ -178,6 +178,8 @@ type
   # this exception is used in cases where all conditional cases are already thought
   # to be covered to annotate (hopefully!) unreachable branches
   UnkownError* = object of Exception
+  # raised if a call to a HDF5 library function returned with an error
+  # (typically result < 0 means error)
   HDF5LibraryError* = object of Exception
   # raised if the user tries to change the size of an immutable dataset, i.e. non-chunked storage
   ImmutableDatasetError* = object of Exception
@@ -975,15 +977,15 @@ template simple_dataspace[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): h
     if m_maxshape.len > 0:
       H5Screate_simple(cint(len(mshape)), addr(mshape[0]), addr(m_maxshape[0]))
     else:
-      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), nil)      
+      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), nil)
   elif T is int:
     # in this case 1D
     var mshape = hsize_t(shape)
     # maxshape is still a sequence, so take `0` element as address
-    if m_maxshape.len > 0:    
+    if m_maxshape.len > 0:
       H5Screate_simple(cint(1), addr(mshape), addr(m_maxshape[0]))
     else:
-      H5Screate_simple(cint(1), addr(mshape), nil)      
+      H5Screate_simple(cint(1), addr(mshape), nil)
 
 proc create_simple_memspace_1d[T](coord: seq[T]): hid_t {.inline.} =
   ## convenience proc to create a simple 1D memory space for N coordinates
@@ -1453,6 +1455,9 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
 
   # TODO: IMPORTANT: think about whether we should be using array types instead
   # of a dataspace of certain dimensions for arrays / nested seqs we're handed
+
+  var err: herr_t
+    
   if ind == RW_ALL:
     let shape = dset.shape
     withDebug:
@@ -1481,16 +1486,24 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
           #   data_hvl[i].p = addr(d[0])#cast[pointer]()
           #   inc i
           var data_hvl = mdata.toH5vlen
-          discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                           addr(data_hvl[0]))
+          err = H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                         addr(data_hvl[0]))
+          if err < 0:
+            withDebug:
+              echo "Trying to write data_hvl ", data_hvl
+            raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `[All]=`")
         else:
           echo "VLEN datatype does not make sense, if the data is of type seq[$#]" % T.name
           echo "Use normal datatype instead. Or did you only hand a single element"
           echo "of your vlen data?"
       else:
         var data_write = flatten(data) 
-        discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                         addr(data_write[0]))
+        err = H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                       addr(data_write[0]))
+        if err < 0:
+          withDebug:
+            echo "Trying to write data_write ", data_write
+          raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `[All]=`")
     else:
       var msg = """
 Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has shape `$#`"""
@@ -1509,8 +1522,12 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: AnyTensor[T]) =
       # check whether each dimension is the same size
       let shape_good = foldl(mapIt(toSeq(0..dset.shape.high), tensor_shape[it] == dset.shape[it]), a == b, true)
       var data_write = data.squeeze.toRawSeq
-      discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                       addr(data_write[0]))
+      let err = H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                         addr(data_write[0]))
+      if err < 0:
+        withDebug:
+          echo "Trying to write tensor ", data_write
+        raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `[Tensor]=`")
     else:
       var msg = """
 Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has shape `$#`"""
@@ -1542,8 +1559,12 @@ proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: var seq[T]) = 
       echo "shape before is ", data.shape
       echo data
     var data_write = flatten(data) 
-    discard H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                     addr(data_write[0]))
+    let err = H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                       addr(data_write[0]))
+    if err < 0:
+      withDebug:
+        echo "Trying to write data_write from slice ", data_write
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `[Slice]=`")
   else:
     # TODO: replace by exception
     echo "All bad , shapes are ", data.shape, " ", dset.shape
@@ -1672,6 +1693,7 @@ Wrong input shape of buffer to write to in `read`. Buffer shape `$#`, dataset ha
 
 proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
   # check whehter we have data for each coordinate
+  var err: herr_t
   when U isnot seq:
     var mdata = @[data]
   else:
@@ -1695,13 +1717,20 @@ proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
       echo H5Sget_select_bounds(dset.dataspace_id, addr(start[0]), addr(ending[0]))
       echo "start and ending ", start, " ", ending
     
-    discard H5Dwrite(dset.dataset_id,
-                     dset.dtype_c,
-                     memspace_id,
-                     dset.dataspace_id,
-                     H5P_DEFAULT,
-                     addr(data_hvl[0]))
-    discard H5Sclose(memspace_id)
+    err = H5Dwrite(dset.dataset_id,
+                   dset.dtype_c,
+                   memspace_id,
+                   dset.dataspace_id,
+                   H5P_DEFAULT,
+                   addr(data_hvl[0]))
+    if err < 0:
+      withDebug:
+        echo "Trying to write data_hvl ", data_hvl
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `write_vlen`")
+    err = H5Sclose(memspace_id)
+    if err < 0:
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sclose` in `write_vlen`")
+    
   else:
     var msg = """
 Invalid coordinates or corresponding data to write in `write_vlen`. Coord shape `$#`, data shape `$#`"""
@@ -1713,6 +1742,7 @@ proc write_norm*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
   ## to write 'data' to. Need to have one element in data for each coord and
   ## data needs to be of shape corresponding to coord
   # mutable copy
+  var err: herr_t
   var mdata = data
   let
     # check if coordinates are valid, i.e. each coordinate has rank of dataset
@@ -1724,13 +1754,19 @@ proc write_norm*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
   if valid_coords == true and valid_data == true:
     let memspace_id = create_simple_memspace_1d(coord)
     dset.select_elements(coord)
-    discard H5Dwrite(dset.dataset_id,
-                     dset.dtype_c,
-                     memspace_id,
-                     dset.dataspace_id,
-                     H5P_DEFAULT,
-                     addr(mdata[0]))
-    discard H5Sclose(memspace_id)
+    err = H5Dwrite(dset.dataset_id,
+                   dset.dtype_c,
+                   memspace_id,
+                   dset.dataspace_id,
+                   H5P_DEFAULT,
+                   addr(mdata[0]))
+    if err < 0:
+      withDebug:
+        echo "Trying to write mdata ", mdata
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `write_norm`")
+    err = H5Sclose(memspace_id)
+    if err < 0:
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sclose` in `write_norm`")    
   else:
     var msg = """
 Invalid coordinates or corresponding data to write in `write_norm`. Coord shape `$#`, data shape `$#`"""
@@ -1744,7 +1780,6 @@ template write*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
     dset.write_vlen(coord, data)
   else:
     dset.write_norm(coord, data)
-  
 
 template write*[T: (SomeNumber | bool | char | string), U](dset: var H5DataSet,
                                                            coord: seq[T],
@@ -1773,7 +1808,8 @@ template write*[T: (seq | SomeNumber | bool | char | string)](dset: var H5DataSe
                                                               data: T,
                                                               column = false) =
   ## template around both write fns for normal and vlen data in case we're dealing with 1D
-  ## arrays and want to write a single value at index `ind`
+  ## arrays and want to write a single value at index `ind`. Allows for broadcasting along
+  ## row or column
   ## throws:
   ##    ValueError: in case data does not fit to whole row or column, if we want to write
   ##                whole row or column by giving index and broadcasting the indices to
