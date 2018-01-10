@@ -24,6 +24,7 @@ proc write_some() =
   var dset = h5f.create_dataset("/group1/group2/dset", (2, 2, 5), float64)
   var dset1D = h5f.create_dataset("/group1/dset1D", 5, float64)
   var dset_broadcast = h5f.create_dataset("/group1/dsetbroadcast", (3, 3), int)
+  var dset_resize = h5f.create_dataset("/group1/dsetresize", (3, 3), int, chunksize = @[3, 3], maxshape = @[9, 9])
   # define special type for variable length datatype
   let vlen_type = special_type(int)
   var dset_vlen = h5f.create_dataset("/group1/dset_vlen", 5, vlen_type)
@@ -75,6 +76,11 @@ proc write_some() =
   dset[dset.all] = d_ar
   dset1D[dset1D.all] = d1d
   dset_broadcast[dset_broadcast.all] = d_br
+  # NOTE: if you call this programm twice in a row, dset_resize will already have been
+  # resized to (9, 9). This means that the following line will instead of writing the
+  # data to the top left (3, 3) array, it will now write all entries of the first
+  # row of the (9, 9) array!
+  dset_resize[dset_resize.all] = d_br
   dset_vlen[dset_vlen.all] = d_vlen
 
   # write values for multiple coordinates by handing sequences of coordinates and
@@ -98,6 +104,11 @@ proc write_some() =
   dset_vlen.write(@[1], @[8, 3, 12, 3, 3, 555, 23234234])
   # write single element into single index
   dset_vlen.write(3, 1337)
+
+  # now resize the dsetresize dataset and write additional data to it
+  dset_resize.resize((9, 9))
+  # now write some data to the bottom right of the resized array
+  dset_resize.write(@[@[7,7], @[7,8], @[8,7], @[8,8]], @[1, 1, 1, 1])
 
   # # now write some attributes
   g1.attrs["Time"] = "21:19"
