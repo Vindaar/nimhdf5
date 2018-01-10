@@ -9,6 +9,7 @@ import typetraits
 import typeinfo
 import sequtils
 import tables
+import strutils
 
 const FILE = "dset.h5"
 
@@ -187,7 +188,7 @@ proc read_some() =
     let val = g1.attrs["Counter", float]
     echo "Counter is is float with val = ", val    
   else:
-    echo "somethign weird somethingsomething ", attr["Counter"]
+    echo "Datatype $# not covered here" % $attr["Counter"]
     discard
   # of course, if you know the data type, feel free to just call
   let val = g1.attrs["Counter", int]
