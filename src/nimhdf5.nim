@@ -1855,15 +1855,15 @@ template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
 
 
 proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_check = false) =
-  # writes the attribute `name` of value `val` to the object `h5o`
-  # NOTE: by defalt this function overwrites an attribute, if an attribute
-  # of the same name already exists!
-  # need to
-  # - create simple dataspace
-  # - create attribute
-  # - write attribute
-  # - add attribute to h5attr
-  # - later close attribute when closing parent of h5attr
+  ## writes the attribute `name` of value `val` to the object `h5o`
+  ## NOTE: by defalt this function overwrites an attribute, if an attribute
+  ## of the same name already exists!
+  ## need to
+  ## - create simple dataspace
+  ## - create attribute
+  ## - write attribute
+  ## - add attribute to h5attr
+  ## - later close attribute when closing parent of h5attr
 
   var attr_exists = false
   # the first check is done, since we may be calling this function KNOWING that
@@ -2080,3 +2080,47 @@ proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
       raise newException(HDF5LibraryError, "Call to HDF5 library failed in `resize` calling `H5Dset_extent`")
   else:
     raise newException(ImmutableDatasetError, "Cannot resize a non-chunked (i.e. contiguous) dataset!")
+
+proc select_hyperslab(dset: var H5DataSet, offset, count: seq[int], stride, blk: seq[int] = @[]) =
+  # given the dataspace of `dset`, select a hyperslab of it using `offset`, `stride`, `count` and `blk`
+  # for which all needs to hold:
+  # dset.shape.len == offset.shape.len, i.e. they need to be of the same rank as dset is
+  # we currently set the hyperslab selection such that previous selections are overwritten (2nd argument)
+  var
+    err: herr_t
+    moffset = mapIt(offset, hsize_t(it))
+    mcount  = mapIt(count, hsize_t(it))
+    mstride: seq[hsize_t] = @[]
+    mblk: seq[hsize_t] = @[]
+  if stride.len > 0:
+    mstride = mapIt(stride, hsize_t(it))
+  if blk.len > 0:
+    mblk    = mapIt(blk, hsize_t(it))    
+
+  if stride.len > 0 and blk.len > 0:
+    err = H5Sselect_hyperslab(dset.dataspace_id, H5S_SELECT_SET, addr(moffset[0]), addr(mstride[0]), addr(mcount[0]), addr(mblk[0]))
+  elif stride.len > 0 and blk.len == 0:
+    err = H5Sselect_hyperslab(dset.dataspace_id, H5S_SELECT_SET, addr(moffset[0]), addr(mstride[0]), addr(mcount[0]), nil)
+  elif stride.len == 0 and blk.len > 0:
+    err = H5Sselect_hyperslab(dset.dataspace_id, H5S_SELECT_SET, addr(moffset[0]), nil, addr(mcount[0]), addr(mblk[0]))    
+  if err < 0:
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sselect_hyperslab` in `select_hyperslab`")
+
+proc write_hyperslab*[T](dset: var H5DataSet, data: seq[T], offset, count: seq[int], stride, blk: seq[int] = @[]) =
+  # proc to select a hyperslab and write to it
+  var err: herr_t
+
+  # flatten the data array to be written
+  var mdata = data.flatten
+  
+  let memspace_id = simple_dataspace(dset.shape)
+  dset.select_hyperslab(offset, count, stride, blk)
+
+  err = H5Dwrite(dset.dataset_id, dset.dtype_c, memspace_id, dset.dataspace_id, H5P_DEFAULT, addr(mdata[0]))
+  if err < 0:
+    withDebug:
+      echo "Trying to write mdata ", mdata
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `write_hyperslab`")
+  err = H5Sclose(memspace_id)
+  if err < 0:
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sclose` in `write_vlen`")
