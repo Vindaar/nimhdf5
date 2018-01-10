@@ -80,6 +80,12 @@ type
     # we store the shape information internally as a seq, so that we do
     # not have to know about it at compile time
     shape*: seq[int]
+    # maxshape stores the maximum size of each dimension the dataset can have,
+    # if empty sequence or one dimension set to `int.high`, unlimited size
+    maxshape*: seq[int]
+    # if chunking is used, stores the size of a chunk, same shape as `shape`, e.g.
+    # if shape is @[1000, 1000], chunksize may be @[100, 100]
+    chunksize*: seq[int]
     # descriptor of datatype as string of the Nim type
     dtype*: string
     dtypeAnyKind*: AnyKind
@@ -104,6 +110,11 @@ type
     all*: DsetReadWrite
     # attr stores information about attributes
     attrs*: H5Attributes
+    # property list identifiers, which stores information like "is chunked storage" etc.
+    # here we store H5P_DATASET_ACCESS property list 
+    dapl_id*: hid_t
+    # here we store H5P_DATASET_CREATE property list 
+    dcpl_id*: hid_t
 
   # an object to store information about a HDF5 group
   H5Group* = object #of H5Object
@@ -129,7 +140,12 @@ type
     # each group may have subgroups itself, keep table of these
     groups: ref Table[string, ref H5Group]
     # attr stores information about attributes
-    attrs*: H5Attributes    
+    attrs*: H5Attributes
+    # property list identifier, which stores information like "is chunked storage" etc.
+    # here we store H5P_GROUP_ACCESS property list 
+    gapl_id*: hid_t
+    # here we store H5P_GROUP_CREATE property list 
+    gcpl_id*: hid_t
 
   H5FileObj* = object #of H5Object
     name*: string
@@ -152,7 +168,19 @@ type
     datasets*: Table[string, H5DataSet]
     dataspaces: Table[string, hid_t]
     # attr stores information about attributes
-    attrs*: H5Attributes    
+    attrs*: H5Attributes
+    # property list identifier, which stores information like "is chunked storage" etc.
+    # here we store H5P_FILE_ACCESS property list    
+    fapl_id*: hid_t
+    # here we store H5P_FILE_CREATE property list    
+    fcpl_id*: hid_t
+
+  # this exception is used in cases where all conditional cases are already thought
+  # to be covered to annotate (hopefully!) unreachable branches
+  UnkownError* = object of Exception
+  HDF5LibraryError* = object of Exception
+  # raised if the user tries to change the size of an immutable dataset, i.e. non-chunked storage
+  ImmutableDatasetError* = object of Exception
 
 const    
     H5_NOFILE = hid_t(-1)
@@ -277,6 +305,7 @@ proc getNumAttrs(h5attr: var H5Attributes): int =
   # at other places too?
   # reserve space for the info object
   var h5info: H5O_info_t
+  echo h5attr.parent_id
   let err = H5Oget_info(h5attr.parent_id, addr(h5info))
   if err >= 0:
     # successful
@@ -286,7 +315,7 @@ proc getNumAttrs(h5attr: var H5Attributes): int =
     var loc = cstring(".")
     result = int(h5info.num_attrs)
   else:
-    raise newException(LibraryError, "Call to HDF5 library failed in `getNumAttr`")
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getNumAttr` when reading $#" % $h5attr.parent_name)
 
 proc setAttrAnyKind(attr: var H5Attr) =
   # proc which sets the AnyKind fields of a H5Attr
@@ -483,7 +512,7 @@ proc existsAttribute(h5id: hid_t, name: string): bool =
   elif exists == 0:
     result = false
   else:
-    raise newException(LibraryError, "HDF5 library called returned bad value in `existsAttribute` function")
+    raise newException(HDF5LibraryError, "HDF5 library called returned bad value in `existsAttribute` function")
 
 template existsAttribute[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: string): bool =
   # proc to check whether a given
@@ -669,7 +698,13 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       result.dtype_c = H5Tget_native_type(datatype_id, H5T_DIR_ASCEND)
       result.dtype_class = H5Tget_class(datatype_id)
 
+      # get the dataset access property list 
+      result.dapl_id = H5Dget_access_plist(result.dataset_id)
+      # get the dataset create property list
+      result.dapl_id = H5Dget_create_plist(result.dataset_id)
       withDebug:
+        echo "ACCESS PROPERTY LIST IS ", result.dapl_id
+        echo "CREATE PROPERTY LIST IS ", result.dapl_id      
         echo H5Tget_class(datatype_id)
       
       # get the shape of the dataset
@@ -911,17 +946,44 @@ proc close*(h5f: H5FileObj): herr_t =
   
   result = H5Fclose(h5f.file_id)
 
-template simple_dataspace[T: (seq | int)](shape: T): hid_t =
+proc set_chunk(papl_id: hid_t, chunksize: seq[int]): hid_t =
+  # proc to set chunksize of the given object, should be a dataset,
+  # but we do not perform checks!
+  var mchunksize = mapIt(chunksize, hsize_t(it))
+  result = H5Pset_chunk(papl_id, cint(len(mchunksize)), addr(mchunksize[0]))
+
+proc parseMaxShape(maxshape: seq[int]): seq[hsize_t] =
+  # this proc parses the maxshape given to simple_dataspace by taking into
+  # account the following rules:
+  # @[] -> nil (meaning H5Screate_simple will interpret as same dimension as shape)
+  # per dimension:
+  # `int.high` -> H5S_UNLIMITED
+  if maxshape.len == 0:
+    result = nil
+  else:
+    result = mapIt(maxshape, if it == int.high: H5S_UNLIMITED else: hsize_t(it))
+  
+
+template simple_dataspace[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): hid_t =
   # create a simple dataspace with max dimension == current_dimension
+  # TODO: rewrite this
+  var m_maxshape: seq[hsize_t] = parseMaxShape(maxshape)
   when T is seq:
     # convert ints to hsize_t (== culonglong) and create mutable copy (need
     # an address to hand it to C function as pointer)
     var mshape = mapIt(shape, hsize_t(it))
-    H5Screate_simple(cint(len(mshape)), addr(mshape[0]), nil)
+    if m_maxshape.len > 0:
+      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), addr(m_maxshape[0]))
+    else:
+      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), nil)      
   elif T is int:
     # in this case 1D
     var mshape = hsize_t(shape)
-    H5Screate_simple(cint(1), addr(mshape), nil)
+    # maxshape is still a sequence, so take `0` element as address
+    if m_maxshape.len > 0:    
+      H5Screate_simple(cint(1), addr(mshape), addr(m_maxshape[0]))
+    else:
+      H5Screate_simple(cint(1), addr(mshape), nil)      
 
 proc create_simple_memspace_1d[T](coord: seq[T]): hid_t {.inline.} =
   ## convenience proc to create a simple 1D memory space for N coordinates
@@ -953,6 +1015,9 @@ proc parseShapeTuple[T: tuple](dims: T): seq[int] =
   # NOTE: previously we returned a seq[hsize_t], but we now perform the
   # conversion from int to hsize_t in simple_dataspace() (which is the
   # only place we use the result of this proc!)
+  # TODO: move the when T is int: branch from create_dataset to here
+  # to clean up create_dataset!
+  
   var n_dims: int
   # count the number of fields in the array, since that is number
   # of dimensions we have
@@ -1093,7 +1158,68 @@ proc create_group*[T](h5f: var T, group_name: string): H5Group =
     else:
       result = createGroupFromParent(h5f, group_path)
 
-proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, shape_raw: T, dtype: (typedesc | hid_t)): H5DataSet =
+proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int]): hid_t =
+  ## proc to parse the chunk size and maxhshape arguments handed to the create_dataset()
+  ## Takes into account the different possible scenarios:
+  ##    chunksize: seq[int] = a sequence containing the chunksize, the dataset should be
+  ##            should be chunked in (if any). Empty seq: no chunking (but no resizing either!)
+  ##    maxshape: seq[int] = a sequence containing the maxmimum sizes for each
+  ##            dimension in the dataset.
+  ##            - If empty sequence and chunksize == @[] -> no chunking, maxshape == shape
+  ##            - If empty sequence and chunksize != @[] -> chunking, maxshape == shape
+  ##            To set a specific dimension to unlimited set that dimensions value to `int.high`.
+  dset.maxshape = maxshape
+  dset.chunksize = chunksize
+  if maxshape.len > 0:
+    # user wishes to create unlimited sized or limited sized + resizable dataset
+    # need to create chunked storage.
+    if chunksize.len == 0:
+      # no chunksize, but maxshape -> chunksize = shape
+      dset.chunksize = dset.shape
+    else:
+      # chunksize given, use it
+      dset.chunksize = chunksize
+    result = set_chunk(dset.dcpl_id, dset.chunksize)
+    if result < 0:
+      raise newException(HDF5LibraryError, "HDF5 library returned error on call to `H5Pset_chunk`")
+  #elif maxshape.len == 0:
+  else:
+    if chunksize.len > 0:
+      # chunksize given -> maxshape = shape
+      dset.maxshape = dset.shape
+      result = set_chunk(dset.dcpl_id, dset.chunksize)
+      if result < 0:
+        raise newException(HDF5LibraryError, "HDF5 library returned error on call to `H5Pset_chunk`")
+    else:
+      result = 0
+  #elif maxshape.len == 0 and chunksize.len == 0:
+    # this is the case of ordinary contiguous memory. In order to simplify our
+    # lives, we use this case to set the dataset creation property list back to
+    # the default. Somewhat ugly, because we introduce even more weird state changes,
+    # which seem unnecessary
+    # TODO: think about a better way to deal with creation of datasets either with or
+    # without chunked memory
+    # NOTE: create_dataset_in_file() should take care of this case.
+    #dset.dcpl_id = H5P_DEFAULT
+
+
+proc create_dataset_in_file(h5file_id: hid_t, dset: H5DataSet): hid_t =
+  ## proc to create a given dataset in the H5 file described by `h5file_id`
+  if dset.maxshape.len == 0 and dset.chunksize.len == 0:
+    result  = H5Dcreate2(h5file_id, dset.name, dset.dtype_c, dset.dataspace_id,
+                         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
+  else:
+    # in this case we are definitely working with chunked memory of some
+    # sorts, which means that the dataset creation property list is set
+    result  = H5Dcreate2(h5file_id, dset.name, dset.dtype_c, dset.dataspace_id,
+                         H5P_DEFAULT, dset.dcpl_id, H5P_DEFAULT)
+
+proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
+                                         dset_raw: string,
+                                         shape_raw: T,
+                                         dtype: (typedesc | hid_t),
+                                         chunksize: seq[int] = @[],
+                                         maxshape: seq[int] = @[]): H5DataSet = 
   ## procedure to create a dataset given a H5file object. The shape of
   ## that type is given as a tuple, the datatype as a typedescription
   ## inputs:
@@ -1102,10 +1228,18 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
   ##    shape: T = the shape of the dataset, given as a tuple
   ##    dtype = typedesc = a Nim typedesc (e.g. int, float, etc.) for that
   ##            dataset. vlen not yet supported
+  ##    chunksize: seq[int] = a sequence containing the chunksize, the dataset should be
+  ##            should be chunked in (if any). Empty seq: no chunking (but no resizing either!)
+  ##    maxshape: seq[int] = a sequence containing the maxmimum sizes for each
+  ##            dimension in the dataset.
+  ##            - If empty sequence and chunksize == @[] -> no chunking, maxshape == shape
+  ##            - If empty sequence and chunksize != @[] -> chunking, maxshape == shape
+  ##            To set a specific dimension to unlimited set that dimensions value to `int.high`.
   ## outputs:
   ##    ... some dataset object, part of the file?!
   ## throws:
   ##    ... some H5 C related errors ?!
+  var status: hid_t = 0
   when T is int:
     # in case we hand an int as the shape argument, it means we wish to write
     # 1 column data to the file. In this case define the shape from here on
@@ -1151,58 +1285,69 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj, dset_raw: string, sha
   if is_root == false:
     group = create_group(h5f, dset.parent)
   
-  # TODO: CHANGE THIS; determine parent using os file functions
   withDebug:
     echo "Getting parent Id of ", dset.name
   dset.parent_id = getParentId(h5f, dset)
-  dset.shape = shape_seq  
+  dset.shape = shape_seq
   # dset.parent_id = h5f.file_id
 
-  # check whether there already exists a dataset with the given name
-  # first in H5FileObj:
-  var exists = hasKey(h5f.datasets, dset_name)
-  if exists == false:
-    # then check the actual file for a dataset with the given name
-    # TODO: FOR NOW the location id given to H5Dopen2 is only the file id
-    # once we have the parent properly determined, we can also check for
-    # the parent (group) id!
-    withDebug:
-      echo "Checking if dataset exists via H5Lexists ", dset.name
-    dset.dataset_id = existsInFile(h5f.file_id, dset.name) # H5Lexists(h5f.file_id, dset.name, H5P_DEFAULT)
-    if dset.dataset_id > 0:
-      # in this case successful, dataset exists already
-      exists = true
-      # in this case open the dataset to read
-      dset.dataset_id   = H5Dopen2(h5f.file_id, dset.name, H5P_DEFAULT)
-      dset.dataspace_id = H5Dget_space(dset.dataset_id)
-      # TODO: include a check about whether the opened dataset actually conforms
-      # to what we wanted to create (e.g. same shape etc.)
-      
-    elif dset.dataset_id == 0:
-      # does not exist
-      # now
-      withDebug:
-        echo "Does not exist, so create dataspace ", dset.name, " with shape ", shape_seq
-      let dataspace_id = simple_dataspace(shape_seq) #H5Screate_simple(cint(len(shape_seq)), addr(shape_seq[0]), nil)      
-      
-      # using H5Dcreate2, try to create the dataset
-      withDebug:
-        echo "Does not exist, so create dataset via H5create2 ", dset.name                
-      let dataset_id = H5Dcreate2(h5f.file_id, dset_name, dtype_c, dataspace_id,
-                                  H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
 
-      dset.dataspace_id = dataspace_id
-      dset.dataset_id = dataset_id
+  # create the dataset access property list
+  dset.dapl_id = H5Pcreate(H5P_DATASET_ACCESS)
+  # create the dataset create property list
+  dset.dcpl_id = H5Pcreate(H5P_DATASET_CREATE)
+
+  # in case we wish to use chunked storage (either resizable or unlimited size)
+  # we need to set the chunksize on the dataset create property list
+  try:
+    status = dset.parseChunkSizeAndMaxShape(chunksize, maxshape)
+    if status >= 0:
+      # check whether there already exists a dataset with the given name
+      # first in H5FileObj:
+      var exists = hasKey(h5f.datasets, dset_name)
+      if exists == false:
+        # then check the actual file for a dataset with the given name
+        # TODO: FOR NOW the location id given to H5Dopen2 is only the file id
+        # once we have the parent properly determined, we can also check for
+        # the parent (group) id!
+        withDebug:
+          echo "Checking if dataset exists via H5Lexists ", dset.name
+        let in_file = existsInFile(h5f.file_id, dset.name)
+        if in_file > 0:
+          # in this case successful, dataset exists already
+          exists = true
+          # in this case open the dataset to read
+          dset.dataset_id   = H5Dopen2(h5f.file_id, dset.name, H5P_DEFAULT)
+          dset.dataspace_id = H5Dget_space(dset.dataset_id)
+          # TODO: include a check about whether the opened dataset actually conforms
+          # to what we wanted to create (e.g. same shape etc.)
+          
+        elif in_file == 0:
+          # does not exist
+          # now
+          withDebug:
+            echo "Does not exist, so create dataspace ", dset.name, " with shape ", shape_seq
+          dset.dataspace_id = simple_dataspace(shape_seq, maxshape)
+          
+          # using H5Dcreate2, try to create the dataset
+          withDebug:
+            echo "Does not exist, so create dataset via H5create2 ", dset.name
+          dset.dataset_id = create_dataset_in_file(h5f.file_id, dset)
+
+        else:
+          raise newException(HDF5LibraryError, "Call to HDF5 library failed in `existsInFile` from `create_dataset`")
     else:
-      # TODO: replace by exception
-      echo "create_dataset(): You probably see the HDF5 errors piling up..."
+      raise newException(UnkownError, "Unkown error occured due to call to `parseChunkSizeAndMaxhShape` returning with status = $#" % $status)
+  except HDF5LibraryError:
+    #let msg = getCurrentExceptionMsg()
+    echo "Call to HDF5 library failed in `parseChunkSizeAndMaxShape` from `create_dataset`"
+    raise
 
   # now create attributes field
   dset.attrs = initH5Attributes(dset.name, dset.dataset_id, "H5DataSet")
   h5f.datasets[dset_name] = dset
   # redundant:
   h5f.dataspaces[dset_name] = dset.dataspace_id
-  #dataset_id = H5Dcreate2(h5f.file_id, "/dset", H5T_STD_I32BE, dataspace_id, 
 
   result = dset
 
@@ -1762,7 +1907,7 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
     if success == true:
       write_attribute(h5attr, name, val, true)
     else:
-      raise newException(LibraryError, "Call to HDF5 library failed on call in `deleteAttribute`")
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed on call in `deleteAttribute`")
 
 template `[]=`*[T](h5attr: var H5Attributes, name: string, val: T) =
   # convenience access to write_attribue
@@ -1826,7 +1971,7 @@ proc getObjectTypeByName(h5id: hid_t, name: string): H5O_type_t =
   if err >= 0:
     result = h5info.`type`
   else:
-    raise newException(LibraryError, "Call to HDF5 library failed in `getObjectTypeByName`")
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getObjectTypeByName`")
 
 proc getObjectIdByName(h5file: var H5FileObj, name: string): hid_t =
   # proc to retrieve the location ID of a H5 object based its relative path
@@ -1855,9 +2000,36 @@ proc create_hardlink*(h5file: var H5FileObj, target: string, link_name: string) 
       let link_id   = getObjectIdByName(h5file, parent)
       err = H5Lcreate_hard(h5file.file_id, target, link_id, link_name, H5P_DEFAULT, H5P_DEFAULT)
       if err < 0:
-        raise newException(LibraryError, "Call to HDF5 library failed in `create_hardlink` upon trying to link $# -> $#" % [link_name, target])
+        raise newException(HDF5LibraryError, "Call to HDF5 library failed in `create_hardlink` upon trying to link $# -> $#" % [link_name, target])
     else:
       echo "Warning: Did not create hard link $# -> $# in file, already exists in file $#" % [link_name, target, h5file.name]
   else:
     raise newException(KeyError, "Cannot create link to $#, does not exist in file $#" % [$target, $h5file.name])
   
+proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
+  ## proc to resize the dataset to the new size given by `shape`
+  ## inputs:
+  ##     dset: var H5DataSet = dataset to be resized
+  ##     shape: T = tuple describing the new size of the dataset
+  ## Keep in mind:
+  ##   - resizing only possible for datasets using chunked storage
+  ##     (created with chunksize / maxshape != @[])
+  ##   - resizing to smaller size than current size drops data
+  ## throws:
+  ##   HDF5LibraryError: if a call to the HDF5 library fails
+  ##   ImmutableDatasetError: if the given dataset is contiguous memory instead
+  ##     of chunked storage, i.e. cannot be resized
+
+  # check if dataset is chunked storage
+  if H5Pget_layout(dset.dcpl_id) == H5D_CHUNKED:
+    var newshape = mapIt(parseShapeTuple(shape), hsize_t(it))
+    # before we resize the dataspace, we get a copy of the
+    # dataspace, since this internally refreshes the dataset. Important
+    # since the dataset might be opened for reading when this
+    # proc is called
+    dset.dataspace_id = H5Dget_space(dset.dataset_id)    
+    let status = H5Dset_extent(dset.dataset_id, addr(newshape[0]))
+    if status < 0:
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed in `resize` calling `H5Dset_extent`")
+  else:
+    raise newException(ImmutableDatasetError, "Cannot resize a non-chunked (i.e. contiguous) dataset!")
