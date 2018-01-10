@@ -1819,12 +1819,17 @@ template write*[T: (seq | SomeNumber | bool | char | string)](dset: var H5DataSe
     # if this is the case we either want to write a whole row (2D array) or
     # a single value in VLEN data
     if dset.dtype_class == H5T_VLEN:
+      # does not make sense for tensor
       dset.write(@[ind], data)
     else:
       # want to write the whole row, need to broadcast the index
       let shape = dset.shape
-      if data.len != shape[0] or data.len != shape[1]:
-        raise newException(ValueError, "Cannot broadcast ind to dataset in `write`, because data does not fit into array row / column wise")
+      if data.len != shape[0] and data.len != shape[1]:
+        let msg = """
+Cannot broadcast ind to dataset in `write`, because data does not fit into array row / column wise. 
+    data.len = $#
+    dset.shape = $#""" % [$data.len, $dset.shape]
+        raise newException(ValueError, msg)
       # NOTE: currently broadcasting ONLY works on 2D arrays!
       let inds = toSeq(0..<shape[1])
       var coord: seq[seq[int]]
