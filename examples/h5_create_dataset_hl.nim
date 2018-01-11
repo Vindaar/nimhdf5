@@ -22,7 +22,7 @@ proc write_some() =
   var h5f = H5file(FILE, "rw")
 
   # create datasets
-  var dset = h5f.create_dataset("/group1/group2/dset", (2, 2, 5), float64)
+  var dset3D = h5f.create_dataset("/group1/group2/dset3D", (2, 2, 5), float64)
   var dset1D = h5f.create_dataset("/group1/dset1D", 5, float64)
   var dset_broadcast = h5f.create_dataset("/group1/dsetbroadcast", (3, 3), int)
   var dset_resize = h5f.create_dataset("/group1/dsetresize", (3, 3), int, chunksize = @[3, 3], maxshape = @[9, 9])
@@ -74,7 +74,7 @@ proc write_some() =
   # if we simply want to write over the whole dataset, use the .all field of
   # the H5DataSet object. It's a simple enum, used to differentiate between
   # this and using indices (which ironically isn't implemented...)
-  dset[dset.all] = d_ar
+  dset3D[dset3D.all] = d_ar
   dset1D[dset1D.all] = d1d
   dset_broadcast[dset_broadcast.all] = d_br
   # NOTE: if you call this programm twice in a row, dset_resize will already have been
@@ -86,10 +86,10 @@ proc write_some() =
 
   # write values for multiple coordinates by handing sequences of coordinates and
   # one sequence of the values to write
-  dset.write(@[@[0, 0, 2], @[1, 1, 3]], @[3'f64, 123'f64])
+  dset3D.write(@[@[0, 0, 2], @[1, 1, 3]], @[3'f64, 123'f64])
   # write single value by handing sequence of single coordinate and sequence of single
   # value
-  dset.write(@[0, 1, 2], @[1337'f64])
+  dset3D.write(@[0, 1, 2], @[1337'f64])
 
   # write whole row by broadcasting one index
   dset_broadcast.write(0, @[9, 9, 9])
@@ -108,8 +108,14 @@ proc write_some() =
 
   # now resize the dsetresize dataset and write additional data to it
   dset_resize.resize((9, 9))
-  # now write some data to the bottom right of the resized array
-  dset_resize.write(@[@[7,7], @[7,8], @[8,7], @[8,8]], @[1, 1, 1, 1])
+  # now write some data to the bottom right of the resized array, using hyperslab
+  # if hyperslab is used to write a single 2D array somewhere in the dataset
+  # it's used as follows: offset is the offset in (y, x) coordinates from
+  # the (0, 0) in top left. count is basically the shape of the dataset to be written
+  # (precisely: number of elements to select of stride and block (which are not set,
+  # i.e. set to 1 for each dimension)
+  # d_br.shape is simply @[3, 3]
+  dset_resize.write_hyperslab(d_br, offset = @[6, 6], count = d_br.shape)
 
   # # now write some attributes
   g1.attrs["Time"] = "21:19"
@@ -137,7 +143,7 @@ proc read_some() =
   # Open "dset" dataset in the nested groups
   # done using distinct string type dset_str, to differentiate between groups
   # and dataset
-  var dataset = file["/group1/group2/dset".dset_str]
+  var dataset = file["/group1/group2/dset3D".dset_str]
   echo dataset
   # # read some specific elements from the dataset
   let inds = @[@[0, 0, 0], @[1, 1, 1], @[1, 1, 4]]
@@ -176,7 +182,6 @@ proc read_some() =
 
   # get table of attributes
   var attr = g1.attrs
-  echo attr
   # attr contains keys: string, values: AnyKind
   # where the value describes the data type of the attribute
   # so if we want to read some attribute now, simply
