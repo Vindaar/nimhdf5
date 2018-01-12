@@ -2033,6 +2033,15 @@ proc getObjectIdByName(h5file: var H5FileObj, name: string): hid_t =
   withDebug:
     echo "Getting ID of object ", name
   if h5type == H5O_TYPE_GROUP:
+    if hasKey(h5file.groups, name) == false:
+      # in this case we know that the group exists,
+      # otherwise we would not be calling this proc,
+      # so create the local copy of it
+      # TODO: this introduces HUGE problems, if we want to be able
+      # to call this function from everywhere, not only create_hardlinks!
+      # may not want to create such a group, if it does not exist
+      # instead return a not found error!
+      discard h5file.create_group(name)
     result = h5file[name.grp_str].group_id
   elif h5type == H5O_TYPE_DATASET:
     result = h5file[name.dset_str].dataset_id
@@ -2043,12 +2052,20 @@ proc create_hardlink*(h5file: var H5FileObj, target: string, link_name: string) 
   # the target has to exist, while the link_name must be free
   var err: herr_t
   if existsInFile(h5file.file_id, target) > 0:
+    # get the parent of link name and create that group, in case
+    # it does not exist
+    let parent = getParent(link_name)
+    if existsInFile(h5file.file_id, parent) == 0:
+      withDebug:
+        echo "Parent does not exist in file, create parent ", parent
+      discard h5file.create_group(parent)
+    
     if existsInFile(h5file.file_id, link_name) == 0:
       # get the information about the existing link by its name
       let target_id = getObjectIdByName(h5file, target)
       # to get the id of the link name, we need to first determine the parent
       # of the link
-      let parent = getParent(link_name)
+      # TODO: create parent groups of `link_name`
       let link_id   = getObjectIdByName(h5file, parent)
       err = H5Lcreate_hard(h5file.file_id, target, link_id, link_name, H5P_DEFAULT, H5P_DEFAULT)
       if err < 0:
