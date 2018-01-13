@@ -135,7 +135,7 @@ type
     # However: then H5FileObj needs to still know (!) about its dataspaces and where
     # they are located. Easily done by keeping a table of string of each dataset, which
     # contains their location simply by the path and have a table of H5Group objects
-    datasets*: Table[string, H5DataSet]
+    datasets*: ref Table[string, ref H5DataSet]
     # each group may have subgroups itself, keep table of these
     groups: ref Table[string, ref H5Group]
     # attr stores information about attributes
@@ -164,7 +164,7 @@ type
     groups*: ref Table[string, ref H5Group]
     # datasets is a table, which stores the names of datasets by string
     # while keeping the hid_t dataset_id as the value
-    datasets*: Table[string, H5DataSet]
+    datasets*: ref Table[string, ref H5DataSet]
     dataspaces: Table[string, hid_t]
     # attr stores information about attributes
     attrs*: H5Attributes
@@ -221,7 +221,7 @@ proc initH5Attributes(p_name: string = "", p_id: hid_t = -1, p_type: string = ""
 
 proc newH5File*(): H5FileObj =
   ## default constructor for a H5File object, for internal use
-  let dset = initTable[string, H5DataSet]()
+  let dset = newTable[string, ref H5DataSet]()
   let dspace = initTable[string, hid_t]()
   let groups = newTable[string, ref H5Group]()
   let attrs = newH5Attributes()
@@ -236,24 +236,25 @@ proc newH5File*(): H5FileObj =
                      attrs: attrs)
 
 
-proc newH5DataSet*(name: string = ""): H5DataSet =
+proc newH5DataSet*(name: string = ""): ref H5DataSet =
   ## default constructor for a H5File object, for internal use
   let shape: seq[int] = @[]
-  let attrs = newH5Attributes()  
-  result = H5DataSet(name: name,
-                     shape: shape,
-                     dtype: nil,
-                     dtype_c: -1,
-                     parent: "",
-                     file: "",
-                     dataspace_id: -1,
-                     dataset_id: -1,
-                     all: RW_ALL,
-                     attrs: attrs)
+  let attrs = newH5Attributes()
+  result = new H5DataSet
+  result.name = name
+  result.shape = shape
+  result.dtype = nil
+  result.dtype_c = -1
+  result.parent = ""
+  result.file = ""
+  result.dataspace_id = -1
+  result.dataset_id = -1
+  result.all = RW_ALL
+  result.attrs = attrs
 
 proc newH5Group*(name: string = ""): ref H5Group =
   ## default constructor for a H5Group object, for internal use
-  let datasets = initTable[string, H5DataSet]()
+  let datasets = newTable[string, ref H5DataSet]()
   let groups = newTable[string, ref H5Group]()
   let attrs = newH5Attributes()  
   result = new H5Group
@@ -348,6 +349,10 @@ proc read_all_attributes(h5attr: var H5Attributes) =
     setAttrAnyKind(attr)
     # add to this attribute object
     h5attr.attr_tab[name] = attr
+
+proc `$`*(dset: ref H5DataSet): string =
+    result = dset[].name
+
 
 proc `$`*(group: ref H5Group): string =
   result = "\n{\n\t'name': " & group.name & "\n\t'parent': " & group.parent & "\n\t'parent_id': " & $group.parent_id
@@ -646,7 +651,7 @@ proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
     #raise newException(KeyError, "Dataset with name: " & dset_name & " not found in file " & h5f.name)
     result = none(H5DataSet)
   else:
-    result = some(h5f.datasets[dset_name])
+    result = some(h5f.datasets[dset_name][])
 
 proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
   ## convenience proc to return the group with name grp_name
@@ -694,7 +699,7 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
   
   let dset_name = string(dset_in)
   let dset_exist = hasKey(h5f.datasets, dset_name)
-  var result = newH5DataSet(dset_name)
+  var result = newH5DataSet(dset_name)[]
   if dset_exist == false:
     # before we raise an exception, because the dataset does not yet exist,
     # check whether such a dataset exists in the file we're not aware of yet
@@ -728,8 +733,6 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       result.parent = getParent(result.name)      
       var parent = create_group(h5f, result.parent)
       result.parent_id = getH5Id(parent)
-      parent.datasets[result.name] = result
-
       result.file = h5f.name
 
       # create attributes field
@@ -740,16 +743,23 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       if status < 0:
         #TODO: replace by exception
         echo "Status of H5Tclose() returned non-negative value. H5 will probably complain now..."
-      
-      h5f.datasets[result.name] = result
+
+
+      # now that we have created the group fully (including IDs), we can add it to the file and
+      # the parent
+      var dset_ref = new H5DataSet
+      dset_ref[] = result
+      parent.datasets[result.name] = dset_ref
+      h5f.datasets[result.name] = dset_ref
     else:
       raise newException(KeyError, "Dataset with name: " & dset_name & " not found in file " & h5f.name)
   else:
-    result = h5f.datasets[dset_name]
+    result = h5f.datasets[dset_name][]
     # in this case we still need to update e.g. shape
     # TODO: think about what else we might have to update!
     result.dataspace_id = H5Dget_space(result.dataset_id)
     result.shape = readDsetShape(result.dataspace_id)
+    # TODO: also read maxshape and chunksize if any
   result
 
 template get(h5f: H5FileObj, group_in: grp_str): H5Group =
@@ -1278,7 +1288,7 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
   var shape_seq = parseShapeTuple(shape)
 
   # set up the dataset object
-  var dset = newH5DataSet(dset_name)
+  var dset = newH5DataSet(dset_name)[]
   when dtype is hid_t:
     # for now we only support vlen arrays, later we need to
     # differentiate between the different H5T class types
@@ -1357,7 +1367,9 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
 
   # now create attributes field
   dset.attrs = initH5Attributes(dset.name, dset.dataset_id, "H5DataSet")
-  h5f.datasets[dset_name] = dset
+  var dset_ref = new H5DataSet
+  dset_ref[] = dset
+  h5f.datasets[dset_name] = dset_ref
   # redundant:
   h5f.dataspaces[dset_name] = dset.dataspace_id
 
