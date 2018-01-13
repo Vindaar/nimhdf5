@@ -88,6 +88,9 @@ type
     # descriptor of datatype as string of the Nim type
     dtype*: string
     dtypeAnyKind*: AnyKind
+    # BaseKind contains the type within a (nested) seq iff
+    # dtypeAnyKind is akSequence (i.e. of variable length type)
+    dtypeBaseKind*: AnyKind
     # actual HDF5 datatype used as a hid_t, this can be handed to functions needing
     # its datatype
     dtype_c*: hid_t
@@ -307,7 +310,6 @@ proc getNumAttrs(h5attr: var H5Attributes): int =
   # at other places too?
   # reserve space for the info object
   var h5info: H5O_info_t
-  echo h5attr.parent_id
   let err = H5Oget_info(h5attr.parent_id, addr(h5info))
   if err >= 0:
     # successful
@@ -414,8 +416,11 @@ proc h5ToNimType(dtype_id: hid_t): AnyKind =
     result = akUint8
   elif H5Tget_class(dtype_id) == H5T_STRING:
     result = akString
+  elif H5Tget_class(dtype_id) == H5T_VLEN:
+    # represent vlen types as sequence for any kind
+    result = akSequence
   else:
-    raise newException(KeyError, "Warning: the following H5 type could not be converted: $#" % $dtype_id)
+    raise newException(KeyError, "Warning: the following H5 type could not be converted: $# of class $#" % [$dtype_id, $H5Tget_class(dtype_id)])
   
 template nimToH5type*(dtype: typedesc): hid_t =
   # given a typedesc, we return a corresponding
@@ -713,7 +718,15 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       # does exist, add to H5FileObj
       let datatype_id = H5Dget_type(result.dataset_id)
       let f = h5ToNimType(datatype_id)
-      result.dtype = strip($f, chars = {'a', 'k'}).toLowerAscii
+      if f == akSequence:
+        # akSequence == VLEN type
+        # in this case this only determines dtypeAnyKind, but we don't
+        # know the basetype. Set that by another call of the super of
+        # the datatype
+        result.dtypeBaseKind = h5ToNimType(H5Tget_super(datatype_id))
+        result.dtype = "vlen"
+      else:
+        result.dtype = strip($f, chars = {'a', 'k'}).toLowerAscii
       result.dtypeAnyKind = f
       result.dtype_c = H5Tget_native_type(datatype_id, H5T_DIR_ASCEND)
       result.dtype_class = H5Tget_class(datatype_id)
@@ -1633,33 +1646,6 @@ template withDset*(h5dset: H5DataSet, actions: untyped) =
     echo "it's of type ", h5dset.dtypeAnyKind
     discard
 
-proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
-  ## procedure to read the data of an existing dataset into 
-  ## inputs:
-  ##    dset: var H5DataSet = the dataset which contains the necessary information
-  ##         about dataset shape, dtype etc. to read from
-  ##    ind: DsetReadWrite = indicator telling us to read whole dataset,
-  ##         used to differentiate from the case in which we only read a hyperslab
-  ## outputs:
-  ##    seq[T]: a flattened sequence of the data in the (potentially) multidimensional
-  ##         dataset
-  ##         TODO: return the correct data shape!
-  ## throws:
-  ##     ValueError: in case the given typedesc t is different than
-  ##         the datatype of the dataset
-  if $t != dset.dtype:
-    raise newException(ValueError, "Wrong datatype as arg to `[]`. Given `$#`, dset is `$#`" % [$t, $dset.dtype])
-  let
-    shape = dset.shape
-    n_elements = foldl(shape, a * b)
-  # create a flat sequence of the size of the dataset in the H5 file, then read data
-  # cannot use the result sequence, since we need to hand the address of the sequence to
-  # the H5 library
-  var data = newSeq[T](n_elements)    
-  dset.read(data)
-  
-  result = data
-
 proc select_elements[T](dset: var H5DataSet, coord: seq[T]) {.inline.} =
   ## convenience proc to select specific coordinates in the dataspace of
   ## the given dataset
@@ -1697,6 +1683,89 @@ proc read*[T](dset: var H5DataSet, buf: var seq[T]) =
 Wrong input shape of buffer to write to in `read`. Buffer shape `$#`, dataset has shape `$#`"""
     msg = msg % [$buf.shape, $dset.shape]
     raise newException(ValueError, msg)
+
+
+proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
+  ## procedure to read the data of an existing dataset into 
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##         about dataset shape, dtype etc. to read from
+  ##    ind: DsetReadWrite = indicator telling us to read whole dataset,
+  ##         used to differentiate from the case in which we only read a hyperslab
+  ## outputs:
+  ##    seq[T]: a flattened sequence of the data in the (potentially) multidimensional
+  ##         dataset
+  ##         TODO: return the correct data shape!
+  ## throws:
+  ##     ValueError: in case the given typedesc t is different than
+  ##         the datatype of the dataset
+  if $t != dset.dtype:
+    raise newException(ValueError, "Wrong datatype as arg to `[]`. Given `$#`, dset is `$#`" % [$t, $dset.dtype])
+  let
+    shape = dset.shape
+    n_elements = foldl(shape, a * b)
+  # create a flat sequence of the size of the dataset in the H5 file, then read data
+  # cannot use the result sequence, since we need to hand the address of the sequence to
+  # the H5 library
+  var data = newSeq[T](n_elements)    
+  dset.read(data)
+  
+  result = data
+
+proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
+  ## TODO: combine this proc with the one above, by getting the data type
+  ## in this proc, checking for VLEN and if so, use dtype to create the special
+  ## type. Do it similarly to write_norm and write_vlen, split into two
+  
+  ## procedure to read the data of an existing dataset based on variable length data
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##         about dataset shape, dtype etc. to read from
+  ##    ind: DsetReadWrite = indicator telling us to read whole dataset,
+  ##         used to differentiate from the case in which we only read a hyperslab
+  ## outputs:
+  ##    seq[dtype]: a flattened sequence of the data in the (potentially) multidimensional
+  ##         dataset
+  ##         TODO: return the correct data shape!
+  ## throws:
+  ##     ValueError: in case the given typedesc t is different than
+  ##         the datatype of the dataset
+  var err: herr_t
+  # check whether t is variable length
+  let basetype = h5ToNimType(t)
+  if basetype != dset.dtypeAnyKind:
+    raise newException(ValueError, "Wrong datatype as arg to `[]`. Given `$#`, dset is `$#`" % [$t, $dset.dtype])
+  let
+    shape = dset.shape
+    n_elements = foldl(shape, a * b)
+  # create a flat sequence of the size of the dataset in the H5 file, then read data
+  # cannot use the result sequence, since we need to hand the address of the sequence to
+  # the H5 library
+  var data = newSeq[hvl_t](n_elements)
+  err = H5Dread(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                    addr(data[0]))
+  echo "H5Dread : ", err
+
+  # converting the raw data from the C library to a Nim sequence is sort of ugly, but
+  # here it goes...
+  # number of elements we read
+  result = newSeq[seq[dtype]](n_elements)
+  # iterate over every element of the pointer we have with data
+  for i in 0 ..< n_elements:
+    let elem_len = data[i].len
+    # create corresponding sequence for the size of this element
+    result[i] = newSeq[dtype](elem_len)
+    # now we need to cast the data, which is a pointer, to a ptr of an unchecked
+    # array of our datatype
+    let data_seq = cast[ptr UncheckedArray[dtype]](data[i].p)
+    # now assign each element of the unckecked array to our sequence
+    for j in 0 ..< elem_len:
+      result[i][j] = data_seq[j]
+  # since we have in effect copied the whole array, we can now safely let the H5 library
+  # reclaim the memory, which it alloc'd 
+  let dspace_id = H5Dget_space(dset.dataset_id)
+  err = H5Dvlen_reclaim(dset.dtype_c, dspace_id, H5P_DEFAULT, addr(data[0]))
+  echo "H5Dvlen_reclaim : ", err
 
 proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
   # check whehter we have data for each coordinate
@@ -2138,7 +2207,12 @@ proc select_hyperslab(dset: var H5DataSet, offset, count: seq[int], stride, blk:
   # just in case get the most current dataspace
   dset.dataspace_id = H5Dget_space(dset.dataset_id)
   # and perform the selection on this dataspace
-  err = H5Sselect_hyperslab(dset.dataspace_id, H5S_SELECT_SET, addr(moffset[0]), addr(mstride[0]), addr(mcount[0]), addr(mblk[0]))
+  err = H5Sselect_hyperslab(dset.dataspace_id,
+                            H5S_SELECT_SET,
+                            addr(moffset[0]),
+                            addr(mstride[0]),
+                            addr(mcount[0]),
+                            addr(mblk[0]))
   if err < 0:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sselect_hyperslab` in `select_hyperslab`")
 
