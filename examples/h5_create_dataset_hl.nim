@@ -27,7 +27,7 @@ proc write_some() =
   var dset_broadcast = h5f.create_dataset("/group1/dsetbroadcast", (3, 3), int)
   var dset_resize = h5f.create_dataset("/group1/dsetresize", (3, 3), int, chunksize = @[3, 3], maxshape = @[9, 9])
   # define special type for variable length datatype
-  let vlen_type = special_type(int)
+  let vlen_type = special_type(float)
   var dset_vlen = h5f.create_dataset("/group1/dset_vlen", 5, vlen_type)
 
   # define a group name and
@@ -65,11 +65,12 @@ proc write_some() =
                 @[1, 1, 1] ]
 
   # and a variable length array
-  var d_vlen = @[ @[1, 2, 3],
-                  @[4, 5],
-                  @[6, 7, 8, 9, 10],
-                  @[11, 12, 13, 14, 15],
-                  @[16, 17, 18, 19, 20, 21, 22, 22, 23, 24, 25] ]
+  var d_vlen = @[ @[1'f64, 2, 3],
+                  @[4'f64, 5],
+                  @[6'f64, 7, 8, 9, 10],
+                  @[11'f64, 12, 13, 14, 15],
+                  @[16'f64, 17, 18, 19, 20, 21, 22, 22, 23, 24, 25] ]
+  
   
   # if we simply want to write over the whole dataset, use the .all field of
   # the H5DataSet object. It's a simple enum, used to differentiate between
@@ -102,9 +103,9 @@ proc write_some() =
   dset1D.write(0, 299792458'f64)
   
   # write single or more elements of VLEN data
-  dset_vlen.write(@[1], @[8, 3, 12, 3, 3, 555, 23234234])
+  dset_vlen.write(@[1], @[8'f64, 3, 12, 3, 3, 555, 23234234])
   # write single element into single index
-  dset_vlen.write(3, 1337)
+  dset_vlen.write(3, 1337'f64)
 
   # now resize the dsetresize dataset and write additional data to it
   dset_resize.resize((9, 9))
@@ -139,11 +140,22 @@ proc read_some() =
   # Open an existing file using default properties.
   #
   var file = H5File("dset.h5", "r")
-  #
+
+  # first visit all elements in the file, for fun. Could skip this however and
+  # just read datasets and groups of whose existence we know
+  file.visitFile
+  echo file
+  echo "\n\n\n"
+  for dset in keys(file.datasets):
+    echo "Dset ", dset
+  for grp in keys(file.groups):
+    echo "Group ", grp
+  
   # Open "dset" dataset in the nested groups
   # done using distinct string type dset_str, to differentiate between groups
   # and dataset
   var dataset = file["/group1/group2/dset3D".dset_str]
+
   echo dataset
   # # read some specific elements from the dataset
   let inds = @[@[0, 0, 0], @[1, 1, 1], @[1, 1, 4]]
@@ -152,7 +164,7 @@ proc read_some() =
   var data_read = newSeq[float64](3)
   dataset.read(inds, data_read)
   echo data_read
-  
+
   echo file.datasets
   # Note: while we could in principle try to write to the dataset, we
   # just got from the file, this would fail (unfortunately with a libhdf5
@@ -173,6 +185,14 @@ proc read_some() =
   # the data type
   let data = dataset[float64]
   echo data
+
+  # read variable length data
+  let vlen_type = special_type(float)
+  var dset_vlen = file["/group1/dset_vlen".dset_str]
+  # need to hand the specific variable length type (for now, will be done in the
+  # proc later on based on the base data type) as well as the base type
+  let vlen_data = dset_vlen[vlen_type, float]
+  echo vlen_data
 
 
   # read attributes back
