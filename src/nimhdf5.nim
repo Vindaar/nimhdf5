@@ -8,7 +8,6 @@ import options
 import future
 import algorithm
 #import seqmath
-import macros
 
 # TODO: fix requirement of arraymancer!
 import arraymancer
@@ -1404,21 +1403,6 @@ template getIndexSeq(ind: int, shape: seq[int]): seq[int] =
     result[i] = rem div int(dim / d)
     rem = rem mod int(dim / d)
   result
-
-withDebug:
-  macro test_access(x: typed): untyped =
-    result = newStmtList()
-    echo treeRepr(x)
-    echo treeRepr(result)
-    for el in x:
-      echo el
-    
-  proc getValueFromArrayByIndexTuple[T](x: openArray[T], inds: seq[int]): float64 =
-    # not needed
-    dumpTree:
-      result = x[inds[0]][inds[1]]
-      x
-    test_access(x)
 
 proc shape[T: (SomeNumber | bool | char | string)](x: T): seq[int] = @[]
   # Exists so that recursive template stops with this proc.
