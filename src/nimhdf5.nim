@@ -2235,3 +2235,70 @@ proc write_hyperslab*[T](dset: var H5DataSet, data: seq[T], offset, count: seq[i
   err = H5Sclose(memspace_id)
   if err < 0:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sclose` in `write_vlen`")
+
+# proc openGroupById(h5f: H5FileObj, locaction_id: hid_t, name: string): ref H5Group =
+#   # proc which opens an existing group by its ID
+#   var group = newH5Group(name)
+#   group.group_id = H5Gopen2(locaction_id, name, H5P_DEFAULT)
+#   group.parent = getParent(name)
+#   group.parent_id = h5f.getParentId(group)
+#   group.file = h5f.name
+#   group.file_id = h5f.file_id
+#   # create attributes field
+#   group.attrs = initH5Attributes(group.name, group.group_id, "H5Group")
+
+proc addH5Object(location_id: hid_t, name_c: cstring, h5info: H5O_info_t, h5f_p: pointer): herr_t {.cdecl.} =
+  # similar proc to processH5ObjectFromRoot, except we do /not/ start at root
+  # important distinction to be able to deal with the root group itself
+  # Does this make sense? If '.' is handed to us on first call to H5Ovisit anyways,
+  # do we ever want to add the object at point? Should this not always already
+  # be part of the h5 object, or rather even if it is not, adding it will be
+  # difficult anyways, because we only have the location id. Well, we can
+  # simply open the object then and there, I suppose...
+  # NEED a proper openObjectById function...!
+  discard
+    
+proc addH5ObjectFromRoot(location_id: hid_t, name_c: cstring, h5info: H5O_info_t, h5f_p: pointer): herr_t {.cdecl.} =
+  # this proc is called for each object iterated over in visitFile.
+  # we basically just extract the information we want to have from the
+  # h5info struct and add it to the h5f file object. Needs to be
+  # a pointer here, since it's handed to C
+  # this proc is only called in the case where the start from the root group
+
+  # cast the H5FileObj pointer back
+  var h5f = cast[var H5FileObj](h5f_p)
+  if name_c == ".":
+    # in case the location is `.`, we are simply at our starting point (currently
+    # means root group), we don't want to do anything here, so continue 
+    result = 0
+  else:
+    let name = formatName($name_c)
+    if h5info.`type` == H5O_TYPE_GROUP:
+      # we discard the returned group object, don't need it here
+      # TODO: change to h5f[name.grp_str], but for that need to modify
+      # h5f.get(grp_str) such that it checks in the file for existence
+      # or rather create a open group from file proc, where we know that
+      # the file exists and we open it by id
+      discard h5f.create_group(name)
+    elif h5info.`type` == H5O_TYPE_DATASET:
+      # misuse `[]` proc for now.
+      # TODO: write proc which opens and reads dataset from file by id...
+      # see, I'm going to where the HDF5 library is in the first place...
+      discard h5f[name.dset_str]
+
+proc visitFile*(h5f: var H5FileObj, name: string = "", h5id: hid_t = 0) =
+  # this proc iterates over the whole file and reads the complete content
+  # optionally only visits all elements below hid_t or the object given by `name`
+  # H5Ovisit recursively visits any object (group or dataset + a couple specific
+  # types) and calls a callback function. Depending on the return value of that
+  # callback function, it either continues (proc returns 0), stops early and
+  # returns the value of the callback (proc returns value > 0), stops early
+  # and returns error (proc returns value < 0)
+
+  # TODO: write an iterator which makes use of this?
+  var err: herr_t
+  if h5id != 0:
+    err = H5Ovisit(h5id, H5_INDEX_NAME, H5_ITER_NATIVE, cast[H5O_iterate_t](addH5Object), cast[pointer](addr(h5f)))
+  else:
+    err = H5Ovisit(h5f.file_id, H5_INDEX_NAME, H5_ITER_NATIVE, cast[H5O_iterate_t](addH5ObjectFromRoot), cast[pointer](addr(h5f)))
+  
