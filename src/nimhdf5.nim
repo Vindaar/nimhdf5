@@ -21,6 +21,7 @@ include nimhdf5/H5nimtypes
 #    dataset to it than the one currently in the file work? Does not seem to
 #    be the case, but I didn't t see any errors either?!
 #  - add iterators for attributes, groups etc..!
+#  - add `contains` proc to check for elements in file / group (-> in, notin)
 #  - add ability to read / write hyperslabs
 #  - add ability to write arraymancer.Tensor
 #  - add a lot of safety checks
@@ -319,6 +320,8 @@ proc getNumAttrs(h5attr: var H5Attributes): int =
     var loc = cstring(".")
     result = int(h5info.num_attrs)
   else:
+    withDebug:
+      echo "getNumAttrs(): ", h5attr
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getNumAttr` when reading $#" % $h5attr.parent_name)
 
 proc setAttrAnyKind(attr: var H5Attr) =
@@ -1368,9 +1371,11 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
           withDebug:
             echo "Does not exist, so create dataset via H5create2 ", dset.name
           dset.dataset_id = create_dataset_in_file(h5f.file_id, dset)
-
         else:
           raise newException(HDF5LibraryError, "Call to HDF5 library failed in `existsInFile` from `create_dataset`")
+      else:
+        # else the dataset is already known and in the table, get it
+        dset = h5f[dset.name.dset_str]
     else:
       raise newException(UnkownError, "Unkown error occured due to call to `parseChunkSizeAndMaxhShape` returning with status = $#" % $status)
   except HDF5LibraryError:
@@ -1477,12 +1482,12 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
   # of a dataspace of certain dimensions for arrays / nested seqs we're handed
 
   var err: herr_t
-    
+  
   if ind == RW_ALL:
     let shape = dset.shape
     withDebug:
-      echo "shape is ", shape
-      echo "shape is a ", type(shape).name, " and data is a ", type(data).name, " and data.shape = "
+      echo "shape is ", shape, " of dset ", dset.name
+      echo "shape is a ", type(shape).name, " and data is a ", type(data).name, " and data.shape = ", data.shape
     # check whether we will write a 1 column dataset. If so, relax
     # requirements of shape check. In this case only compare 1st element of
     # shapes. We compare shape[1] with 1, because atm we demand VLEN data to be
@@ -1526,8 +1531,8 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
           raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `[All]=`")
     else:
       var msg = """
-Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has shape `$#`"""
-      msg = msg % [$data.shape, $dset.shape]
+Wrong input shape of data to write in `[]=` while accessing `$#`. Given shape `$#`, dataset has shape `$#`"""
+      msg = msg % [$dset.name, $data.shape, $dset.shape]
       raise newException(ValueError, msg)
   else:
     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
@@ -1699,7 +1704,13 @@ proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
   ## throws:
   ##     ValueError: in case the given typedesc t is different than
   ##         the datatype of the dataset
-  if $t != dset.dtype:
+  # TODO: think about this check. Currently e.g. float != float64, although the two
+  # are the same internally, or keep it as it is to make sure to be precise, given
+  # that on other machine this will be different?
+  # let basetype = h5ToNimType(t)
+  # if basetype != dset.dtypeAnyKind:
+  # THIS IS BROKEN NOW e.g. int when int8 is actual type!!!
+  if $t notin dset.dtype:
     raise newException(ValueError, "Wrong datatype as arg to `[]`. Given `$#`, dset is `$#`" % [$t, $dset.dtype])
   let
     shape = dset.shape
