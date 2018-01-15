@@ -1710,8 +1710,10 @@ proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
   # let basetype = h5ToNimType(t)
   # if basetype != dset.dtypeAnyKind:
   # THIS IS BROKEN NOW e.g. int when int8 is actual type!!!
-  if $t notin dset.dtype:
-    raise newException(ValueError, "Wrong datatype as arg to `[]`. Given `$#`, dset is `$#`" % [$t, $dset.dtype])
+  ###################################################################################################################
+  # if $t notin dset.dtype:                                                                                         #
+  #   raise newException(ValueError, "Wrong datatype as arg to `[]`. Given `$#`, dset is `$#`" % [$t, $dset.dtype]) #
+  ###################################################################################################################
   let
     shape = dset.shape
     n_elements = foldl(shape, a * b)
