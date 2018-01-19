@@ -462,8 +462,14 @@ template nimToH5type*(dtype: typedesc): hid_t =
     result_type = H5T_NATIVE_SHORT
   elif dtype is int32:
     result_type = H5T_NATIVE_INT # H5T_STD_I32LE
-  elif dtype is int or dtype is int64:
-    result_type = H5T_NATIVE_LLONG # H5T_STD_I64LE
+  when sizeOf(int) == 8:
+    if dtype is int:
+      result_type = H5T_NATIVE_LONG
+  else:
+    if dtype is int:
+      result_type = H5T_NATIVE_INT
+  if dtype is int64:
+    result_type = H5T_NATIVE_LONG
   elif dtype is uint8:
     # for 8 bit int we take the STD LE one, since there is no
     # native type available (besides char)
