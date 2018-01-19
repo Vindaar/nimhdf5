@@ -27,10 +27,20 @@ example of writing arbitrary groups and datasets and reading them back.
 
 The wrapper is currently tested using Nim version =0.17.2= and the
 current devel branch (=0.17.3=). The wrapper is built from HDF5
-version =1.10.1=. At the moment (probably as a side effect from having
-to convert C macros to Nim code), linking to version =1.8.11= (current
-available version in Ubuntu 14.04 repository) works for the basic
-operations, too.
+version =1.10.1=. 
+
+Linking against the HDF5 =1.8= library is reasonably supported as
+well, but requires to use an additional compiler flag for now:
+#+BEGIN_SRC sh
+-d:H5_LEGACY
+#+END_SRC
+Currently no checks are done, which compare the library this wrapper
+is built upon with the library linking against using some of the
+provided HDF5 macros (e.g. H5check, H5get_libversion etc.). The main
+reason is explained below. However, as far as the high-level
+functionality is concerned at the moment, the only differences arise
+in a few constant definitions, whose names slightly changed from =1.8=
+to =1.10=. This is what the compiler flags sets accordingly.
 
 The HDF5 headers contain macros for many variables, such as
 #+BEGIN_SRC C
