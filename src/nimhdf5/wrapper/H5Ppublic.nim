@@ -259,56 +259,164 @@ type
 # I mean the header comments of this file mention that one #
 # should not use the variables defined, but rather the     #
 # macros. But well..?!                                     #
+#                                                          #
+# I suppose the answer to this mistery lies in my stupidity#
+# wrt basing the wrapper on HDF5 1.10.1, while working on a#
+# HDF5 1.8 system without keeping that in mind...!         #
 ############################################################
-    
-var
-  H5P_ROOT* {.importc: "H5P_CLS_ROOT_g", dynlib: libname.}: hid_t
-  H5P_OBJECT_CREATE* {.importc: "H5P_CLS_OBJECT_CREATE_g", dynlib: libname.}: hid_t
-  H5P_FILE_CREATE* {.importc: "H5P_CLS_FILE_CREATE_g", dynlib: libname.}: hid_t
-  H5P_FILE_ACCESS* {.importc: "H5P_CLS_FILE_ACCESS_g", dynlib: libname.}: hid_t
-  H5P_DATASET_CREATE* {.importc: "H5P_CLS_DATASET_CREATE_g", dynlib: libname.}: hid_t
-  H5P_DATASET_ACCESS* {.importc: "H5P_CLS_DATASET_ACCESS_g", dynlib: libname.}: hid_t 
-  H5P_DATASET_XFER* {.importc: "H5P_CLS_DATASET_XFER_g", dynlib: libname.}: hid_t
-  H5P_FILE_MOUNT* {.importc: "H5P_CLS_FILE_MOUNT_g", dynlib: libname.}: hid_t
-  H5P_GROUP_CREATE* {.importc: "H5P_CLS_GROUP_CREATE_g", dynlib: libname.}: hid_t
-  H5P_GROUP_ACCESS* {.importc: "H5P_CLS_GROUP_ACCESS_g", dynlib: libname.}: hid_t
-  H5P_DATATYPE_CREATE* {.importc: "H5P_CLS_DATATYPE_CREATE_g", dynlib: libname.}: hid_t
-  H5P_DATATYPE_ACCESS* {.importc: "H5P_CLS_DATATYPE_ACCESS_g", dynlib: libname.}: hid_t
-  H5P_STRING_CREATE* {.importc: "H5P_CLS_STRING_CREATE_g", dynlib: libname.}: hid_t
-  H5P_ATTRIBUTE_CREATE* {.importc: "H5P_CLS_ATTRIBUTE_CREATE_g", dynlib: libname.}: hid_t
 
-  ## NOTE:
-  ## For some weird reason Attribute access is still not found?!
-  ## Maybe they were only added in HDF5 v. 1.10.x ? This computer
-  ## still only uses 1.8, I believe?
-  #H5P_ATTRIBUTE_ACCESS* {.importc: "H5P_CLS_ATTRIBUTE_ACCESS_g", dynlib: libname.}: hid_t
-  H5P_OBJECT_COPY* {.importc: "H5P_CLS_OBJECT_COPY_g", dynlib: libname.}: hid_t
-  H5P_LINK_CREATE* {.importc: "H5P_CLS_LINK_CREATE_g", dynlib: libname.}: hid_t
-  H5P_LINK_ACCESS* {.importc: "H5P_CLS_LINK_ACCESS_g", dynlib: libname.}: hid_t
+
+# TODO:
+# with the Hdf5 1.10.1 libarry these seem to make some problems too. When creating
+# dataset access / create property list, the call to HDF5 fails with a
+# `wrong argument type` error
+
+# TODO: include a when based on HDF5 version or something along
+# this line and either importc _ID_g variables for HDF5 1.10.1
+# or _g (without ID) for HDF5 1.8
+
+
+when defined(H5_LEGACY):
+  var
+    H5P_ROOT* {.importc: "H5P_CLS_ROOT_g", dynlib: libname.}: hid_t
+    H5P_OBJECT_CREATE* {.importc: "H5P_CLS_OBJECT_CREATE_g", dynlib: libname.}: hid_t
+    H5P_FILE_CREATE* {.importc: "H5P_CLS_FILE_CREATE_g", dynlib: libname.}: hid_t
+    H5P_FILE_ACCESS* {.importc: "H5P_CLS_FILE_ACCESS_g", dynlib: libname.}: hid_t
+    H5P_DATASET_CREATE* {.importc: "H5P_CLS_DATASET_CREATE_g", dynlib: libname.}: hid_t
+    H5P_DATASET_ACCESS* {.importc: "H5P_CLS_DATASET_ACCESS_g", dynlib: libname.}: hid_t 
+    H5P_DATASET_XFER* {.importc: "H5P_CLS_DATASET_XFER_g", dynlib: libname.}: hid_t
+    H5P_FILE_MOUNT* {.importc: "H5P_CLS_FILE_MOUNT_g", dynlib: libname.}: hid_t
+    H5P_GROUP_CREATE* {.importc: "H5P_CLS_GROUP_CREATE_g", dynlib: libname.}: hid_t
+    H5P_GROUP_ACCESS* {.importc: "H5P_CLS_GROUP_ACCESS_g", dynlib: libname.}: hid_t
+    H5P_DATATYPE_CREATE* {.importc: "H5P_CLS_DATATYPE_CREATE_g", dynlib: libname.}: hid_t
+    H5P_DATATYPE_ACCESS* {.importc: "H5P_CLS_DATATYPE_ACCESS_g", dynlib: libname.}: hid_t
+    H5P_STRING_CREATE* {.importc: "H5P_CLS_STRING_CREATE_g", dynlib: libname.}: hid_t
+    H5P_ATTRIBUTE_CREATE* {.importc: "H5P_CLS_ATTRIBUTE_CREATE_g", dynlib: libname.}: hid_t
+
+    ## NOTE:
+    ## For some weird reason Attribute access is still not found?!
+    ## Maybe they were only added in HDF5 v. 1.10.x ? This computer
+    ## still only uses 1.8, I believe?
+    #H5P_ATTRIBUTE_ACCESS* {.importc: "H5P_CLS_ATTRIBUTE_ACCESS_g", dynlib: libname.}: hid_t
+    H5P_OBJECT_COPY* {.importc: "H5P_CLS_OBJECT_COPY_g", dynlib: libname.}: hid_t
+    H5P_LINK_CREATE* {.importc: "H5P_CLS_LINK_CREATE_g", dynlib: libname.}: hid_t
+    H5P_LINK_ACCESS* {.importc: "H5P_CLS_LINK_ACCESS_g", dynlib: libname.}: hid_t
+
+    H5P_FILE_CREATE_DEFAULT* {.importc: "H5P_LST_FILE_CREATE_g", dynlib: libname.}: hid_t
+    H5P_FILE_ACCESS_DEFAULT* {.importc: "H5P_LST_FILE_ACCESS_g", dynlib: libname.}: hid_t
+    H5P_DATASET_CREATE_DEFAULT* {.importc: "H5P_LST_DATASET_CREATE_g", dynlib: libname.}: hid_t
+    H5P_DATASET_ACCESS_DEFAULT* {.importc: "H5P_LST_DATASET_ACCESS_g", dynlib: libname.}: hid_t
+    H5P_DATASET_XFER_DEFAULT* {.importc: "H5P_LST_DATASET_XFER_g", dynlib: libname.}: hid_t
+    H5P_FILE_MOUNT_DEFAULT* {.importc: "H5P_LST_FILE_MOUNT_g", dynlib: libname.}: hid_t
+    H5P_GROUP_CREATE_DEFAULT* {.importc: "H5P_LST_GROUP_CREATE_g", dynlib: libname.}: hid_t
+    H5P_GROUP_ACCESS_DEFAULT* {.importc: "H5P_LST_GROUP_ACCESS_g", dynlib: libname.}: hid_t
+    H5P_DATATYPE_CREATE_DEFAULT* {.importc: "H5P_LST_DATATYPE_CREATE_g", dynlib: libname.}: hid_t
+    H5P_DATATYPE_ACCESS_DEFAULT* {.importc: "H5P_LST_DATATYPE_ACCESS_g", dynlib: libname.}: hid_t
+    H5P_ATTRIBUTE_CREATE_DEFAULT* {.importc: "H5P_LST_ATTRIBUTE_CREATE_g", dynlib: libname.}: hid_t
+
+    ## see comment in CLS types above, same goes for attribute access default
+    #H5P_ATTRIBUTE_ACCESS_DEFAULT* {.importc: "H5P_LST_ATTRIBUTE_ACCESS_g", dynlib: libname.}: hid_t
+    H5P_OBJECT_COPY_DEFAULT* {.importc: "H5P_LST_OBJECT_COPY_g", dynlib: libname.}: hid_t
+    H5P_LINK_CREATE_DEFAULT* {.importc: "H5P_LST_LINK_CREATE_g", dynlib: libname.}: hid_t
+    H5P_LINK_ACCESS_DEFAULT* {.importc: "H5P_LST_LINK_ACCESS_g", dynlib: libname.}: hid_t  
+
+else:
+  # else we've loaded an older HDF5 library than 1.10.1, in this case, set the
+  # variables to those without ID
+  var
+    H5P_ROOT* {.importc: "H5P_CLS_ROOT_ID_g", dynlib: libname.}: hid_t
+    H5P_OBJECT_CREATE* {.importc: "H5P_CLS_OBJECT_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_FILE_CREATE* {.importc: "H5P_CLS_FILE_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_FILE_ACCESS* {.importc: "H5P_CLS_FILE_ACCESS_ID_g", dynlib: libname.}: hid_t
+    H5P_DATASET_CREATE* {.importc: "H5P_CLS_DATASET_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_DATASET_ACCESS* {.importc: "H5P_CLS_DATASET_ACCESS_ID_g", dynlib: libname.}: hid_t 
+    H5P_DATASET_XFER* {.importc: "H5P_CLS_DATASET_XFER_ID_g", dynlib: libname.}: hid_t
+    H5P_FILE_MOUNT* {.importc: "H5P_CLS_FILE_MOUNT_ID_g", dynlib: libname.}: hid_t
+    H5P_GROUP_CREATE* {.importc: "H5P_CLS_GROUP_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_GROUP_ACCESS* {.importc: "H5P_CLS_GROUP_ACCESS_ID_g", dynlib: libname.}: hid_t
+    H5P_DATATYPE_CREATE* {.importc: "H5P_CLS_DATATYPE_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_DATATYPE_ACCESS* {.importc: "H5P_CLS_DATATYPE_ACCESS_ID_g", dynlib: libname.}: hid_t
+    H5P_STRING_CREATE* {.importc: "H5P_CLS_STRING_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_ATTRIBUTE_CREATE* {.importc: "H5P_CLS_ATTRIBUTE_CREATE_ID_g", dynlib: libname.}: hid_t
+
+    ## NOTE:
+    ## For some weird reason Attribute access is still not found?!
+    ## Maybe they were only added in HDF5 v. 1.10.x ? This computer
+    ## still only uses 1.8, I believe?
+    #H5P_ATTRIBUTE_ACCESS* {.importc: "H5P_CLS_ATTRIBUTE_ACCESS_g", dynlib: libname.}: hid_t
+    H5P_OBJECT_COPY* {.importc: "H5P_CLS_OBJECT_COPY_ID_g", dynlib: libname.}: hid_t
+    H5P_LINK_CREATE* {.importc: "H5P_CLS_LINK_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_LINK_ACCESS* {.importc: "H5P_CLS_LINK_ACCESS_ID_g", dynlib: libname.}: hid_t
+
+    H5P_FILE_CREATE_DEFAULT* {.importc: "H5P_LST_FILE_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_FILE_ACCESS_DEFAULT* {.importc: "H5P_LST_FILE_ACCESS_ID_g", dynlib: libname.}: hid_t
+    H5P_DATASET_CREATE_DEFAULT* {.importc: "H5P_LST_DATASET_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_DATASET_ACCESS_DEFAULT* {.importc: "H5P_LST_DATASET_ACCESS_ID_g", dynlib: libname.}: hid_t
+    H5P_DATASET_XFER_DEFAULT* {.importc: "H5P_LST_DATASET_XFER_ID_g", dynlib: libname.}: hid_t
+    H5P_FILE_MOUNT_DEFAULT* {.importc: "H5P_LST_FILE_MOUNT_ID_g", dynlib: libname.}: hid_t
+    H5P_GROUP_CREATE_DEFAULT* {.importc: "H5P_LST_GROUP_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_GROUP_ACCESS_DEFAULT* {.importc: "H5P_LST_GROUP_ACCESS_ID_g", dynlib: libname.}: hid_t
+    H5P_DATATYPE_CREATE_DEFAULT* {.importc: "H5P_LST_DATATYPE_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_DATATYPE_ACCESS_DEFAULT* {.importc: "H5P_LST_DATATYPE_ACCESS_ID_g", dynlib: libname.}: hid_t
+    H5P_ATTRIBUTE_CREATE_DEFAULT* {.importc: "H5P_LST_ATTRIBUTE_CREATE_ID_g", dynlib: libname.}: hid_t
+
+    ## see comment in CLS types above, same goes for attribute access default
+    #H5P_ATTRIBUTE_ACCESS_DEFAULT* {.importc: "H5P_LST_ATTRIBUTE_ACCESS_g", dynlib: libname.}: hid_t
+    H5P_OBJECT_COPY_DEFAULT* {.importc: "H5P_LST_OBJECT_COPY_ID_g", dynlib: libname.}: hid_t
+    H5P_LINK_CREATE_DEFAULT* {.importc: "H5P_LST_LINK_CREATE_ID_g", dynlib: libname.}: hid_t
+    H5P_LINK_ACCESS_DEFAULT* {.importc: "H5P_LST_LINK_ACCESS_ID_g", dynlib: libname.}: hid_t
+  
+
 
 ## 
 ##  The library's default property lists
 ## 
 
-var
-  H5P_FILE_CREATE_DEFAULT* {.importc: "H5P_LST_FILE_CREATE_g", dynlib: libname.}: hid_t
-  H5P_FILE_ACCESS_DEFAULT* {.importc: "H5P_LST_FILE_ACCESS_g", dynlib: libname.}: hid_t
-  H5P_DATASET_CREATE_DEFAULT* {.importc: "H5P_LST_DATASET_CREATE_g", dynlib: libname.}: hid_t
-  H5P_DATASET_ACCESS_DEFAULT* {.importc: "H5P_LST_DATASET_ACCESS_g", dynlib: libname.}: hid_t
-  H5P_DATASET_XFER_DEFAULT* {.importc: "H5P_LST_DATASET_XFER_g", dynlib: libname.}: hid_t
-  H5P_FILE_MOUNT_DEFAULT* {.importc: "H5P_LST_FILE_MOUNT_g", dynlib: libname.}: hid_t
-  H5P_GROUP_CREATE_DEFAULT* {.importc: "H5P_LST_GROUP_CREATE_g", dynlib: libname.}: hid_t
-  H5P_GROUP_ACCESS_DEFAULT* {.importc: "H5P_LST_GROUP_ACCESS_g", dynlib: libname.}: hid_t
-  H5P_DATATYPE_CREATE_DEFAULT* {.importc: "H5P_LST_DATATYPE_CREATE_g", dynlib: libname.}: hid_t
-  H5P_DATATYPE_ACCESS_DEFAULT* {.importc: "H5P_LST_DATATYPE_ACCESS_g", dynlib: libname.}: hid_t
-  H5P_ATTRIBUTE_CREATE_DEFAULT* {.importc: "H5P_LST_ATTRIBUTE_CREATE_g", dynlib: libname.}: hid_t
+# TODO:
+# for some reason: on my laptop HDF5 version 1.8.11 the symbols are not found
+# if ID is not present, on my desktop they are /only/ found if it is not present
+# maybe related to this:
+# https://support.hdfgroup.org/HDF5/doc/ADGuide/Compatibility_Report/CR_1.8.14.html
+# ?
+###### AHHHHHHHHHH NOOOOO. my laptop runs on HDF5 1.10.1!!!
 
-  ## see comment in CLS types above, same goes for attribute access default
-  #H5P_ATTRIBUTE_ACCESS_DEFAULT* {.importc: "H5P_LST_ATTRIBUTE_ACCESS_g", dynlib: libname.}: hid_t
-  H5P_OBJECT_COPY_DEFAULT* {.importc: "H5P_LST_OBJECT_COPY_g", dynlib: libname.}: hid_t
-  H5P_LINK_CREATE_DEFAULT* {.importc: "H5P_LST_LINK_CREATE_g", dynlib: libname.}: hid_t
-  H5P_LINK_ACCESS_DEFAULT* {.importc: "H5P_LST_LINK_ACCESS_g", dynlib: libname.}: hid_t
+# var
+#   H5P_FILE_CREATE_DEFAULT* {.importc: "H5P_LST_FILE_CREATE_g", dynlib: libname.}: hid_t
+#   H5P_FILE_ACCESS_DEFAULT* {.importc: "H5P_LST_FILE_ACCESS_g", dynlib: libname.}: hid_t
+#   H5P_DATASET_CREATE_DEFAULT* {.importc: "H5P_LST_DATASET_CREATE_g", dynlib: libname.}: hid_t
+#   H5P_DATASET_ACCESS_DEFAULT* {.importc: "H5P_LST_DATASET_ACCESS_g", dynlib: libname.}: hid_t
+#   H5P_DATASET_XFER_DEFAULT* {.importc: "H5P_LST_DATASET_XFER_g", dynlib: libname.}: hid_t
+#   H5P_FILE_MOUNT_DEFAULT* {.importc: "H5P_LST_FILE_MOUNT_g", dynlib: libname.}: hid_t
+#   H5P_GROUP_CREATE_DEFAULT* {.importc: "H5P_LST_GROUP_CREATE_g", dynlib: libname.}: hid_t
+#   H5P_GROUP_ACCESS_DEFAULT* {.importc: "H5P_LST_GROUP_ACCESS_g", dynlib: libname.}: hid_t
+#   H5P_DATATYPE_CREATE_DEFAULT* {.importc: "H5P_LST_DATATYPE_CREATE_g", dynlib: libname.}: hid_t
+#   H5P_DATATYPE_ACCESS_DEFAULT* {.importc: "H5P_LST_DATATYPE_ACCESS_g", dynlib: libname.}: hid_t
+#   H5P_ATTRIBUTE_CREATE_DEFAULT* {.importc: "H5P_LST_ATTRIBUTE_CREATE_g", dynlib: libname.}: hid_t
 
+#   ## see comment in CLS types above, same goes for attribute access default
+#   #H5P_ATTRIBUTE_ACCESS_DEFAULT* {.importc: "H5P_LST_ATTRIBUTE_ACCESS_g", dynlib: libname.}: hid_t
+#   H5P_OBJECT_COPY_DEFAULT* {.importc: "H5P_LST_OBJECT_COPY_g", dynlib: libname.}: hid_t
+#   H5P_LINK_CREATE_DEFAULT* {.importc: "H5P_LST_LINK_CREATE_g", dynlib: libname.}: hid_t
+#   H5P_LINK_ACCESS_DEFAULT* {.importc: "H5P_LST_LINK_ACCESS_g", dynlib: libname.}: hid_t
+
+# var
+#   H5P_FILE_CREATE_DEFAULT* {.importc: "H5P_LST_FILE_CREATE_ID_g", dynlib: libname.}: hid_t
+#   H5P_FILE_ACCESS_DEFAULT* {.importc: "H5P_LST_FILE_ACCESS_ID_g", dynlib: libname.}: hid_t
+#   H5P_DATASET_CREATE_DEFAULT* {.importc: "H5P_LST_DATASET_CREATE_ID_g", dynlib: libname.}: hid_t
+#   H5P_DATASET_ACCESS_DEFAULT* {.importc: "H5P_LST_DATASET_ACCESS_ID_g", dynlib: libname.}: hid_t
+#   H5P_DATASET_XFER_DEFAULT* {.importc: "H5P_LST_DATASET_XFER_ID_g", dynlib: libname.}: hid_t
+#   H5P_FILE_MOUNT_DEFAULT* {.importc: "H5P_LST_FILE_MOUNT_ID_g", dynlib: libname.}: hid_t
+#   H5P_GROUP_CREATE_DEFAULT* {.importc: "H5P_LST_GROUP_CREATE_ID_g", dynlib: libname.}: hid_t
+#   H5P_GROUP_ACCESS_DEFAULT* {.importc: "H5P_LST_GROUP_ACCESS_ID_g", dynlib: libname.}: hid_t
+#   H5P_DATATYPE_CREATE_DEFAULT* {.importc: "H5P_LST_DATATYPE_CREATE_ID_g", dynlib: libname.}: hid_t
+#   H5P_DATATYPE_ACCESS_DEFAULT* {.importc: "H5P_LST_DATATYPE_ACCESS_ID_g", dynlib: libname.}: hid_t
+#   H5P_ATTRIBUTE_CREATE_DEFAULT* {.importc: "H5P_LST_ATTRIBUTE_CREATE_ID_g", dynlib: libname.}: hid_t
+
+#   ## see comment in CLS types above, same goes for attribute access default
+#   #H5P_ATTRIBUTE_ACCESS_DEFAULT* {.importc: "H5P_LST_ATTRIBUTE_ACCESS_g", dynlib: libname.}: hid_t
+#   H5P_OBJECT_COPY_DEFAULT* {.importc: "H5P_LST_OBJECT_COPY_ID_g", dynlib: libname.}: hid_t
+#   H5P_LINK_CREATE_DEFAULT* {.importc: "H5P_LST_LINK_CREATE_ID_g", dynlib: libname.}: hid_t
+#   H5P_LINK_ACCESS_DEFAULT* {.importc: "H5P_LST_LINK_ACCESS_ID_g", dynlib: libname.}: hid_t
 
 
 ## *******************
