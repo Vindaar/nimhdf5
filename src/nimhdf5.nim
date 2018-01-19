@@ -22,9 +22,18 @@ include nimhdf5/H5nimtypes
 #    be the case, but I didn't t see any errors either?!
 #  - add iterators for attributes, groups etc..!
 #  - add `contains` proc to check for elements in file / group (-> in, notin)
-#  - add ability to read / write hyperslabs
-#  - add ability to write arraymancer.Tensor
+#  - add ability to read hyperslabs
+#  - 
+#  - add proc to delete dataset or group (this is especially needed for the case
+#    in which we wish to rewrite a fixed size dataset with a different size!
+#  - add ability to write arraymancer.Tensor (properly)
 #  - add a lot of safety checks
+#  - fix up naming convention of procs.
+#    either default to:
+#    - internal procs camelCase, external snake_case
+#      external use of snake_case would reflect usage of HDF5 C API as well as h5py
+#    or simply switch everything to either camelCase or snake_case. In this case
+#    snake_case seems the reasonable choice to keep similar API calls as h5py
 #  - CLEAN UP and refactor the code! way too long in a single file by now...
 
 
@@ -2311,7 +2320,10 @@ proc visitFile*(h5f: var H5FileObj, name: string = "", h5id: hid_t = 0) =
   # TODO: write an iterator which makes use of this?
   var err: herr_t
   if h5id != 0:
-    err = H5Ovisit(h5id, H5_INDEX_NAME, H5_ITER_NATIVE, cast[H5O_iterate_t](addH5Object), cast[pointer](addr(h5f)))
+    err = H5Ovisit(h5id, H5_INDEX_NAME, H5_ITER_NATIVE,
+                   cast[H5O_iterate_t](addH5Object),
+                   cast[pointer](addr(h5f)))
   else:
-    err = H5Ovisit(h5f.file_id, H5_INDEX_NAME, H5_ITER_NATIVE, cast[H5O_iterate_t](addH5ObjectFromRoot), cast[pointer](addr(h5f)))
-  
+    err = H5Ovisit(h5f.file_id, H5_INDEX_NAME, H5_ITER_NATIVE,
+                   cast[H5O_iterate_t](addH5ObjectFromRoot),
+                   cast[pointer](addr(h5f)))
