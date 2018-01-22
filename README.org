@@ -108,7 +108,8 @@ Nim utilizing the wrapper. [[file:examples/h5_create_dataset_hl.nim][h5_create_d
 which uses the currently available high-level bindings. 
 
 ** To be done
-- clean up the code and refactor into several files!
 - build unit tests
-- add reading / writing of hyperslabs
+- add reading of hyperslabs
+- do more clean up of code
+- rewrite parts making better use of available H5 functions
 - ... lots and lots more
