@@ -283,7 +283,7 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
       discard h5f[name.dset_str]
     
 
-proc visitFile*(h5f: var H5FileObj, name: string = "", h5id: hid_t = 0) =
+proc visit_file*(h5f: var H5FileObj, name: string = "", h5id: hid_t = 0) =
   # this proc iterates over the whole file and reads the complete content
   # optionally only visits all elements below hid_t or the object given by `name`
   # H5Ovisit recursively visits any object (group or dataset + a couple specific
@@ -303,3 +303,38 @@ proc visitFile*(h5f: var H5FileObj, name: string = "", h5id: hid_t = 0) =
                    cast[H5O_iterate_t](addH5ObjectFromRoot),
                    cast[pointer](addr(h5f)))
     
+  # now set visited flag
+  h5f.visited = true
+
+
+iterator items*(h5f: var H5FileObj, start_path = "/"): H5Group =
+  ## iterator, which returns a non mutable group objects starting from `start_path` in the
+  ## H5 file
+  ## Note: many procs working on groups need a mutable object!
+  ## TODO: mutability often not needed in those procs.. change!
+  ## inputs:
+  ##    h5f: H5FileObj = the H5 file object, over which to iterate
+  ##    start_path: string = optional starting location from which to iterate
+  ##        default starts at root group `/`
+  ## yields:
+  ##    H5Group, which resides below `start_path`
+  ## throws:
+  ##    HDF5LibraryError = raised in case a call to the H5 library fails
+  var mstart_path = start_path
+
+  # first check whether we visited the whole file yet
+  if h5f.visited == false:
+    h5f.visit_file
+
+  # now make sure the start_path is properly formatted
+  if start_path != "/":
+    mstart_path = formatName start_path
+
+  # now loop over all groups, checking for start_path in each group name
+  for grp in keys(h5f.groups):
+    if grp.startsWith(mstart_path) == true and grp != mstart_path:
+      # in this case we're neither visiting the group at which we start
+      # nor a group, which is not a subgroup
+      yield h5f[grp.grp_str]
+
+  

@@ -143,7 +143,7 @@ proc read_some() =
 
   # first visit all elements in the file, for fun. Could skip this however and
   # just read datasets and groups of whose existence we know
-  file.visitFile
+  file.visit_file
   echo file
   echo "\n\n\n"
   for dset in keys(file.datasets):
@@ -237,6 +237,10 @@ proc read_some() =
   else:
     # whatever else you may think is in this dataset
     discard
+
+  # finally iterate over all groups in the file and echo their names
+  for grp in items(file, "/test"):
+    echo grp.name
 
   # close the file again
   discard file.close()

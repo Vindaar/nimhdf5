@@ -155,6 +155,8 @@ type
     dataspaces*: Table[string, hid_t]
     # attr stores information about attributes
     attrs*: H5Attributes
+    # flag to be aware if we visited the whole file yet (discovered groups and dsets)
+    visited*: bool
     # property list identifier, which stores information like "is chunked storage" etc.
     # here we store H5P_FILE_ACCESS property list    
     fapl_id*: hid_t
