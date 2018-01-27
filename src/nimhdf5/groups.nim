@@ -74,10 +74,20 @@ template get(h5f: H5FileObj, group_in: grp_str): H5Group =
   ##    KeyError: if group could not be found
   let
     group_name = string(group_in)  
-    group_exist = hasKey(h5f.groups, group_name)
+    group_known = hasKey(h5f.groups, group_name)
   var result: H5Group
-  if group_exist == false:
-    raise newException(KeyError, "Group with name: " & group_name & " not found in file " & h5f.name)
+  if group_known == false:
+    # if group not known (potentially the case if:
+    # - no call to visit_file (read all grps / dsets)
+    # - not created individually directly / indirectly
+    # check for existence in file
+    let exists = existsInFile(h5f.file_id, group_name)
+    if exists > 0:
+      # get group from file
+      result = h5f.create_group(group_name)
+    else:
+      # does not exists, raise exception
+      raise newException(KeyError, "Group with name: " & group_name & " not found in file " & h5f.name)
   else:
     result = h5f.groups[group_name][]
   result    
