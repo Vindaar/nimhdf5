@@ -1,6 +1,7 @@
 import tables
 import options
 import ospaths
+import strutils
 
 import hdf5_wrapper
 import H5nimtypes
@@ -10,6 +11,9 @@ import h5util
 import util
 #import datasets
 #from h5util import `$`
+
+# get visit_file from files.nim for dataset iterator
+from files import visit_file  
 
 proc `$`*(dset: ref H5DataSet): string =
   result = dset.name
@@ -24,6 +28,8 @@ proc newH5Group*(name: string = ""): ref H5Group =
   result.parent = ""
   result.parent_id = -1
   result.file = ""
+  result.file_id = -1
+  result.file_ref = nil
   result.datasets = datasets
   result.groups = groups
   result.attrs = attrs
@@ -163,6 +169,17 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
 
   # create attributes field
   result.attrs = initH5Attributes(result.name, result.group_id, "H5Group")
+
+  # finally add reference to H5FileObj to group
+  when h5f is H5FileObj:
+    # if called by file obj itself, create new reference and
+    # assign that to file reference
+    var h5ref = new H5FileObj
+    h5ref[] = h5f
+    result.file_ref = h5ref
+  else:
+    # else use the ref of the parent creating this object
+    result.file_ref = h5f.file_ref
   
   # now that we have created the group fully (including IDs), we can add it
   # to the H5FileObj
@@ -233,3 +250,54 @@ template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
 #   # create attributes field
 #   group.attrs = initH5Attributes(group.name, group.group_id, "H5Group")
 
+
+# let's try to implement some iterators for H5FileObj and H5Groups
+
+# for H5Groups first implement relative create_group
+
+iterator items*(group: var H5Group, start_path = "."): H5DataSet =
+  ## iterator, which returns a non mutable dataset object starting from `start_path` in the
+  ## H5 group
+  ## TODO: currently start_path has no effect, unless it's the groups name, because
+  ## group is only aware of all datasets directly in it, not of any subgroups
+  ## -> need to iterate over subgroups and yield those group names as well!
+  ## Note: many procs working on datasets need a mutable object!
+  ## TODO: mutability often not needed in those procs.. change!
+  ## inputs:
+  ##    group: H5Group = the H5 group object, over which to iterate
+  ##    start_path: string = optional starting location from which to iterate
+  ##        default starts at location of group "."
+  ## yields:
+  ##    H5DataSet, which resides below `start_path`
+  ## throws:
+  ##    HDF5LibraryError = raised in case a call to the H5 library fails
+  var mstart_path = start_path
+
+  # TODO:
+  # - iterate over subgroups
+  #   - for each subgroup, we might call this proc?
+  # - should we include recursive option? only if set iterate over all subgroups as well?
+  #   could work together with start_path
+
+  # first check whether we visited the whole file yet
+  # how to do that for groups?
+  #if h5f.visited == false:
+  #  h5f.visit_file
+
+  if group.file_ref.visited == false:
+    # call visit file to get info about all groups and dsets
+    visit_file(group.file_ref[])
+
+  # now make sure the start_path is properly formatted
+  if start_path != ".":
+    mstart_path = formatName start_path
+  else:
+    # else take this groups name as the starting path, since the table storing the
+    # datasets uses full paths as keys!
+    mstart_path = group.name
+
+  # now loop over all groups, checking for start_path in each group name
+  for dset in keys(group.datasets):
+    if dset.startsWith(mstart_path) == true and dset != mstart_path:
+      # means we're reading a fitting dataset, yield
+      yield group.datasets[dset][]

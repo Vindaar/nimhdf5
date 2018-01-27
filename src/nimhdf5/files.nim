@@ -6,9 +6,18 @@ import os
 import hdf5_wrapper
 import H5nimtypes
 import datatypes
-import datasets
+
+# need to forward declare visit file, due to cyclic import statements
+# files -> datasets -> groups -> files
+# and
+# files -> groups -> files
+# so that proc is already known when we encounter the
+# from files import visit_files statement in groups.nim
+proc visit_file*(h5f: var H5FileObj, name: string = "", h5id: hid_t = 0)
+
+from datasets import `[]`
 import attributes
-import groups
+from groups import create_group, `[]`
 import h5util
 import util
 
@@ -242,7 +251,6 @@ proc create_hardlink*(h5file: var H5FileObj, target: string, link_name: string) 
   else:
     raise newException(KeyError, "Cannot create link to $#, does not exist in file $#" % [$target, $h5file.name])
 
-
 proc addH5Object*(location_id: hid_t, name_c: cstring, h5info: H5O_info_t, h5f_p: pointer): herr_t {.cdecl.} =
   # similar proc to processH5ObjectFromRoot, except we do /not/ start at root
   # important distinction to be able to deal with the root group itself
@@ -282,7 +290,6 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
       # see, I'm going to where the HDF5 library is in the first place...
       discard h5f[name.dset_str]
     
-
 proc visit_file*(h5f: var H5FileObj, name: string = "", h5id: hid_t = 0) =
   # this proc iterates over the whole file and reads the complete content
   # optionally only visits all elements below hid_t or the object given by `name`
@@ -305,7 +312,7 @@ proc visit_file*(h5f: var H5FileObj, name: string = "", h5id: hid_t = 0) =
     
   # now set visited flag
   h5f.visited = true
-
+    
 
 iterator items*(h5f: var H5FileObj, start_path = "/"): H5Group =
   ## iterator, which returns a non mutable group objects starting from `start_path` in the

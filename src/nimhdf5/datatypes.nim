@@ -85,6 +85,11 @@ type
     parent_id*: hid_t
     # filename string, in which the dataset is located
     file*: string
+    # reference to the file object, in which dataset resides. Important to perform checks
+    # in procs, which should not depend explicitly on H5FileObj, but necessarily depend
+    # implicitly on it, e.g. create_dataset (called from group) etc.
+    # TODO: is this needed for dataset?
+    # file_ref*: ref H5FileObj
     #  the id of the reserved dataspace
     dataspace_id*: hid_t
     # the id of the dataset
@@ -112,6 +117,10 @@ type
     file*: string
     # file id of the file in which group is stored
     file_id*: hid_t
+    # reference to the file object, in which group resides. Important to perform checks
+    # in procs, which should not depend explicitly on H5FileObj, but necessarily depend
+    # implicitly on it, e.g. create_group, iterator items etc.
+    file_ref*: ref H5FileObj
     # the id of the HDF5 group (its location id)
     group_id*: hid_t
     # TODO: think, should H5Group contain a table about its dataspaces? Or should

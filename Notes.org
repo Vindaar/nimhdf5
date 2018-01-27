@@ -1,0 +1,60 @@
+
+* Notes
+
+This file contains random rambling about potential bugs, design
+decisions etc. It exists so that I don't put too many (not important
+for most readers) comments into the source code.
+
+** H5FileObj visit file
+
+Currently if the user has a mutable H5FileObj and performs a call to 
+`[]` of H5Group and the H5 file has not been visited yet, we only
+check for the existence of the group in the file. This updates the
+group table of the H5FileObj copy given to `[]`. Since the table is a
+reference, we thus also update the user's group table.
+
+Further, if we call e.g. items of H5Group, we may call `visit_file`,
+depending on whether the whole file as been visited yet (using
+H5Ovisit). This is to make sure we yield every group in the
+file. Again, this will also update the user's group table. However, it
+will also update the `visited` field of the parent file reference of
+the group for which items is called. That reference though is not a
+reference to the user's file object, but one to an H5FileObj created
+during creation of the group, which used the available data of the
+user's H5FileObj.
+
+So depending on what kind of procs are called, the user's and the
+groups reference may diverge further and further. Problem? Ugly design
+for a start, but can potentially cause unecessary calls to
+e.g. `visit_file`, because for example:
+
+#+BEGIN_SRC nim
+  var file = H5File("dset.h5", "r")
+
+  let g1_name = "/group1"
+  # opening a group copies current state of `file` as a new reference
+  # to g1
+  var g1 = file[g1_name.grp_str]
+
+  # items call will make `visit_file` call of its reference, i.e. the 
+  # reference created during `[]` call above
+  for dset in items(g1, "/group1/group2"):
+    echo dset.name
+ 
+  # now g1's ref to its H5FileObj has `visited` == true, while file.visited == false
+
+  # get second group
+  var g2 = file["/test".grp_str]
+  # its reference based on `file` -> g2.file_ref.visited == false!  
+ 
+  # means following call
+  for dset in g2:
+    echo dset.name
+#+END_SRC
+Now the last items call performs WHOLE H5Ovisit call again, since it
+checks for `visited`, despite the fact that as a matter of fact its
+group table does indeed contain all groups in the file. 
+
+Should be fixed... somehow. `visited` could simply be a
+reference... How do ref objects behave? Do they solve that?
+

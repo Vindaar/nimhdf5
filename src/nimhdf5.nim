@@ -45,9 +45,12 @@ import arraymancer
 import nimhdf5/hdf5_wrapper
 include nimhdf5/H5nimtypes
 
+# TODO: instead of exporting everything from each module, we should
+# instead only export the public fields of the types for example!
 
 import nimhdf5/datatypes
-# datatypes need to be exported
+# datatypes need to be exported. No, only parts of it, which can be
+# exported from the specific submodules, e.g. groups, datasets etc.
 export datatypes
 import nimhdf5/util
 # need to export util for shape and flatten
