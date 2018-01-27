@@ -139,6 +139,9 @@ proc read_some() =
   #
   # Open an existing file using default properties.
   #
+
+  echo "Read some back from file"
+  
   var file = H5File("dset.h5", "r")
 
   # first visit all elements in the file, for fun. Could skip this however and
@@ -194,8 +197,7 @@ proc read_some() =
   let vlen_data = dset_vlen[vlen_type, float]
   echo vlen_data
 
-
-  # read attributes back
+  # open a group to read an attribute
   let g1_name = "/group1"
   var g1 = file[g1_name.grp_str]
   echo g1.attrs.read_attribute("Counter", int)
@@ -241,6 +243,12 @@ proc read_some() =
   # finally iterate over all groups in the file and echo their names
   for grp in items(file, "/test"):
     echo grp.name
+
+  # finally iterate over all datasets in a subgroup and echo their names
+  for dset in items(g1, "/group1/group2"):
+    echo dset.name
+  echo g1.datasets
+    
 
   # close the file again
   discard file.close()
