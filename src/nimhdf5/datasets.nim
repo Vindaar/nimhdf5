@@ -704,7 +704,6 @@ proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   var data = newSeq[hvl_t](n_elements)
   err = H5Dread(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
                     addr(data[0]))
-  echo "H5Dread : ", err
 
   # converting the raw data from the C library to a Nim sequence is sort of ugly, but
   # here it goes...
@@ -725,7 +724,6 @@ proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   # reclaim the memory, which it alloc'd 
   let dspace_id = H5Dget_space(dset.dataset_id)
   err = H5Dvlen_reclaim(dset.dtype_c, dspace_id, H5P_DEFAULT, addr(data[0]))
-  echo "H5Dvlen_reclaim : ", err
 
 proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
   # check whehter we have data for each coordinate
@@ -919,13 +917,40 @@ proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
   else:
     raise newException(ImmutableDatasetError, "Cannot resize a non-chunked (i.e. contiguous) dataset!")
 
-proc select_hyperslab(dset: var H5DataSet, offset, count: seq[int], stride, blk: seq[int] = @[]) =
-  # given the dataspace of `dset`, select a hyperslab of it using `offset`, `stride`, `count` and `blk`
-  # for which all needs to hold:
-  # dset.shape.len == offset.shape.len, i.e. they need to be of the same rank as dset is
-  # we currently set the hyperslab selection such that previous selections are overwritten (2nd argument)
+proc h5SelectHyperslab(dspace_id: hid_t, offset, count, stride, blk: var seq[hsize_t]): herr_t {.inline.} =
+  ## wrapper for the H5 C hyperslab selection function
+  ## inputs:
+  ##    dspace_id: hid_t = dataspace id of the dataspace on which hyperslab selection is done
+  ##      (might be dataspace of a dataset or different memory space)
+  ##    offset, count, stride, blk: var seq[hsize_t] = mutable sequences of hyperslab selections
+  ##      neeeded as var, since we have to hand the address of the start of the data
+  ## outputs:
+  ##    herr_t = return value of the C function
+  ## throws:
+  ##    HDF5LibraryError = in case a call to the HDF5 library fails
+  withDebug:
+    echo "Selecting the following hyperslab"
+    echo "offset: ", offset
+    echo "count:  ", count
+    echo "stride: ", stride
+    echo "block:  ", blk
+  result = H5Sselect_hyperslab(dspace_id,
+                               H5S_SELECT_SET,
+                               addr(offset[0]),
+                               addr(stride[0]),
+                               addr(count[0]),
+                               addr(blk[0]))
+  
+proc parseHyperslabSelection(offset, count: seq[int], stride, blk: seq[int] = @[]):
+                            (seq[hsize_t], seq[hsize_t], seq[hsize_t], seq[hsize_t]) =
+  ## proc to perform parsing and type conversion of input selections for hyperslabs
+  ## notation follows HDF5 hyperslab notation
+  ## inputs:
+  ##    offset, count, stride, blk: seq[int] = hyperslab selections
+  ## outputs:
+  ##    tuple of type converted seq[int] -> seq[hsize_t],
+  ## throws: nil, pure: true
   var
-    err: herr_t
     moffset = mapIt(offset, hsize_t(it))
     mcount  = mapIt(count, hsize_t(it))
     mstride: seq[hsize_t] = @[]
@@ -934,35 +959,38 @@ proc select_hyperslab(dset: var H5DataSet, offset, count: seq[int], stride, blk:
     mstride = mapIt(stride, hsize_t(it))
   if blk.len > 0:
     mblk    = mapIt(blk, hsize_t(it))
-
   # in case of empty stride or block seqs, set them to the required definition
   # i.e. values of 1 for each dimension
   if stride.len == 0:
     mstride = mapIt(toSeq(0..offset.high), hsize_t(1))
   if blk.len == 0:
     mblk = mapIt(toSeq(0..offset.high), hsize_t(1))
+  result = (moffset, mcount, mstride, mblk)
 
-  withDebug:
-    echo "Selecting the following hyperslab"
-    echo "offset: ", moffset
-    echo "count:  ", mcount
-    echo "stride: ", mstride
-    echo "block:  ", mblk
-    
+proc select_hyperslab(dset: var H5DataSet, offset, count: seq[int], stride, blk: seq[int] = @[]) =
+  ## high level proc to select a hyperslab on a H5DataSet. Calls low level access proc h5SelectHyperslab
+  ## given the dataspace of `dset`, select a hyperslab of it using `offset`, `stride`, `count` and `blk`
+  ## for which all needs to hold:
+  ## dset.shape.len == offset.shape.len, i.e. they need to be of the same rank as dset is
+  ## we currently set the hyperslab selection such that previous selections are overwritten (2nd argument)
+  var
+    err: herr_t
+
+  # parse and convert the hyperslab selection sequences
+  var (moffset, mcount, mstride, mblk) = parseHyperslabSelection(offset, count, stride, blk)
+
   # just in case get the most current dataspace
   dset.dataspace_id = H5Dget_space(dset.dataset_id)
   # and perform the selection on this dataspace
-  err = H5Sselect_hyperslab(dset.dataspace_id,
-                            H5S_SELECT_SET,
-                            addr(moffset[0]),
-                            addr(mstride[0]),
-                            addr(mcount[0]),
-                            addr(mblk[0]))
+  err = h5SelectHyperslab(dset.dataspace_id, moffset, mcount, mstride, mblk)
   if err < 0:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sselect_hyperslab` in `select_hyperslab`")
 
 proc write_hyperslab*[T](dset: var H5DataSet, data: seq[T], offset, count: seq[int], stride, blk: seq[int] = @[]) =
-  # proc to select a hyperslab and write to it
+  ## proc to select a hyperslab and write to it
+  ## The HDF5 notation for hyperslabs is used.
+  ## See sec. 7.4.1.1 in the HDF5 user's guide:
+  ## https://support.hdfgroup.org/HDF5/doc/UG/HDF5_Users_Guide-Responsive%20HTML5/index.html
   var err: herr_t
 
   # flatten the data array to be written
@@ -980,3 +1008,119 @@ proc write_hyperslab*[T](dset: var H5DataSet, data: seq[T], offset, count: seq[i
   err = H5Sclose(memspace_id)
   if err < 0:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sclose` in `write_vlen`")
+
+
+proc sizeOfHyperslab(offset, count, stride, blk: seq[hsize_t]): int =
+  ## proc to calculate the number of elements in a defined
+  ## hyperslab
+  ## notation based on HDF5 hyperslab notation
+  ## inputs:
+  ##    offset, count, stride, blk: seq[int] = hyperslab selectors
+  ## outputs:
+  ##    int = number of elements in the selected hyperslab
+  ## throws: nil, pure: true
+  ## Note: negative values in specific dimensions are interpreted
+  ##   as 0
+
+  # stride is irrelevant for total size, iff the selected stride
+  # is larger than the selected block
+  # offset is always irrelevant for size
+  # TODO: include this. We currently overestimate the size of
+  # the sequence, if the user inserts e.g.
+  # count = @[2, 2], stride = @[2, 2], blk = @[4, 4]
+  # because due to the stride, there'd be an overlap of 2 x 4 elements
+  # for each blk
+  let
+    mcount = mapIt(count, if it < 0: hsize_t(0) else: it)
+    mblk   = mapIt(blk, if it < 0: hsize_t(0) else: it)
+  result = int(foldl(mcount, a * b) * foldl(mblk, a * b))
+
+#proc reshape[T](s: seq[T], shape: varargs[int]): seq[seq[T]] =
+  
+
+proc reshape[T](s: seq[T], shape: varargs[int]): seq[seq[T]] =
+  var mshape = @[2, 2, 5] #shape
+  var ndims = shape.len
+  var j = 0
+  var r_data: seq[seq[T]] = @[]
+  for i, el in s:
+    # iterate over s, create new sequences once filled
+    var dim_s = newSeq[T](mshape[^1])
+    for j in 0 ..< dim_s:
+      dim_s[j] = s[i]
+    r_data.add(dim_s)
+
+  # now we have seqs of inner most shape
+  # add this data to correctly shaped output
+  #for dim in mshape[0..^2]:
+  result = reshape(r_data, mshape[0..^2]) 
+
+    
+proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
+                        offset, count: seq[int], stride, blk: seq[int] = @[],
+                        full_output = false): seq[T] =
+  ## proc to read an arbitrary hyperslab from a given dataset. 
+  ## HDF5 notation for hyperslab selection applies
+  ## See sec. 7.4.1.1 in the HDF5 user's guide:
+  ## https://support.hdfgroup.org/HDF5/doc/UG/HDF5_Users_Guide-Responsive%20HTML5/index.html
+  ## inputs:
+  ##    dset: var H5DataSet = dataset from which we read hyperslab
+  ##    dtype: datatype of the dataset, needed for the proc to return a
+  ##           sequence of said type
+  ##    offset, count, stride, blk: seq[int] = selection sequences, see note above
+  ##      to seelect a single rectangle in the dataset, leave stride and blk empty
+  ##    full_output: bool = if this flag is set to true, return a sequence of the
+  ##      size of dset.shape with all zero entries except the elements read by
+  ##      the hyperslab
+  ## outputs:
+  ##    seq[T] = 1D sequence of the hyperslab. To get reshaped data, use one of the
+  ##      higher level read procs (NotYetImplemented...)
+  ## throws:
+  ##    HDF5LibraryError = if a call to the H5 library fails
+  var err: herr_t
+    
+  if $dtype != dset.dtype:
+    raise newException(ValueError,
+                       "Wrong datatype as arg to `read_hyperslab`. Given `$#`, dset is `$#`" % [$dtype, $dset.dtype])
+
+  # parse the input hyperslab selections
+  var (moffset, mcount, mstride, mblk) = parseHyperslabSelection(offset, count, stride, blk)
+  # get a memory space for the size of the whole dataset, on which we will perform the
+  # selection of the hyperslab we wish to read
+  var memspace_id: hid_t
+  if full_output == true:
+    memspace_id = simple_dataspace(dset.shape)
+    # in this case need to perform selection of the hyperslab on memspace
+    # as well as dataspace
+    err = h5SelectHyperslab(memspace_id, moffset, mcount, mstride, mblk)      
+  else:
+    # combine count and blk to get the size of the data we read as a sequence
+    let shape = mapIt(zip(mcount, mblk), it[0] * it[1])
+    memspace_id = simple_dataspace(shape)
+
+
+
+  # perform hyperslab selection on dataspace
+  dset.select_hyperslab(offset, count, stride, blk)  
+  if err < 0:
+    raise newException(HDF5LibraryError,
+                       "Call to HDF5 library failed while calling `h5SelectHyperslab` in `read_hyperslab`")
+
+  # now create the necessary array to store the data in
+  # given the hyperslab parameters, calculate the length of the neeeded
+  # dataset
+  var n_elements: int
+  if full_output == false:
+    n_elements = sizeOfHyperslab(moffset, mcount, mstride, mblk)
+  else:
+    n_elements = foldl(dset.shape, a * b)
+  var mdata = newSeq[T](n_elements)
+
+  
+  err = H5Dread(dset.dataset_id, dset.dtype_c, memspace_id, dset.dataspace_id, H5P_DEFAULT, addr(mdata[0]))
+g  if err < 0:
+    withDebug:
+      echo "Trying to write mdata with shape ", mdata.shape
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dread` in `read_hyperslab`")
+
+  result = mdata

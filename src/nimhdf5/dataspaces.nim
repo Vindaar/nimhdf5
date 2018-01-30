@@ -38,7 +38,6 @@ proc parseMaxShape(maxshape: seq[int]): seq[hsize_t] =
   else:
     result = mapIt(maxshape, if it == int.high: H5S_UNLIMITED else: hsize_t(it))
   
-
 template simple_dataspace*[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): hid_t =
   # create a simple dataspace with max dimension == current_dimension
   # TODO: rewrite this
@@ -63,6 +62,7 @@ template simple_dataspace*[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): 
       H5Screate_simple(cint(1), addr(mshape), nil)
 
 proc create_simple_memspace_1d*[T](coord: seq[T]): hid_t {.inline.} =
+  ## TODO: apply naming convention camelCase (internal proc)
   ## convenience proc to create a simple 1D memory space for N coordinates
   ## in memory
   # get enough space for the N coordinates in coord
