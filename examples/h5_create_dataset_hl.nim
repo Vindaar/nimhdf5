@@ -248,7 +248,12 @@ proc read_some() =
   for dset in items(g1, "/group1/group2"):
     echo dset.name
   echo g1.datasets
-    
+
+  # now read hyperslab back:
+  var dset_hyper = file["/group1/dsetresize".dset_str]
+  echo "Resized shape is ", dset_hyper.shape
+  let data_hyper = dset_hyper.read_hyperslab(int64, offset = @[6, 6], count = @[3, 3], full_output = false)
+  echo data_hyper
 
   # close the file again
   discard file.close()
