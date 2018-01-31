@@ -1118,7 +1118,7 @@ proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
 
   
   err = H5Dread(dset.dataset_id, dset.dtype_c, memspace_id, dset.dataspace_id, H5P_DEFAULT, addr(mdata[0]))
-g  if err < 0:
+  if err < 0:
     withDebug:
       echo "Trying to write mdata with shape ", mdata.shape
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dread` in `read_hyperslab`")
