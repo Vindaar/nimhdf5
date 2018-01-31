@@ -13,8 +13,15 @@
 
 {.deadCodeElim: on.}
 when not declared(libname):
-  const
-    libname* = "libhdf5.so"
+  when defined(Windows):
+    const
+      libname* = "hdf5.dll"
+  elif defined(MacOSX):
+    const
+      libname* = "libhdf5.dylib"
+  else:
+    const
+      libname* = "libhdf5.so"
 ## 
 ##  Programmer:  Raymond Lu <slu@hdfgroup.uiuc.edu>
 ##               Wednesday, 20 September 2006

@@ -22,8 +22,15 @@
 import ../H5nimtypes
 
 when not declared(libname):
-  const
-    libname* = "libhdf5.so"
+  when defined(Windows):
+    const
+      libname* = "hdf5.dll"
+  elif defined(MacOSX):
+    const
+      libname* = "libhdf5.dylib"
+  else:
+    const
+      libname* = "libhdf5.so"
 
 proc H5FD_sec2_init*(): hid_t {.cdecl, importc: "H5FD_sec2_init", dynlib: libname.}
 proc H5Pset_fapl_sec2*(fapl_id: hid_t): herr_t {.cdecl, importc: "H5Pset_fapl_sec2",

@@ -13,8 +13,15 @@
 
 {.deadCodeElim: on.}
 when not declared(libname_hl):
-  const
-    libname_hl* = "libhdf5_hl.so"
+  when defined(Windows):
+    const
+      libname_hl* = "hdf5_hl.dll"
+  elif defined(MacOSX):
+    const
+      libname_hl* = "libhdf5_hl.dylib"
+  else:
+    const
+      libname_hl* = "libhdf5_hl.so"
 
 proc H5IMmake_image_8bit*(loc_id: hid_t; dset_name: cstring; width: hsize_t;
                          height: hsize_t; buffer: ptr cuchar): herr_t {.cdecl,

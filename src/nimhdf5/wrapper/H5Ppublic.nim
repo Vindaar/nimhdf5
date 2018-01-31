@@ -25,8 +25,15 @@ import
   H5Opublic, H5MMpublic, H5Tpublic, H5Zpublic, ../H5nimtypes
 
 when not declared(libname):
-  const
-    libname* = "libhdf5.so"
+  when defined(Windows):
+    const
+      libname* = "hdf5.dll"
+  elif defined(MacOSX):
+    const
+      libname* = "libhdf5.dylib"
+  else:
+    const
+      libname* = "libhdf5.so"
 
 # before we can import any of the variables, from the already shared library
 # we need to make sure that they are defined. The library needs to be

@@ -13,8 +13,15 @@
 
 {.deadCodeElim: on.}
 when not declared(libname_hl):
-  const
-    libname_hl* = "libhdf5_hl.so"
+  when defined(Windows):
+    const
+      libname_hl* = "hdf5_hl.dll"
+  elif defined(MacOSX):
+    const
+      libname_hl* = "libhdf5_hl.dylib"
+  else:
+    const
+      libname_hl* = "libhdf5_hl.so"
 
 proc H5LDget_dset_dims*(did: hid_t; cur_dims: ptr hsize_t): herr_t {.cdecl,
     importc: "H5LDget_dset_dims", dynlib: libname_hl.}

@@ -13,8 +13,15 @@
 
 {.deadCodeElim: on.}
 when not declared(libname):
-  const
-    libname* = "libhdf5.so"
+  when defined(Windows):
+    const
+      libname* = "hdf5.dll"
+  elif defined(MacOSX):
+    const
+      libname* = "libhdf5.dylib"
+  else:
+    const
+      libname* = "libhdf5.so"
 
 ## 
 ##  This file contains public declarations for the HDF5 module.

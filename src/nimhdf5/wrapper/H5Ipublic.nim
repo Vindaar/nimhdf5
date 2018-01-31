@@ -23,8 +23,15 @@ import
   H5public, ../H5nimtypes
 
 when not declared(libname):
-  const
-    libname* = "libhdf5.so"
+  when defined(Windows):
+    const
+      libname* = "hdf5.dll"
+  elif defined(MacOSX):
+    const
+      libname* = "libhdf5.dylib"
+  else:
+    const
+      libname* = "libhdf5.so"
 
 ## 
 ##  Library type values.  Start with `1' instead of `0' because it makes the
