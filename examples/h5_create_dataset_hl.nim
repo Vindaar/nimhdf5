@@ -202,6 +202,7 @@ proc read_some() =
   var g1 = file[g1_name.grp_str]
   echo g1.attrs.read_attribute("Counter", int)
 
+
   # get table of attributes
   var attr = g1.attrs
   # attr contains keys: string, values: AnyKind
@@ -255,6 +256,27 @@ proc read_some() =
   let data_hyper = dset_hyper.read_hyperslab(int64, offset = @[6, 6], count = @[3, 3], full_output = false)
   echo data_hyper
 
+  proc echo_in_file[T](file: var T, name: string) = 
+    if name in file:
+      echo "There is a group or dataset called $# in $#" % [$name, $file.name]
+    else:
+      echo "There is no group or dataset called $# in $#" % [$name, $file.name]
+  # some example `in` file checks
+  file.echo_in_file("/test/another")
+  doAssert "/test/another" in file == true
+  file.echo_in_file("/not/in_file")
+  doAssert "/not/in_file" notin file == true
+  file.echo_in_file("/group1/dsetresize")
+  doAssert "/group1/dsetresize" in file == true
+
+  # can also check for elements in a group
+  g1.echo_in_file("/group1/group2")
+  g1.echo_in_file("group2")
+  g1.echo_in_file("dset1D")
+  doAssert "/group1/group2" in g1 == true
+  doAssert "group2" in g1 == true
+  doAssert "/group2" in g1 == true
+    
   # close the file again
   discard file.close()
 
