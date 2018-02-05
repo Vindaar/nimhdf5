@@ -27,8 +27,6 @@ import arraymancer
 #    be the case, but I didn't t see any errors either?!
 #  - add iterators for attributes, groups etc..!
 #  - add `contains` proc to check for elements in file / group (-> in, notin)
-#  - add ability to read hyperslabs
-#  - 
 #  - add proc to delete dataset or group (this is especially needed for the case
 #    in which we wish to rewrite a fixed size dataset with a different size!
 #  - add ability to write arraymancer.Tensor (properly)

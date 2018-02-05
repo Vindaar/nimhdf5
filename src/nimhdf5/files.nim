@@ -345,3 +345,47 @@ iterator items*(h5f: var H5FileObj, start_path = "/"): H5Group =
       yield h5f[grp.grp_str]
 
   
+proc contains*[T: (H5FileObj | H5Group)](h5f: var T, name: string): bool =
+  ## proc to check whehther an element named `name` is contained in the
+  ## HDF5 file. Checks for both groups and datasets!
+  ## For groups either a full path or a relative path (relative to the name
+  ## of the group on which `contains` is called) is possible. Note that
+  ## lookups with a depth of more than 1 (subgroups or datasets of groups
+  ## in the group we check) is currently not supported. Call on H5FileObj
+  ## instead.
+  ## Note: we first check for the existence of a group of this name,
+  ## and only if no group of `name` is found, do we check the dataset names
+  ## inputs:
+  ##   h5f: var H5FileObj = H5 file to check
+  ##   name: string = the name of the dataset / group to check
+  ## outputs:
+  ##   bool = true if contained, false else
+  ## throws:
+  ##   HDF5LibraryError = in case the call to visit_file fails (only called
+  ##     if the file wasn't visited before)
+
+  # if file not visited yet, do that now
+  when T is H5FileObj:
+    if h5f.visited == false:
+      h5f.visit_file
+  else:
+    if h5f.file_ref.visited == false:
+      visit_file(h5f.file_ref[])
+
+  result = false
+  if name in h5f.groups:
+    result = true
+  else:
+    # if no group of said name, check datasets
+    if name in h5f.datasets:
+      result = true
+
+  if result == false:
+    # in case we're checking a group, we should also check whether the given name
+    # is relative to this groups basename
+    when T is H5Group:
+      # check whether `name` contains h5f's name
+      if h5f.name notin name:
+        # then create full name and call this proc again
+        let full_name = h5f.name / name
+        result = h5f.contains(full_name)
