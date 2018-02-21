@@ -266,7 +266,7 @@ iterator items*(group: var H5Group, start_path = "."): H5DataSet =
   ## inputs:
   ##    group: H5Group = the H5 group object, over which to iterate
   ##    start_path: string = optional starting location from which to iterate
-  ##        default starts at location of group "."
+  ##      default starts at location of group "."
   ## yields:
   ##    H5DataSet, which resides below `start_path`
   ## throws:

@@ -314,7 +314,7 @@ proc visit_file*(h5f: var H5FileObj, name: string = "", h5id: hid_t = 0) =
   h5f.visited = true
     
 
-iterator items*(h5f: var H5FileObj, start_path = "/"): H5Group =
+iterator items*(h5f: var H5FileObj, start_path = "/", depth = 0): H5Group =
   ## iterator, which returns a non mutable group objects starting from `start_path` in the
   ## H5 file
   ## Note: many procs working on groups need a mutable object!
@@ -323,6 +323,8 @@ iterator items*(h5f: var H5FileObj, start_path = "/"): H5Group =
   ##    h5f: H5FileObj = the H5 file object, over which to iterate
   ##    start_path: string = optional starting location from which to iterate
   ##        default starts at root group `/`
+  ##    depth: int = depth of subgroups to be returned. Default 0 returns
+  ##      all subgroups
   ## yields:
   ##    H5Group, which resides below `start_path`
   ## throws:
@@ -333,15 +335,32 @@ iterator items*(h5f: var H5FileObj, start_path = "/"): H5Group =
   if h5f.visited == false:
     h5f.visit_file
 
+  # number of `/` in start path, needed to calculate at which
+  # depth we are from start path
+  var n_start = 0
+
   # now make sure the start_path is properly formatted
   if start_path != "/":
     mstart_path = formatName start_path
-
+    # in this case count number of / 
+    n_start = mstart_path.count('/')    
+  else:
+    # if we start at root group, start with 0
+    # otherwise cannot differentiate level 1 from root, since
+    # both have exactly 1 `/`
+    n_start = 0
+    
   # now loop over all groups, checking for start_path in each group name
   for grp in keys(h5f.groups):
     if grp.startsWith(mstart_path) == true and grp != mstart_path:
       # in this case we're neither visiting the group at which we start
       # nor a group, which is not a subgroup
+      if depth != 0:
+        # check if max search depth reached
+        let n_current = grp.count('/')
+        if n_current - n_start > depth:
+          # in this case continue without yielding
+          continue
       yield h5f[grp.grp_str]
 
   
