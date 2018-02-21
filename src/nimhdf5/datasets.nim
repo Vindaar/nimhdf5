@@ -636,6 +636,41 @@ dataset is dimension $#!""" % [$coord[0].len, $dset.shape.len])
   # close memspace again
   discard H5Sclose(memspace_id)
 
+proc `[]`*[T](dset: var H5DataSet, ind: int, t: typedesc[T]): T =
+  ## convenience proc to return a single element from a dataset
+  ## mostly useful to read one element from a 1D dataset. In case of
+  ## N-D datasets, still only a single element
+  ## e.g.: ind == 0 -> [0, 0, ..., 0]
+  ## will be read. In case of a NxNx...xN dataset, we will
+  ## read from the diagonal (ind broadcasted to all dimensions)
+  ## Implementation detail, due to no return value
+  ## overloading.
+  ## In case of different sizes of each dimensino, we still broadcast
+  ## the same value, unless the size the index is larger than the
+  ## size in one dimension, in which case we take the last element.
+  ## inputs:
+  ##   dset: var H5DataSet = the dataset from which to read an element
+  ##   ind: int = the index at which to read the scalar
+  ##   t: typedesc[T] = the datatype of the dataset. Needs to be given
+  ##     to define the return value of the proc
+  ## outputs:
+  ##   T = scalar read from position `ind`
+  ## throws:
+  ##   HDF5LibraryError = in case a call to the H5 library fails
+  let shape = dset.shape
+  # broadcast coord to all dimensions. Needs to be packed into a sequence
+  # since read() expects seq[seq[T]]
+  # Done by checking for each dimension whether the given index still "fits"
+  # into the dimension. If yes, `ind` is taken, else we use the last element
+  # in that dimension (-> diagonal if 
+  let coord = @[mapIt(toSeq(0 .. shape.high), if ind < shape[it]: ind else: shape[it] - 1)]
+  # create buffer seq of size 1 to read data into
+  var buf = newSeq[t](1)
+  dset.read(coord, buf)
+  # return element of bufer
+  result = buf[0]
+  
+
 proc read*[T](dset: var H5DataSet, buf: var seq[T]) =
   # read whole dataset
   if buf.len == foldl(dset.shape, a * b, 1):
