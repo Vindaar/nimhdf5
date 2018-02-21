@@ -607,9 +607,23 @@ proc select_elements[T](dset: var H5DataSet, coord: seq[T]) {.inline.} =
   discard H5Sselect_elements(dset.dataspace_id, H5S_SELECT_SET, csize(coord.len), addr(flat_coord[0]))
 
 proc read*[T: seq, U](dset: var H5DataSet, coord: seq[T], buf: var seq[U]) =
-  # proc to read specific coordinates (or single values) from a dataset
-  
+  ## proc to read specific coordinates (or single values) from a dataset
+  ## inputs:
+  ##   dset: var H5DataSet = mutable copy of dataset from which to read
+  ##   coord: seq[T] = seq of seqs, where each element contains a seq, which
+  ##     describes a single scalar in the dataset.
+  ##     Each element needs to have same dimensionality as dataset
+  ##     Note: currently NOT checked, whether elements are within the dataset
+  ##     If not, a H5 error occurs
+  ## throws:
+  ##   IndexError = raised if the shape of the a coordinate (check only first, be careful!)
+  ##     does not match the shape of the dataset. Otherwise would cause H5 library error
   # select the coordinates in the dataset
+  if coord[0].len != dset.shape.len:
+    raise newException(IndexError, """Coordinate shape mismatch. Coordinate has dimension $#, 
+dataset is dimension $#!""" % [$coord[0].len, $dset.shape.len])
+
+  # select all elements from the coordinate seq
   dset.select_elements(coord)
   let memspace_id = create_simple_memspace_1d(coord)
   # now read the elements
