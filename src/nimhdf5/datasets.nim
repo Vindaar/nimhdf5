@@ -1084,9 +1084,6 @@ proc sizeOfHyperslab(offset, count, stride, blk: seq[hsize_t]): int =
     mblk   = mapIt(blk, if it < 0: hsize_t(0) else: it)
   result = int(foldl(mcount, a * b) * foldl(mblk, a * b))
 
-#proc reshape[T](s: seq[T], shape: varargs[int]): seq[seq[T]] =
-  
-
 proc reshape[T](s: seq[T], shape: varargs[int]): seq[seq[T]] =
   var mshape = @[2, 2, 5] #shape
   var ndims = shape.len
@@ -1173,3 +1170,15 @@ proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dread` in `read_hyperslab`")
 
   result = mdata
+
+
+proc high*(dset: var H5DataSet, axis = 0): int =
+  ## convenience proc to return the highest possible index of
+  ## the dataset along a given axis (in a given dimension)
+  ## inputs:
+  ##   dset: var H5DataSet = dataset for which to return index
+  ##   axis: int = axis for which to return highest index. By default
+  ##     first axis is used. Mostly useful for 1D datasets
+  ## outputs:
+  ##   int = highest index along `axis`
+  result = dset.shape[axis] - 1
