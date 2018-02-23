@@ -253,17 +253,26 @@ template `[]=`*[T](h5attr: var H5Attributes, name: string, val: T) =
   h5attr.write_attribute(name, val)
 
 proc read_attribute*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[T]): T =
-  # now implement reading of attributes
-  # finally still need a read_all attribute. This function only reads a single one, if
-  # it exists.
-  # check existence, since we read all attributes upon creation of H5Attributes object
-  # (attr as small, so the performance overhead should be minimal), we can just access
-  # the attribute table to check for existence
+  ## now implement reading of attributes
+  ## finally still need a read_all attribute. This function only reads a single one, if
+  ## it exists.
+  ## check existence, since we read all attributes upon creation of H5Attributes object
+  ## (attr as small, so the performance overhead should be minimal), we can just access
+  ## the attribute table to check for existence
+  ## inputs:
+  ##   h5attr: var H5Attributes = mutable H5Attributes from which to read specific attribute
+  ##     Note: does not need to be mutable?!
+  ##   name: string = name of the attribute to be read
+  ##   dtype: typedesc[T] = datatype of the attribute to be read. Needed to define return
+  ##     value.
+  ## throws:
+  ##   KeyError: In case the key does not exist as an attribute
 
   # TODO: check err values!
   
   let attr_exists = hasKey(h5attr.attr_tab, name)
   var err: herr_t
+
   if attr_exists:
     # in case of existence, read the data and return
     let attr = h5attr.attr_tab[name]
