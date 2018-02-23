@@ -288,8 +288,7 @@ proc read_attribute*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[
       err = H5Aread(attr.attr_id, attr.dtype_c, addr(buf_string[0]))
       result = buf_string
   else:
-    # raise error
-    discard
+    raise newException(KeyError, "No key `$#` exists in group `$#`" % [name, h5attr.parent_name])
 
 template `[]`*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[T]): T =
   # convenience access to read_attribute
