@@ -13,13 +13,18 @@ import hdf5_wrapper
 import H5nimtypes
 import datatypes
 import dataspaces
+import h5util
 import util
 
 # forward declare procs, which we need to read the attributes from file
 proc read_all_attributes*(h5attr: var H5Attributes)
-  
+
+proc `$`*(h5attr: ref H5Attr): string =
+  ## proc to define echo of ref H5Attr by echoing its contained object
+  result = $(h5attr[])
+    
 proc newH5Attributes*(): H5Attributes =
-  let attr = initTable[string, H5Attr]()  
+  let attr = newTable[string, ref H5Attr]()
   result = H5Attributes(attr_tab: attr,
                         num_attrs: -1,
                         parent_name: "",
@@ -27,7 +32,7 @@ proc newH5Attributes*(): H5Attributes =
                         parent_type: "")
 
 proc initH5Attributes*(p_name: string = "", p_id: hid_t = -1, p_type: string = ""): H5Attributes =
-  let attr = initTable[string, H5Attr]()
+  let attr = newTable[string, ref H5Attr]()
   var h5attr = H5Attributes(attr_tab: attr,
                             num_attrs: -1,
                             parent_name: p_name,
@@ -109,7 +114,7 @@ proc read_all_attributes*(h5attr: var H5Attributes) =
   # first get how many objects there are
   h5attr.num_attrs = h5attr.getNumAttrs
   for i in 0..<h5attr.num_attrs:
-    var attr: H5Attr
+    var attr = new H5Attr
     let idx = hsize_t(i)
     attr.attr_id = openAttrByIdx(h5attr, i)
     let name = getAttrName(attr.attr_id)
@@ -119,7 +124,7 @@ proc read_all_attributes*(h5attr: var H5Attributes) =
     attr.dtype_c = H5Aget_type(attr.attr_id)
     attr.attr_dspace_id = H5Aget_space(attr.attr_id)
     # now set the attribute any kind fields (checks whether attr is a sequence)
-    setAttrAnyKind(attr)
+    attr[].setAttrAnyKind
     # add to this attribute object
     h5attr.attr_tab[name] = attr
 
@@ -146,11 +151,14 @@ template existsAttribute*[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: st
 proc deleteAttribute*(h5id: hid_t, name: string): bool =
   withDebug:
     echo "Deleting attribute $# on id $#" % [name, $h5id]
-  let success = H5Adelete(h5id, name)
-  result = if success >= 0: true else: false
+  if existsAttribute(h5id, name) == true:
+    let success = H5Adelete(h5id, name)
+    result = if success >= 0: true else: false
+  else:
+    result = true
 
 template deleteAttribute*[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: string): bool =  
-  deleteAttribute(h5o.getH5Id, name)
+  deleteAttribute(getH5Id(h5o), name)
     
 proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_check = false) =
   ## writes the attribute `name` of value `val` to the object `h5o`
@@ -174,7 +182,7 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
   if attr_exists == false:
     # create a H5Attr, which we add to the table attr_tab of the given
     # h5attr object once we wrote it to file
-    var attr: H5Attr
+    var attr = new H5Attr
     
     when T is SomeNumber or T is char:
       let
@@ -187,13 +195,12 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
       var mval = val
       # write the value
       discard H5Awrite(attribute_id, dtype, addr(mval))
-
       # write information to H5Attr tuple
       attr.attr_id = attribute_id
       attr.dtype_c = dtype
       attr.attr_dspace_id = attr_dspace_id
       # set any kind fields (check whether is sequence)
-      setAttrAnyKind(attr)
+      attr[].setAttrAnyKind
       
     elif T is seq or T is string:
       # NOTE:
@@ -226,7 +233,7 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
       attr.dtype_c = dtype
       attr.attr_dspace_id = attr_dspace_id
       # set any kind fields (check whether is sequence)
-      setAttrAnyKind(attr)
+      attr[].setAttrAnyKind
     elif T is bool:
       # NOTE: in order to support booleans, we need to use HDF5 enums, since HDF5 does not support
       # a native boolean type. H5 enums not supported yet though...

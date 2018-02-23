@@ -31,7 +31,7 @@ type
   H5Attributes* = object
     # attr_tab is a table containing names and corresponding
     # H5 info
-    attr_tab*: Table[string, H5Attr]
+    attr_tab*: ref Table[string, ref H5Attr]
     num_attrs*: int
     parent_name*: string
     parent_id*: hid_t
