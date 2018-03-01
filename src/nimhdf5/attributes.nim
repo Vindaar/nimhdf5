@@ -157,8 +157,10 @@ proc deleteAttribute*(h5id: hid_t, name: string): bool =
   else:
     result = true
 
-template deleteAttribute*[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: string): bool =  
-  deleteAttribute(getH5Id(h5o), name)
+proc deleteAttribute*[T: (H5FileObj | H5Group | H5DataSet)](h5o: var T, name: string): bool =
+  result = deleteAttribute(getH5Id(h5o), name)
+  # if successful also lower the number of attributes
+  h5o.attrs.num_attrs = h5o.attrs.getNumAttrs
     
 proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_check = false) =
   ## writes the attribute `name` of value `val` to the object `h5o`
@@ -254,6 +256,9 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
       write_attribute(h5attr, name, val, true)
     else:
       raise newException(HDF5LibraryError, "Call to HDF5 library failed on call in `deleteAttribute`")
+
+  # independent of previous attribute, refresh the number of attributes
+  h5attr.num_attrs = h5attr.getNumAttrs
 
 template `[]=`*[T](h5attr: var H5Attributes, name: string, val: T) =
   # convenience access to write_attribue
