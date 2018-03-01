@@ -218,7 +218,7 @@ proc create_group*[T](h5f: var T, group_name: string): H5Group =
     withDebug:
       echo "Group path is now ", group_path, " ", h5f.name
   else:
-    let group_path = group_name
+    let group_path = formatName group_name
   
   let exists = hasKey(h5f.groups, group_path)
   if exists == true:
