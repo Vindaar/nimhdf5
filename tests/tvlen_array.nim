@@ -1,28 +1,27 @@
 import nimhdf5
 import sequtils
-import os
 import ospaths
 import typeinfo
+import os
 
 const
-  File = "tests/dset.h5"
-  DsetName = "/group1/dset"
-var d_ar = @[ @[ @[1'f64, 2, 3, 4, 5],
-                 @[6'f64, 7, 8, 9, 10] ],
-              @[ @[1'f64, 2, 3, 4, 5],
-                 @[6'f64, 7, 8, 9, 10] ] ]
+  File = "tests/vlen.h5"
+  VlenName = "/group1/vlen"
+let d_vlen = @[ @[1'f64, 2, 3],
+                @[6'f64, 7, 8, 9, 10],
+                @[1'f64, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                @[6'f64] ]
 
-
-proc create_dset(h5f: var H5FileObj): H5DataSet =
-  result = h5f.create_dataset("/group1/dset", (2, 2, 5), float64)
-  result[result.all] = d_ar
+proc create_vlen(h5f: var H5FileObj): H5DataSet =
+  let vlen_type = special_type(float)
+  result = h5f.create_dataset("/group1/vlen", 4, vlen_type)
+  echo d_vlen.shape
+  result[result.all] = d_vlen
 
 proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet) =
-  assert(dset.shape == @[2, 2, 5])
-
   assert(dset.maxshape == @[])
 
-  assert(dset.dtype == "float64")
+  assert(dset.dtype == "vlen")
   
   # currently if we hand a float64 for a datatype, we end up with
   # akFloat after creation, but when reading it back we get a
@@ -30,32 +29,36 @@ proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet) =
   # 1. as the default float type on a 64 bit machine 
   # 2. in case of float64 actually even more nuanced, in the sense
   #    that Nim defines float as an alias for float64
-  let anyKindCheck = if dset.dtypeAnyKind == akFloat or dset.dtypeAnyKind == akFloat64: true else: false
-  assert(anyKindCheck)#dset.dtypeAnyKind == akFloat)
+  let baseKindCheck = if dset.dtypeBaseKind == akFloat or dset.dtypeBaseKind == akFloat64: true else: false
+  echo dset.dtypeBaseKind
+  assert(baseKindCheck)
 
-  assert(dset.parent == parentDir(DsetName))
+  assert(dset.parent == parentDir(VlenName))
 
   assert(dset.file == File)
 
 proc assert_data(dset: var H5DataSet) =
-  
-  let data = dset[float64]
+  let vlen_type = special_type(float)
+  let data = dset[vlen_type, float]
 
   # now flatten the data we wrote to file
   # have to flatten since do not return the data in
   # the shape of the array we write, but rather as
   # a flattened array, i.e.
-  # assert(data.shape == d_ar.shape)
+  # assert(data.shape == d_vlen.shape)
   # would fail
-  let d_arflat = d_ar.flatten
+  echo data.len
+  echo data
+  echo d_vlen.len
+  echo d_vlen
   for i in 0 ..< data.len:
-    assert(data[i] == d_arflat[i])
+    assert(data[i] == d_vlen[i])
 
 when isMainModule:
   # open file, create dataset
   var
     h5f = H5File(File, "rw")
-    dset = h5f.create_dset()
+    dset = h5f.create_vlen()
   # perform 1st checks on still open file
   h5f.assert_fields(dset)
   # close and reopen
@@ -64,7 +67,7 @@ when isMainModule:
   var
     h5f_read = H5File(File, "r")
   # get same dset from before
-  dset = h5f_read[DsetName.dset_str]
+  dset = h5f_read[VlenName.dset_str]
   # check if assertions still hold true (did we read correctly?)
   h5f_read.assert_fields(dset)
 
@@ -73,6 +76,7 @@ when isMainModule:
   
   err = h5f_read.close()
   assert(err >= 0)
-
+  
   # clean up after ourselves
   removeFile(File)
+  

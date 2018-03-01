@@ -1,6 +1,7 @@
 
 import nimhdf5
 import ospaths
+import os
 
 const
   File = "tests/attrs.h5"
@@ -59,6 +60,5 @@ when isMainModule:
   err = h5f.close()
   assert(err >= 0)
   
-  
-  
-  
+  # clean up after ourselves  
+  removeFile(File)
