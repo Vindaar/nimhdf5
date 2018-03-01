@@ -25,6 +25,15 @@ proc assert_attrs(grp: var H5Group) =
   assert(grp.attrs.parent_type == "H5Group")
   assert(grp.attrs.num_attrs == 3)
 
+proc assert_delete(grp: var H5Group) =
+
+  assert(grp.deleteAttribute("Time"))
+  assert(grp.attrs.num_attrs == 2)
+  assert(grp.deleteAttribute("Counter"))
+  assert(grp.attrs.num_attrs == 1)
+  assert(grp.deleteAttribute("Seq"))
+  assert(grp.attrs.num_attrs == 0)  
+
 when isMainModule:
 
   var
@@ -38,11 +47,14 @@ when isMainModule:
   err = h5f.close()
   assert(err >= 0)
 
-  # open again
-  h5f = H5File(File, "r")
+  # open again, again with write access to delete attributes again
+  h5f = H5File(File, "rw")
   grp = h5f[GrpName.grp_str]
   # and check again
   grp.assert_attrs
+
+  # delete an attribute
+  grp.assert_delete
 
   err = h5f.close()
   assert(err >= 0)
