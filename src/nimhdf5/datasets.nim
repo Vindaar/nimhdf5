@@ -27,10 +27,12 @@ from groups import create_group
 proc newH5DataSet*(name: string = ""): ref H5DataSet =
   ## default constructor for a H5File object, for internal use
   let shape: seq[int] = @[]
+  let maxshape: seq[int] = @[]
   let attrs = newH5Attributes()
   result = new H5DataSet
   result.name = name
   result.shape = shape
+  result.maxshape = maxshape
   result.dtype = nil
   result.dtype_c = -1
   result.parent = ""
