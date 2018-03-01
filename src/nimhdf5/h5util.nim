@@ -113,5 +113,3 @@ proc getObjectTypeByName*(h5id: hid_t, name: string): H5O_type_t =
     result = h5info.`type`
   else:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getObjectTypeByName`")
-
-

@@ -386,6 +386,13 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
     echo "Call to HDF5 library failed in `parseChunkSizeAndMaxShape` from `create_dataset`"
     raise
 
+  # now get datatype base kind if vlen datatype
+  if dset.dtypeAnyKind == akSequence:
+    # need to get datatype id (id specific to this dataset describing type),
+    # then super, which is the base type of a VLEN type and finally convert
+    # that to a AnyKind type
+    dset.dtypeBaseKind = h5ToNimType(H5Tget_super(H5Dget_type(dset.dataset_id)))
+    
   # now create attributes field
   dset.attrs = initH5Attributes(dset.name, dset.dataset_id, "H5DataSet")
   var dset_ref = new H5DataSet
@@ -758,7 +765,7 @@ proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   # the H5 library
   var data = newSeq[hvl_t](n_elements)
   err = H5Dread(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                    addr(data[0]))
+                addr(data[0]))
 
   # converting the raw data from the C library to a Nim sequence is sort of ugly, but
   # here it goes...
