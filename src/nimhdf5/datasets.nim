@@ -252,11 +252,11 @@ proc create_dataset_in_file(h5file_id: hid_t, dset: H5DataSet): hid_t =
                          H5P_DEFAULT, dset.dcpl_id, H5P_DEFAULT)
 
 proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
-                                         dset_raw: string,
-                                         shape_raw: T,
-                                         dtype: (typedesc | hid_t),
-                                         chunksize: seq[int] = @[],
-                                         maxshape: seq[int] = @[]): H5DataSet = 
+                                       dset_raw: string,
+                                       shape_raw: T,
+                                       dtype: (typedesc | hid_t),
+                                       chunksize: seq[int] = @[],
+                                       maxshape: seq[int] = @[]): H5DataSet = 
   ## procedure to create a dataset given a H5file object. The shape of
   ## that type is given as a tuple, the datatype as a typedescription
   ## inputs:
@@ -308,8 +308,12 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
     # for now we only support vlen arrays, later we need to
     # differentiate between the different H5T class types
     dset.dtype = "vlen"
+    dset.dtypeAnyKind = akSequence
   else:
-    dset.dtype   = name(dtype)
+    dset.dtype = name(dtype)
+    # tmp var to get AnyKind using typeinfo.kind
+    var tmp: dtype
+    dset.dtypeAnyKind = tmp.toAny.kind
   dset.dtype_c = dtype_c
   dset.dtype_class = H5Tget_class(dtype_c)
   dset.file    = h5f.name

@@ -167,7 +167,6 @@ proc close*(h5f: H5FileObj): herr_t =
   #    h5f: H5FileObj = file object which to close
   # outputs:
   #    hid_t = status of the closing of the file
-
   # TODO: can we use iterate and H5Oclose to close all this stuff
   # somewhat cleaner?
 
