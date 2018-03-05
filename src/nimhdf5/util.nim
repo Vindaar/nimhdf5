@@ -59,7 +59,7 @@ proc flatten*[T: seq](a: seq[T]): auto =
   ##   -> @[1, 2, 3, 4, 5, 6]
   a.concat.flatten
   
-# not used
+# not used / not working? :(
 template getSeq(t: untyped, data: untyped): untyped =
   when t is float64:
     data = newSeq[float64](n_elements)
