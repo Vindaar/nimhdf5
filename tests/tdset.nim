@@ -20,7 +20,8 @@ proc create_dset(h5f: var H5FileObj): H5DataSet =
 proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet) =
   assert(dset.shape == @[2, 2, 5])
 
-  assert(dset.maxshape == @[])
+  # non resizable dataset means maxshape same as current shape
+  assert(dset.maxshape == dset.shape)
 
   assert(dset.dtype == "float64")
   
