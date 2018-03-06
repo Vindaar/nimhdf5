@@ -59,22 +59,61 @@ proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
   else:
     result = some(h5f.datasets[dset_name][])
 
-  
-template readDsetShape(dspace_id: hid_t): seq[int] =
-  # get the shape of the dataset
-  var result: seq[int] = @[]
+proc readShape(dspace_id: hid_t): tuple[shape, maxshape: seq[int]] =
+  ## read the shape and maxshape of a dataset
+  ## inputs:
+  ##   dspace_id: hid_t = the dataspace id corresponding to the
+  ##     dataset for which we read the shape and maxshape
+  ## outputs:
+  ##   tuple[shape, maxshape: seq[int]] = a tuple of a seq containing the
+  ##     size of each dimension (shape) and a seq containing the maximum allowed
+  ##     size of each dimension (maxshape).
+  ## throws:
+  ##   HDF5LibraryError = if a call to the H5 library fails
   let ndims = H5Sget_simple_extent_ndims(dspace_id)
   # given ndims, create a seq in which to store the dimensions of
-  # the dataset
-  var shapes = newSeq[hsize_t](ndims)
-  var max_sizes = newSeq[hsize_t](ndims)
-  let s = H5Sget_simple_extent_dims(dspace_id, addr(shapes[0]), addr(max_sizes[0]))
-  withDebug:
-    echo "dimensions seem to be ", shapes
-  result = mapIt(shapes, int(it))
-  result
-    
+  # the datase
+  var
+    shape = newSeq[hsize_t](ndims)
+    maxshape = newSeq[hsize_t](ndims)
+  let sdims = H5Sget_simple_extent_dims(dspace_id, addr(shape[0]), addr(maxshape[0]))
+  if sdims >= 0:
+    doAssert(sdims == ndims)
+  else:
+    raise newException(HDF5LibraryError,
+                       "Call to HDF5 library failed in `readShape`" &
+                       "after a call to `H5Sget_simple_extent_dims` with return code" &
+                       "$#" % $sdims)
+  result = (mapIt(shape, int(it)), mapIt(maxshape, int(it)))
+
+proc readDsetShape(dspace_id: hid_t): seq[int] =
+  ## read the shape of the dataset
+  ## inputs:
+  ##   dspace_id: hid_t = the dataspace id corresponding to the
+  ##     dataset for which we read the shape
+  ## outputs:
+  ##   seq[int] = a sequence containing one element (the size) for each dimension
+  ##     in the dataset
+  ## throws:
+  ##   HDF5LibraryError = if a call to the H5 library fails
+  let (shape, maxshape) = readShape(dspace_id)
+  result = shape
+
+proc readMaxShape(dspace_id: hid_t): seq[int] =
+  ## read the maximum shape of a dataset
+  ## inputs:
+  ##   dspace_id: hid_t = the dataspace id corresponding to the
+  ##     dataset for which we the maximum shape for each dim
+  ## outputs:
+  ##   seq[int] = a sequence containing one element (the maximum size) for each
+  ##     dimension in the dataset
+  ## throws:
+  ##   HDF5LibraryError = if a call to the H5 library fails
+  let (shape, maxshape) = readShape(dspace_id)
+  result = maxshape
+  
 template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
+  ## TODO: why is this still a template???
   ## convenience proc to return the dataset with name dset_name
   ## if it does not exist, KeyError is thrown
   ## inputs:
