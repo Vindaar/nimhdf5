@@ -15,11 +15,10 @@ let d_vlen = @[ @[1'f64, 2, 3],
 proc create_vlen(h5f: var H5FileObj): H5DataSet =
   let vlen_type = special_type(float)
   result = h5f.create_dataset("/group1/vlen", 4, vlen_type)
-  echo d_vlen.shape
   result[result.all] = d_vlen
 
 proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet) =
-  assert(dset.maxshape == @[])
+  assert(dset.maxshape == dset.shape)
 
   assert(dset.dtype == "vlen")
   
@@ -30,7 +29,6 @@ proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet) =
   # 2. in case of float64 actually even more nuanced, in the sense
   #    that Nim defines float as an alias for float64
   let baseKindCheck = if dset.dtypeBaseKind == akFloat or dset.dtypeBaseKind == akFloat64: true else: false
-  echo dset.dtypeBaseKind
   assert(baseKindCheck)
 
   assert(dset.parent == parentDir(VlenName))
@@ -47,10 +45,6 @@ proc assert_data(dset: var H5DataSet) =
   # a flattened array, i.e.
   # assert(data.shape == d_vlen.shape)
   # would fail
-  echo data.len
-  echo data
-  echo d_vlen.len
-  echo d_vlen
   for i in 0 ..< data.len:
     assert(data[i] == d_vlen[i])
 
