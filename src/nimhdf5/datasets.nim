@@ -163,8 +163,7 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
         echo "CREATE PROPERTY LIST IS ", result.dapl_id      
         echo H5Tget_class(datatype_id)
 
-        
-      result.shape = readDsetShape(result.dataspace_id)
+      (result.shape, result.maxshape) = readShape(result.dataspace_id)
       # still need to determine the parents of the dataset
       result.parent = getParent(result.name)      
       var parent = create_group(h5f, result.parent)
@@ -194,7 +193,7 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
     # in this case we still need to update e.g. shape
     # TODO: think about what else we might have to update!
     result.dataspace_id = H5Dget_space(result.dataset_id)
-    result.shape = readDsetShape(result.dataspace_id)
+    (result.shape, result.maxshape) = readShape(result.dataspace_id)
     # TODO: also read maxshape and chunksize if any
   result
 
@@ -207,7 +206,6 @@ template isDataSet(h5_object: typed): bool =
   else:
     result = false
   result  
-
 
 proc parseShapeTuple[T: tuple](dims: T): seq[int] =
   ## parses the shape tuple handed to create_dataset
@@ -247,8 +245,8 @@ proc parseShapeTuple[T: tuple](dims: T): seq[int] =
 proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int]): hid_t =
   ## proc to parse the chunk size and maxhshape arguments handed to the create_dataset()
   ## Takes into account the different possible scenarios:
-  ##    chunksize: seq[int] = a sequence containing the chunksize, the dataset should be
-  ##            should be chunked in (if any). Empty seq: no chunking (but no resizing either!)
+  ##    chunksize: seq[int] = a sequence containing the chunksize: the dataset should be
+  ##            chunked in (if any). Empty seq: no chunking (but no resizing either!)
   ##    maxshape: seq[int] = a sequence containing the maxmimum sizes for each
   ##            dimension in the dataset.
   ##            - If empty sequence and chunksize == @[] -> no chunking, maxshape == shape
@@ -268,11 +266,11 @@ proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int
     result = set_chunk(dset.dcpl_id, dset.chunksize)
     if result < 0:
       raise newException(HDF5LibraryError, "HDF5 library returned error on call to `H5Pset_chunk`")
-  #elif maxshape.len == 0:
   else:
+    # in this case max shape is current shape regardless
+    dset.maxshape = dset.shape
     if chunksize.len > 0:
       # chunksize given -> maxshape = shape
-      dset.maxshape = dset.shape
       result = set_chunk(dset.dcpl_id, dset.chunksize)
       if result < 0:
         raise newException(HDF5LibraryError, "HDF5 library returned error on call to `H5Pset_chunk`")
@@ -370,7 +368,6 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
   dset.parent_id = getParentId(h5f, dset)
   dset.shape = shape_seq
   # dset.parent_id = h5f.file_id
-
 
   # create the dataset access property list
   dset.dapl_id = H5Pcreate(H5P_DATASET_ACCESS)
