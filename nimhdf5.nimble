@@ -13,3 +13,10 @@ skipExt       = @["nim~"]
 requires "nim >= 0.17.2"
 requires "arraymancer >= 0.2.0"
 
+task test, "Runs all tests":
+  exec "nim c -r tests/tbasic.nim"
+  exec "nim c -r tests/tdset.nim"
+  exec "nim c -r tests/tattributes.nim"
+  exec "nim c -r tests/tvlen_array.nim"
+  exec "nim c -r tests/tresize.nim"
+  exec "nim c -r tests/tnested.nim"
