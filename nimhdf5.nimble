@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.6"
+version       = "0.2.7"
 author        = "Sebastian Schmidt"
 description   = "Bindings for the HDF5 data format C library"
 license       = "MIT"
@@ -10,8 +10,8 @@ skipExt       = @["nim~"]
 
 # Dependencies
 
-requires "nim >= 0.17.2"
-requires "arraymancer >= 0.2.0"
+requires "nim >= 0.18.0"
+requires "arraymancer >= 0.3.0"
 
 task test, "Runs all tests":
   exec "nim c -r tests/tbasic.nim"
