@@ -2,7 +2,7 @@
 
 version       = "0.2.6"
 author        = "Sebastian Schmidt"
-description   = "A wrapper for the HDF5 data format C library"
+description   = "Bindings for the HDF5 data format C library"
 license       = "MIT"
 srcDir        = "src"
 skipDirs      = @["examples, c_headers"]
