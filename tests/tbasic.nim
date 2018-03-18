@@ -1,5 +1,7 @@
+import nimhdf5
+import os
 
-const FILE = "simple_objects.nim"
+const FILE = "create_close.h5"
 
 when isMainModule:
 
@@ -12,3 +14,5 @@ when isMainModule:
   # unless closing did not work, should return >= 0
   assert(err >= 0)
   
+  # clean up after ourselves  
+  removeFile(File)
