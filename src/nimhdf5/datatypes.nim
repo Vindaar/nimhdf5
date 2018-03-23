@@ -362,7 +362,6 @@ template getH5read_non_exist_file*(): string =
   create the file for you.
   """
 
-
 template toH5vlen*[T](data: var seq[T]): untyped =
   when T is seq:
     mapIt(toSeq(0..data.high)) do:
