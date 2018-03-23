@@ -83,24 +83,17 @@ proc firstExistingParent*[T](h5f: T, name: string): Option[H5Group] =
     # no parent found, first existing parent is root
     result = none(H5Group)
 
-template getParentId*[T](h5f: T, h5_object: typed): hid_t =
-  # template returns the id of the first existing parent of h5_object
-  var result: hid_t = -1
-  let parent = getParent(h5_object.name)
-  when h5_object is H5DataSet:
-    discard
-  elif h5_object is H5Group:
-    let p = firstExistingParent(h5f, h5_object.name)
-    if isSome(p) == true:
-      result = getH5Id(unsafeGet(p))
-    else:
-      # this means the only existing parent is root
-      result = h5f.file_id
+proc getParentId*[T: (H5FileObj | H5Group), U: (H5DataSet | H5Group)](h5f: T, h5o: U): hid_t =
+  ## returns the id of the first existing parent of `h5o` contained in the file
+  ## or group `h5f` (f refers to the fact that the object contains the file id
+  let
+    parent = getParent(h5o.name)
+    p = firstExistingParent(h5f, h5o.name)
+  if isSome(p) == true:
+    result = getH5Id(unsafeGet(p))
   else:
-    #TODO: replace by exception
-    echo "Warning: This should not happen, as we have no other types so far. If you see this"
-    echo "you handed a not supported type to getParentId()"
-  result
+    # this means the only existing parent is root
+    result = h5f.file_id
 
 proc getObjectTypeByName*(h5id: hid_t, name: string): H5O_type_t =
   # proc to retrieve the type of an object (dataset or group etc) based on
