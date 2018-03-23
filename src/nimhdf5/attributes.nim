@@ -77,7 +77,7 @@ proc getAttrName(attr_id: hid_t, buf_space = 20): string =
   else:
     result = getAttrName(attr_id, length)
 
-proc getNumAttrs(h5attr: var H5Attributes): int =
+proc getNumAttrs(h5attr: H5Attributes): int =
   ## proc to get the number of attributes of the parent
   ## uses H5Oget_info, which returns a struct containing the
   ## metadata of the object (incl type etc.). Might be useful
