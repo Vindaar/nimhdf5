@@ -182,6 +182,8 @@ type
   HDF5LibraryError* = object of Exception
   # raised if the user tries to change the size of an immutable dataset, i.e. non-chunked storage
   ImmutableDatasetError* = object of Exception
+  # raised if some part of code that is not yet implemented (but planned) is being called
+  NotImplementedError* = object of Exception
 
 const    
     H5_NOFILE* = hid_t(-1)
