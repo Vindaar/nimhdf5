@@ -13,7 +13,7 @@ import datatypes
 # files -> groups -> files
 # so that proc is already known when we encounter the
 # from files import visit_files statement in groups.nim
-proc visit_file*(h5f: var H5FileObj, name: string = "", h5id: hid_t = 0)
+proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0)
 
 from datasets import `[]`
 import attributes
@@ -302,14 +302,22 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
       # see, I'm going to where the HDF5 library is in the first place...
       discard h5f[name.dset_str]
     
-proc visit_file*(h5f: var H5FileObj, name: string = "", h5id: hid_t = 0) =
-  # this proc iterates over the whole file and reads the complete content
-  # optionally only visits all elements below hid_t or the object given by `name`
-  # H5Ovisit recursively visits any object (group or dataset + a couple specific
-  # types) and calls a callback function. Depending on the return value of that
-  # callback function, it either continues (proc returns 0), stops early and
-  # returns the value of the callback (proc returns value > 0), stops early
-  # and returns error (proc returns value < 0)
+proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0) =
+  ## this proc iterates over the whole file and reads the complete content
+  ## optionally only visits all elements below hid_t
+  ## H5Ovisit recursively visits any object (group or dataset + a couple specific
+  ## types) and calls a callback function. Depending on the return value of that
+  ## callback function, it either continues (proc returns 0), stops early and
+  ## returns the value of the callback (proc returns value > 0), stops early
+  ## and returns error (proc returns value < 0)
+  ## inputs:
+  ##   h5f: var H5FileObj = mutable file object, which will be visited. The
+  ##     object's group information will be updated.
+  ##   name: string = name of the starting location from which to visit the file
+  ##   h5id: hid_t = optional identifier id, from which to start visiting the
+  ##     file
+
+  # TODO: add version which uses `name` as a starting location?
 
   # TODO: write an iterator which makes use of this?
   var err: herr_t
