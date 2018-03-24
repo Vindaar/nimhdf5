@@ -22,25 +22,25 @@ import util
 #import datatypes
 
 proc set_chunk*(papl_id: hid_t, chunksize: seq[int]): hid_t =
-  # proc to set chunksize of the given object, should be a dataset,
-  # but we do not perform checks!
+  ## proc to set chunksize of the given object, should be a dataset,
+  ## but we do not perform checks!
   var mchunksize = mapIt(chunksize, hsize_t(it))
   result = H5Pset_chunk(papl_id, cint(len(mchunksize)), addr(mchunksize[0]))
 
 proc parseMaxShape(maxshape: seq[int]): seq[hsize_t] =
-  # this proc parses the maxshape given to simple_dataspace by taking into
-  # account the following rules:
-  # @[] -> nil (meaning H5Screate_simple will interpret as same dimension as shape)
-  # per dimension:
-  # `int.high` -> H5S_UNLIMITED
+  ## this proc parses the maxshape given to simple_dataspace by taking into
+  ## account the following rules:
+  ## @[] -> nil (meaning H5Screate_simple will interpret as same dimension as shape)
+  ## per dimension:
+  ## `int.high` -> H5S_UNLIMITED
   if maxshape.len == 0:
     result = nil
   else:
     result = mapIt(maxshape, if it == int.high: H5S_UNLIMITED else: hsize_t(it))
   
 template simple_dataspace*[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): hid_t =
-  # create a simple dataspace with max dimension == current_dimension
-  # TODO: rewrite this
+  ## create a simple dataspace with max dimension == current_dimension
+  ## TODO: rewrite this
   var m_maxshape: seq[hsize_t] = parseMaxShape(maxshape)
   withDebug:
     echo "Creating memory dataspace of shape ", shape
@@ -69,8 +69,8 @@ proc create_simple_memspace_1d*[T](coord: seq[T]): hid_t {.inline.} =
   result = simple_dataspace(coord.len)
 
 proc string_dataspace*(str: string, dtype: hid_t): hid_t =
-  # returns a dataspace of size 1 for a string of length N, by
-  # changing the size of the datatype given
+  ## returns a dataspace of size 1 for a string of length N, by
+  ## changing the size of the datatype given
   discard H5Tset_size(dtype, len(str))
   # append null termination
   discard H5Tset_strpad(dtype, H5T_STR_NULLTERM)

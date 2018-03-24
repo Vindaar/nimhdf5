@@ -38,8 +38,8 @@ proc newH5File*(): H5FileObj =
                      attrs: attrs)
 
 proc nameFirstExistingParent(h5f: H5FileObj, name: string): string =
-  # similar to firstExistingParent, except that only the name of
-  # the object is returned
+  ## similar to firstExistingParent, except that only the name of
+  ## the object is returned
   discard
 
 # template get(h5f: H5FileObj, dset_name: string): H5Object =
@@ -75,15 +75,15 @@ proc nameFirstExistingParent(h5f: H5FileObj, name: string): string =
 #     result
 
 proc nameExistingObjectOrParent(h5f: H5FileObj, name: string): string =
-  # this procedure can be used to get the name of the given object
-  # or its first existing parent
-  # inputs:
-  #    h5f: H5FileObj = the file object in which to check the tables
-  #    name: string = name of the object to check for
-  # outputs:
-  #    string = the name of the given object (if it exists), or the
-  #          name of the first existing parent. If root is the only
-  #          existing object, empty string is returned
+  ## this procedure can be used to get the name of the given object
+  ## or its first existing parent
+  ## inputs:
+  ##    h5f: H5FileObj = the file object in which to check the tables
+  ##    name: string = name of the object to check for
+  ## outputs:
+  ##    string = the name of the given object (if it exists), or the
+  ##          name of the first existing parent. If root is the only
+  ##          existing object, empty string is returned
   let dset = hasKey(h5f.datasets, name)
   if dset == false:
     let group = hasKey(h5f.groups, name)
@@ -161,12 +161,12 @@ proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
   result.attrs = initH5Attributes("/", result.file_id, "H5FileObj")
 
 proc close*(h5f: H5FileObj): herr_t =
-  # this procedure closes all known datasets, dataspaces, groups and the HDF5 file
-  # itself to clean up
-  # inputs:
-  #    h5f: H5FileObj = file object which to close
-  # outputs:
-  #    hid_t = status of the closing of the file
+  ## this procedure closes all known datasets, dataspaces, groups and the HDF5 file
+  ## itself to clean up
+  ## inputs:
+  ##    h5f: H5FileObj = file object which to close
+  ## outputs:
+  ##    hid_t = status of the closing of the file
   # TODO: can we use iterate and H5Oclose to close all this stuff
   # somewhat cleaner?
 
@@ -212,8 +212,8 @@ template withH5*(h5file, rw_type: string, actions: untyped) =
     echo "Closing of H5 file unsuccessful. Returned code ", err
 
 proc getObjectIdByName(h5file: var H5FileObj, name: string): hid_t =
-  # proc to retrieve the location ID of a H5 object based its relative path
-  # to the given id
+  ## proc to retrieve the location ID of a H5 object based its relative path
+  ## to the given id
   let h5type = getObjectTypeByName(h5file.file_id, name)
   # get type
   withDebug:
@@ -235,9 +235,9 @@ proc getObjectIdByName(h5file: var H5FileObj, name: string): hid_t =
     
 # TODO: should this remain in files.nim?
 proc create_hardlink*(h5file: var H5FileObj, target: string, link_name: string) =
-  # proc to create hardlinks between pointing to an object `target`. Can be either a group
-  # or a dataset, defined by its name (full path!)
-  # the target has to exist, while the link_name must be free
+  ## proc to create hardlinks between pointing to an object `target`. Can be either a group
+  ## or a dataset, defined by its name (full path!)
+  ## the target has to exist, while the link_name must be free
   var err: herr_t
   if existsInFile(h5file.file_id, target) > 0:
     # get the parent of link name and create that group, in case
@@ -264,22 +264,22 @@ proc create_hardlink*(h5file: var H5FileObj, target: string, link_name: string) 
     raise newException(KeyError, "Cannot create link to $#, does not exist in file $#" % [$target, $h5file.name])
 
 proc addH5Object*(location_id: hid_t, name_c: cstring, h5info: H5O_info_t, h5f_p: pointer): herr_t {.cdecl.} =
-  # similar proc to processH5ObjectFromRoot, except we do /not/ start at root
-  # important distinction to be able to deal with the root group itself
-  # Does this make sense? If '.' is handed to us on first call to H5Ovisit anyways,
-  # do we ever want to add the object at point? Should this not always already
-  # be part of the h5 object, or rather even if it is not, adding it will be
-  # difficult anyways, because we only have the location id. Well, we can
-  # simply open the object then and there, I suppose...
-  # NEED a proper openObjectById function...!
+  ## similar proc to processH5ObjectFromRoot, except we do /not/ start at root
+  ## important distinction to be able to deal with the root group itself
+  ## Does this make sense? If '.' is handed to us on first call to H5Ovisit anyways,
+  ## do we ever want to add the object at point? Should this not always already
+  ## be part of the h5 object, or rather even if it is not, adding it will be
+  ## difficult anyways, because we only have the location id. Well, we can
+  ## simply open the object then and there, I suppose...
+  ## NEED a proper openObjectById function...!
   discard
     
 proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_t, h5f_p: pointer): herr_t {.cdecl.} =
-  # this proc is called for each object iterated over in visitFile.
-  # we basically just extract the information we want to have from the
-  # h5info struct and add it to the h5f file object. Needs to be
-  # a pointer here, since it's handed to C
-  # this proc is only called in the case where the start from the root group
+  ## this proc is called for each object iterated over in visitFile.
+  ## we basically just extract the information we want to have from the
+  ## h5info struct and add it to the h5f file object. Needs to be
+  ## a pointer here, since it's handed to C
+  ## this proc is only called in the case where the start from the root group
 
   # cast the H5FileObj pointer back
   var h5f = cast[var H5FileObj](h5f_p)

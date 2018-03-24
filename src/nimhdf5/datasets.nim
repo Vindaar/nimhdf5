@@ -43,15 +43,15 @@ proc newH5DataSet*(name: string = ""): ref H5DataSet =
   result.attrs = attrs
     
 proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
-  # convenience proc to return the dataset with name dset_name
-  # if it does not exist, KeyError is thrown
-  # inputs:
-  #    h5f: H5FileObj = the file object from which to get the dset
-  #    obj_name: string = name of the dset to get
-  # outputs:
-  #    H5DataSet = if dataset is found
-  # throws:
-  #    KeyError: if dataset could not be found
+  ## convenience proc to return the dataset with name dset_name
+  ## if it does not exist, KeyError is thrown
+  ## inputs:
+  ##    h5f: H5FileObj = the file object from which to get the dset
+  ##    obj_name: string = name of the dset to get
+  ## outputs:
+  ##    H5DataSet = if dataset is found
+  ## throws:
+  ##    KeyError: if dataset could not be found
   let dset_exist = hasKey(h5f.datasets, dset_name)
   if dset_exist == false:
     #raise newException(KeyError, "Dataset with name: " & dset_name & " not found in file " & h5f.name)
@@ -199,7 +199,7 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
 
 
 template isDataSet(h5_object: typed): bool =
-  # procedure to check whether object is a H5DataSet
+  ## procedure to check whether object is a H5DataSet
   result: bool = false
   if h5_object is H5DataSet:
     result = true
@@ -467,21 +467,21 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
 
       
 proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArray[T])  
-  # procedure to write a sequence of array to a dataset
-  # will be given to HDF5 library upon call, H5DataSet object
-  # does not store the data
-  # inputs:
-  #    dset: var H5DataSet = the dataset which contains the necessary information
-  #         about dataset shape, dtype etc. to write to
-  #    ind: DsetReadWrite = indicator telling us to write whole dataset,
-  #         used to differentiate from the case in which we only write a hyperslab    
-  #    data: openArray[T] = any array type containing the data to be written
-  #         needs to be of the same size as the shape given during creation of
-  #         the dataset or smaller
-  # throws:
-  #    ValueError: if the shape of the input dataset is different from the reserved
-  #         size of the dataspace on which we wish to write in the H5 file
-  #         TODO: create an appropriate Exception for this case!
+  ## procedure to write a sequence of array to a dataset
+  ## will be given to HDF5 library upon call, H5DataSet object
+  ## does not store the data
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##         about dataset shape, dtype etc. to write to
+  ##    ind: DsetReadWrite = indicator telling us to write whole dataset,
+  ##         used to differentiate from the case in which we only write a hyperslab    
+  ##    data: openArray[T] = any array type containing the data to be written
+  ##         needs to be of the same size as the shape given during creation of
+  ##         the dataset or smaller
+  ## throws:
+  ##    ValueError: if the shape of the input dataset is different from the reserved
+  ##         size of the dataspace on which we wish to write in the H5 file
+  ##         TODO: create an appropriate Exception for this case!
 
   # TODO: IMPORTANT: think about whether we should be using array types instead
   # of a dataspace of certain dimensions for arrays / nested seqs we're handed
@@ -543,7 +543,7 @@ Wrong input shape of data to write in `[]=` while accessing `$#`. Given shape `$
     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
 
 proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: AnyTensor[T]) =
-  # equivalent of above fn, to support arraymancer tensors as input data
+  ## equivalent of above fn, to support arraymancer tensors as input data
   if ind == RW_ALL:
     let tensor_shape = data.squeeze.shape
     # first check whether number of dimensions is the same
@@ -568,16 +568,16 @@ Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has sha
     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
 
 proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #openArray[T])  
-  # procedure to write a sequence of array to a dataset
-  # will be given to HDF5 library upon call, H5DataSet object
-  # does not store the data
-  # inputs:
-  #    dset: var H5DataSet = the dataset which contains the necessary information
-  #         about dataset shape, dtype etc. to write to
-  #    inds: HSlice[int, int] = slice of a range, which to write in dataset
-  #    data: openArray[T] = any array type containing the data to be written
-  #         needs to be of the same size as the shape given during creation of
-  #         the dataset or smaller
+  ## procedure to write a sequence of array to a dataset
+  ## will be given to HDF5 library upon call, H5DataSet object
+  ## does not store the data
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##         about dataset shape, dtype etc. to write to
+  ##    inds: HSlice[int, int] = slice of a range, which to write in dataset
+  ##    data: openArray[T] = any array type containing the data to be written
+  ##         needs to be of the same size as the shape given during creation of
+  ##         the dataset or smaller
 
   # only write slice of dset by using hyperslabs
 
@@ -721,7 +721,7 @@ proc `[]`*[T](dset: var H5DataSet, ind: int, t: typedesc[T]): T =
   
 
 proc read*[T](dset: var H5DataSet, buf: var seq[T]) =
-  # read whole dataset
+  ## read whole dataset
   if buf.len == foldl(dset.shape, a * b, 1):
     discard H5Dread(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
                     addr(buf[0]))
@@ -771,10 +771,6 @@ proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
   result = data
 
 proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
-  ## TODO: combine this proc with the one above, by getting the data type
-  ## in this proc, checking for VLEN and if so, use dtype to create the special
-  ## type. Do it similarly to write_norm and write_vlen, split into two
-  
   ## procedure to read the data of an existing dataset based on variable length data
   ## inputs:
   ##    dset: var H5DataSet = the dataset which contains the necessary information
@@ -788,6 +784,11 @@ proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   ## throws:
   ##     ValueError: in case the given typedesc t is different than
   ##         the datatype of the dataset
+
+  # TODO: combine this proc with the one above, by getting the data type
+  # in this proc, checking for VLEN and if so, use dtype to create the special
+  # type. Do it similarly to write_norm and write_vlen, split into two
+
   var err: herr_t
   # check whether t is variable length
   let basetype = h5ToNimType(t)
@@ -824,7 +825,7 @@ proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   err = H5Dvlen_reclaim(dset.dtype_c, dspace_id, H5P_DEFAULT, addr(data[0]))
 
 proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
-  # check whehter we have data for each coordinate
+  ## check whehter we have data for each coordinate
   var err: herr_t
   when U isnot seq:
     var mdata = @[data]
@@ -907,7 +908,7 @@ Invalid coordinates or corresponding data to write in `write_norm`. Coord shape 
 
   
 template write*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
-  # template around both write fns for normal and vlen data
+  ## template around both write fns for normal and vlen data
   if dset.dtype_class == H5T_VLEN:
     dset.write_vlen(coord, data)
   else:
@@ -916,8 +917,8 @@ template write*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
 template write*[T: (SomeNumber | bool | char | string), U](dset: var H5DataSet,
                                                            coord: seq[T],
                                                            data: seq[U]) =
-  # template around both write fns for normal and vlen data in case the coordinates are given as
-  # a seq of numbers (i.e. for 1D datasets!)
+  ## template around both write fns for normal and vlen data in case the coordinates are given as
+  ## a seq of numbers (i.e. for 1D datasets!)
   if dset.dtype_class == H5T_VLEN:
     # we convert the list of indices to corresponding (y, x) coordinates, because
     # each VLEN table with 1 column, still is a 2D array, which only has the
@@ -978,7 +979,7 @@ Cannot broadcast ind to dataset in `write`, because data does not fit into array
     dset.write(@[ind], @[data])
   
 template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
-  # a simple wrapper around get for datasets
+  ## a simple wrapper around get for datasets
   h5f.get(name)
     
 proc resize*[T: tuple](dset: var H5DataSet, shape: T) =

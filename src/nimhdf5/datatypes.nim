@@ -245,15 +245,15 @@ proc h5ToNimType*(dtype_id: hid_t): AnyKind =
     raise newException(KeyError, "Warning: the following H5 type could not be converted: $# of class $#" % [$dtype_id, $H5Tget_class(dtype_id)])
   
 template nimToH5type*(dtype: typedesc): hid_t =
-  # given a typedesc, we return a corresponding
-  # H5 data type. This is a template, since we
-  # the compiler won't be able to determine
-  # the generic return type by the given typedesc
-  # inputs:
-  #    dtype: typedesc = a typedescription of the data type for the dataset
-  #          which we want to store
-  # outputs:
-  #    hid_t = the identifier int value of the HDF5 library for the data types
+  ## given a typedesc, we return a corresponding
+  ## H5 data type. This is a template, since we
+  ## the compiler won't be able to determine
+  ## the generic return type by the given typedesc
+  ## inputs:
+  ##    dtype: typedesc = a typedescription of the data type for the dataset
+  ##          which we want to store
+  ## outputs:
+  ##    hid_t = the identifier int value of the HDF5 library for the data types
 
   # TODO: this still seems to be very much wrong and it's only valid for my machine
   # (64 bit) anyways. 
@@ -315,8 +315,8 @@ template nimToH5type*(dtype: typedesc): hid_t =
   result_type
 
 template special_type*(dtype: typedesc): untyped =
-  # calls the H5Tvlen_create() to create a special datatype
-  # for variable length data
+  ## calls the H5Tvlen_create() to create a special datatype
+  ## for variable length data
   when dtype isnot string:
     H5Tvlen_create(nimToH5type(dtype))
   else:

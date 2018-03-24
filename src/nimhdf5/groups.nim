@@ -32,6 +32,7 @@ proc newH5Group*(name: string = ""): ref H5Group =
   result.attrs = attrs
 
 proc `$`*(group: ref H5Group): string =
+  ## to string conversion for a `ref H5Group` for pretty printing
   result = "\n{\n\t'name': " & group.name & "\n\t'parent': " & group.parent & "\n\t'parent_id': " & $group.parent_id
   result = result & "\n\t'file': " & group.file & "\n\t'group_id': " & $group.group_id & "\n\t'datasets': " & $group.datasets
   result = result & "\n\t'groups': {"
@@ -40,6 +41,7 @@ proc `$`*(group: ref H5Group): string =
   result = result & "\n\t}\n}"
 
 proc `$`*(group: H5Group): string =
+  ## to string conversion for a `H5Group` for pretty printing
   result = "\n{\n\t'name': " & group.name & "\n\t'parent': " & group.parent & "\n\t'parent_id': " & $group.parent_id
   result = result & "\n\t'file': " & group.file & "\n\t'group_id': " & $group.group_id & "\n\t'datasets': " & $group.datasets
   result = result & "\n\t'groups': {"

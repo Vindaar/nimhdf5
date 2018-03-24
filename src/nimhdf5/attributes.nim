@@ -98,7 +98,7 @@ proc getNumAttrs(h5attr: H5Attributes): int =
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getNumAttr` when reading $#" % $h5attr.parent_name)
 
 proc setAttrAnyKind(attr: var H5Attr) =
-  # proc which sets the AnyKind fields of a H5Attr
+  ## proc which sets the AnyKind fields of a H5Attr
   let npoints = H5Sget_simple_extent_npoints(attr.attr_dspace_id)
   if npoints > 1:
     attr.dtypeAnyKind = akSequence
@@ -108,8 +108,8 @@ proc setAttrAnyKind(attr: var H5Attr) =
     attr.dtypeAnyKind = h5ToNimType(attr.dtype_c)
 
 proc read_all_attributes*(h5attr: var H5Attributes) =
-  # proc to read all attributes of the parent from file and store the names
-  # and attribute ids in `h5attr`
+  ## proc to read all attributes of the parent from file and store the names
+  ## and attribute ids in `h5attr`
 
   # first get how many objects there are
   h5attr.num_attrs = h5attr.getNumAttrs
@@ -129,11 +129,11 @@ proc read_all_attributes*(h5attr: var H5Attributes) =
     h5attr.attr_tab[name] = attr
 
 proc existsAttribute*(h5id: hid_t, name: string): bool =
-  # proc to check whether a given
-  # simply check if the given attribute name corresponds to an attribute
-  # of the given object
-  # throws:
-  #    
+  ## proc to check whether a given
+  ## simply check if the given attribute name corresponds to an attribute
+  ## of the given object
+  ## throws:
+  ##   HDF5LibraryError = in case a call to the H5 library fails
   let exists = H5Aexists(h5id, name)
   if exists > 0:
     result = true
@@ -143,12 +143,17 @@ proc existsAttribute*(h5id: hid_t, name: string): bool =
     raise newException(HDF5LibraryError, "HDF5 library called returned bad value in `existsAttribute` function")
 
 template existsAttribute*[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: string): bool =
-  # proc to check whether a given
-  # simply check if the given attribute name corresponds to an attribute
-  # of the given object
+  ## proc to check whether a given
+  ## simply check if the given attribute name corresponds to an attribute
+  ## of the given object
   existsAttribute(h5o.getH5Id, name)
 
 proc deleteAttribute*(h5id: hid_t, name: string): bool =
+  ## deletes the given attribute `name` on the object defined by
+  ## the H5 id `h5id`
+  ## throws:
+  ##   HDF5LibraryError = may be raised by the call to `existsAttribute`
+  ##     if a call to the H5 library fails
   withDebug:
     echo "Deleting attribute $# on id $#" % [name, $h5id]
   if existsAttribute(h5id, name) == true:
@@ -261,7 +266,7 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
   h5attr.num_attrs = h5attr.getNumAttrs
 
 template `[]=`*[T](h5attr: var H5Attributes, name: string, val: T) =
-  # convenience access to write_attribue
+  ## convenience access to write_attribue
   h5attr.write_attribute(name, val)
 
 proc read_attribute*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[T]): T =
