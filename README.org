@@ -129,21 +129,23 @@ know.
 
 - an annoying bug, because of a conversion of datatype names from their
   name without to their name with size attached, can cause a
-  `ValueError` to be raised (see issue #9)
+  =ValueError= to be raised (see issue #9)
 - when reading back a dataset with dimension > 1, the returned data is
-  returned in a flat `seq`, instead of e.g. a nested
-  `seq[seq[<type>]]` as one might expect. 
+  returned in a flat =seq=, instead of e.g. a nested
+  =seq[seq[<type>]]= as one might expect. 
   The exception is variable length data in case of a 1D dataset
-  containing `seq`s of varying sizes. Here a nested seq of the correct
+  containing seqs of varying sizes. Here a nested seq of the correct
   elements is returned.
 - a large fraction of all procs currently rely on a mutable object
   to keep track of the corresponding objects in the H5
   library. However, there are quite a few procs which could work just
   fine on a constant object (see issue #10).
-- when grabbing a group or dataset from a H5FileObj via `[](name:
-  string)`, a conversion of the string to a distinct `string` type
-  `grp_str` or `dset_str` is used to provide a uniform interface for
+- when grabbing a group or dataset from a H5FileObj via =[](name:
+  string)=, a conversion of the string to a distinct =string= type
+  =grp_str= or =dset_str= is used to provide a uniform interface for
   both from a file object.
+- 1D datasets do not have shape =(N, )= as one would see in Python,
+  but are represented by =(N, 1)= instead
 - and many more
 
 
@@ -152,6 +154,6 @@ know.
 - tests for many features still missing
 - add filters for compression of datasets
 - rework return type of reading procs, such that it's possible to
-  receive the data in a non-flat `seq`. 
+  receive the data in a non-flat =seq=. 
 - rewrite parts making better use of available H5 functions
 - ... lots and lots more
