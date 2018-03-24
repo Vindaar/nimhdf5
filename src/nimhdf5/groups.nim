@@ -15,9 +15,6 @@ import util
 # get visit_file from files.nim for dataset iterator
 from files import visit_file  
 
-proc `$`*(dset: ref H5DataSet): string =
-  result = dset.name
-
 proc newH5Group*(name: string = ""): ref H5Group =
   ## default constructor for a H5Group object, for internal use
   let datasets = newTable[string, ref H5DataSet]()
