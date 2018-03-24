@@ -118,7 +118,7 @@ The folder [[file:examples/][examples]] contains the basic HDF5 C examples (see 
 [[https://support.hdfgroup.org/HDF5/examples/intro.html#c]]) converted to
 Nim utilizing the wrapper. 
 
-[[file:examples/h5_create_dataset_hl.nim][h5_high_level_example.nim]] serves as a replacement for a tutorial for
+[[file:examples/h5_high_level_example.nim][h5_high_level_example.nim]] serves as a replacement for a tutorial for
 now (tutorial will be added soon!), showcasing (almost) all available
 features and their usage.
 
