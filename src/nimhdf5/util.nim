@@ -10,6 +10,8 @@
 # and does not make use of any datatypes defined for H5 interop.
 
 import strutils
+import algorithm
+import sequtils
 
 template withDebug*(actions: untyped) =
   ## a debugging template, which can be used to e.g. output
@@ -59,7 +61,7 @@ proc flatten*[T: seq](a: seq[T]): auto =
   ##   -> @[1, 2, 3, 4, 5, 6]
   a.concat.flatten
   
-# not used / not working? :(
+# not working due to no return value overloading
 template getSeq(t: untyped, data: untyped): untyped =
   when t is float64:
     data = newSeq[float64](n_elements)
@@ -69,17 +71,16 @@ template getSeq(t: untyped, data: untyped): untyped =
     discard
   data
 
-template getIndexSeq(ind: int, shape: seq[int]): seq[int] =
-  # not used
-  # given an index for a 1D array (flattened from nD), calculate back
-  # the indices of that index in terms of N dimensions
-  # e.g. if shape is [2, 4, 10] and index ind == 54:
-  # returns a seq of: @[1, 1, 4], because:
-  # x = 1
-  # y = 1
-  # z = 4
-  # => ind = x + y * 10 + z * 4 * 10
-  let dim = foldl(shape, a * b)
+template getIndexSeq(ind: int, shape: openArray[int]): seq[int] =
+  ## given an index for a 1D array (flattened from nD), calculate back
+  ## the indices of that index in terms of N dimensions
+  ## e.g. if shape is [2, 4, 10] and index ind == 54:
+  ## returns a seq of: @[1, 1, 4], because:
+  ## x = 1
+  ## y = 1
+  ## z = 4
+  ## => ind = x + y * 10 + z * 4 * 10
+  let dim = foldl(@shape, a * b)
   let n_dims = len(shape)
   var result = newSeq[int](n_dims)
   var
@@ -96,3 +97,47 @@ template getIndexSeq(ind: int, shape: seq[int]): seq[int] =
     rem = rem mod int(dim / d)
   result
 
+proc newSeqOf2D*[T](shape: openArray[int]): seq[seq[T]] =
+  ## returns a nested (2D) sequence of the given dimensionality
+  assert shape.len == 2
+  result = @[]
+  let vsize = shape[1]  
+  for i in 0 ..< shape[0]:
+    result.add(newSeq[T](vsize))
+
+import strformat     
+proc newSeqOf3D*[T](shape: openArray[int]): seq[seq[seq[T]]] =
+  ## returns a nested (3D) sequence of the given dimensionality
+  ## utilizes newSeqOf2D to build the 3D seq
+  assert shape.len == 3
+  result = @[]
+  let vsize = shape[^1]
+  for i in 0 ..< shape[0]:
+    var t_s = newSeqOf2D[T](shape[1..^1])
+    result.add(t_s)
+
+proc reshape2D*[T](s: seq[T], shape: openArray[int]): seq[seq[T]] =
+  ## returns a reshaped version of `s` to the given shape of `shape`
+  assert s.len == foldl(@shape, a * b)
+  result = newSeqOf2D[T](shape)
+  for i, el in s:
+    # TODO: replace by running indices mimicking the calculation that
+    # happens inside of getIndexSeq. 
+    let inds = getIndexSeq(i, shape)
+    result[inds[0]][inds[1]] = el
+
+proc reshape3D*[T](s: seq[T], shape: openArray[int]): seq[seq[seq[T]]] =
+  ## returns a reshaped version of `s` to the given shape of `shape`  
+  assert s.len == foldl(@shape, a * b)
+  result = newSeqOf3D[T](shape)
+  for i, el in s:
+    let inds = getIndexSeq(i, shape)
+    result[inds[0]][inds[1]][inds[2]] = el
+
+template reshape*[T](s: seq[T], shape: array[2, int]): seq[seq[T]] =
+  ## convenience template around reshape2D using 2 element array as input
+  s.reshape2D(shape)
+
+template reshape*[T](s: seq[T], shape: array[3, int]): seq[seq[seq[T]]] =
+  ## convenience template around reshape3D using 3 element array as input
+  s.reshape3D(shape)  

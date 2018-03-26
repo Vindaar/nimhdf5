@@ -1194,8 +1194,6 @@ proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
     let shape = mapIt(zip(mcount, mblk), it[0] * it[1])
     memspace_id = simple_dataspace(shape)
 
-
-
   # perform hyperslab selection on dataspace
   dset.select_hyperslab(offset, count, stride, blk)  
   if err < 0:
