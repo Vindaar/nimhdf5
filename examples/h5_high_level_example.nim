@@ -10,6 +10,7 @@ import typeinfo
 import sequtils
 import tables
 import strutils
+import strformat
 
 const FILE = "dset.h5"
 
@@ -187,8 +188,18 @@ proc read_some() =
   # the wrong data type is given to the proc. Unfortunately, we cannot dynamically check
   # the data type
   let data = dataset[float64]
-  echo data
-
+  # reading a whole dataset normally simply returns a 1D flattened version of it
+  # if desired you may reshape it to the correct dimensinos as follows
+  # NOTE: this has to perform a whole copy of the data and thus might be very
+  # expensive!
+  let data_reshaped = data.reshape3D(dataset.shape)
+  echo &"Printing data in the default (flattened) way:\n\t{data}"
+  echo &"Printing data reshaped to the original\n\t{data_reshaped}\nwith shape\n\t{data_reshaped.shape}"
+  # if desired and the shape of the dataset is known explicitly at compile time,
+  # one may use the convenience template `reshape` and give the shape as an array
+  let data_reshaped_alt = dataset[float64].reshape([2,2,5])
+  echo &"data_reshape:\n\t{data_reshaped_alt}\nhas shape:\n\t{data_reshaped_alt.shape}"
+  
   # read variable length data
   let vlen_type = special_type(float)
   var dset_vlen = file["/group1/dset_vlen".dset_str]
@@ -201,7 +212,6 @@ proc read_some() =
   let g1_name = "/group1"
   var g1 = file[g1_name.grp_str]
   echo g1.attrs.read_attribute("Counter", int)
-
 
   # get table of attributes
   var attr = g1.attrs
