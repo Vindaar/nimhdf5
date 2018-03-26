@@ -133,6 +133,9 @@ know.
 - when reading back a dataset with dimension > 1, the returned data is
   returned in a flat =seq=, instead of e.g. a nested
   =seq[seq[<type>]]= as one might expect. 
+  To get the data in the correct shape, use the =reshape= or
+  (=reshape2D=, =reshape3D=) procs from =util.nim=. See the example
+  file or the following tests: [[file:tests/tutil.nim][tutil.nim]], [[file:tests/treshape.nim][treshape.nim]] for the usage.
   The exception is variable length data in case of a 1D dataset
   containing seqs of varying sizes. Here a nested seq of the correct
   elements is returned.
@@ -145,7 +148,7 @@ know.
   =grp_str= or =dset_str= is used to provide a uniform interface for
   both from a file object.
 - 1D datasets do not have shape =(N, )= as one would see in Python,
-  but are represented by =(N, 1)= instead
+  but are represented by =(N, 1)= instead.
 - and many more
 
 
