@@ -149,7 +149,8 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
         result.dtypeBaseKind = h5ToNimType(H5Tget_super(datatype_id))
         result.dtype = "vlen"
       else:
-        result.dtype = strip($f, chars = {'a', 'k'}).toLowerAscii
+        # get the dtype string from AnyKind
+        result.dtype = anyTypeToString(f)
       result.dtypeAnyKind = f
       result.dtype_c = H5Tget_native_type(datatype_id, H5T_DIR_ASCEND)
       result.dtype_class = H5Tget_class(datatype_id)
@@ -329,30 +330,12 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
   # remove any trailing / and insert potential missing root /
   var dset_name = formatName(dset_raw)
 
-  # first get the appropriate datatype for the given Nim type
-  when dtype is hid_t:
-    let dtype_c = dtype
-  else:
-    let dtype_c = nimToH5type(dtype)
-
   # need to deal with the shape of the dataset to be created
   #let shape_ar = parseShapeTuple(shape)
   var shape_seq = parseShapeTuple(shape)
 
   # set up the dataset object
   var dset = newH5DataSet(dset_name)[]
-  when dtype is hid_t:
-    # for now we only support vlen arrays, later we need to
-    # differentiate between the different H5T class types
-    dset.dtype = "vlen"
-    dset.dtypeAnyKind = akSequence
-  else:
-    dset.dtype = name(dtype)
-    # tmp var to get AnyKind using typeinfo.kind
-    var tmp: dtype
-    dset.dtypeAnyKind = tmp.toAny.kind
-  dset.dtype_c = dtype_c
-  dset.dtype_class = H5Tget_class(dtype_c)
   dset.file    = h5f.name
   dset.parent  = getParent(dset_name)
 
@@ -368,6 +351,17 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
   dset.parent_id = getParentId(h5f, dset)
   dset.shape = shape_seq
   # dset.parent_id = h5f.file_id
+
+  # first get the appropriate datatype for the given Nim type
+  when dtype is hid_t:
+    let dtype_c = dtype
+  else:
+    let dtype_c = nimToH5type(dtype)
+  # set the datatype as H5 type here, as its needed to create the dataset
+  # the Nim dtype descriptors are set below from the data in the file
+  dset.dtype_c = dtype_c
+  dset.dtype_class = H5Tget_class(dtype_c)
+
 
   # create the dataset access property list
   dset.dapl_id = H5Pcreate(H5P_DATASET_ACCESS)
@@ -421,14 +415,28 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
     #let msg = getCurrentExceptionMsg()
     echo "Call to HDF5 library failed in `parseChunkSizeAndMaxShape` from `create_dataset`"
     raise
-
+    
+  # set the dtype fields of the object
+  when dtype is hid_t:
+    # for now we only support vlen arrays, later we need to
+    # differentiate between the different H5T class types
+    dset.dtype = "vlen"
+    dset.dtypeAnyKind = akSequence
+  else:
+    # in case of non vlen datatypes, don't take the immediate string of the datatype
+    # but instead get it from the H5 datatype to conform to the same datatype, which
+    # we read back from the file after writing
+    dset.dtype = getDtypeString(dset.dataset_id)
+    # tmp var to get AnyKind using typeinfo.kind
+    var tmp: dtype
+    dset.dtypeAnyKind = tmp.toAny.kind
   # now get datatype base kind if vlen datatype
   if dset.dtypeAnyKind == akSequence:
     # need to get datatype id (id specific to this dataset describing type),
     # then super, which is the base type of a VLEN type and finally convert
     # that to a AnyKind type
     dset.dtypeBaseKind = h5ToNimType(H5Tget_super(H5Dget_type(dset.dataset_id)))
-    
+
   # now create attributes field
   dset.attrs = initH5Attributes(dset.name, dset.dataset_id, "H5DataSet")
   var dset_ref = new H5DataSet
