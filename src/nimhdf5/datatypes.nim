@@ -243,7 +243,7 @@ proc h5ToNimType*(dtype_id: hid_t): AnyKind =
     result = akSequence
   else:
     raise newException(KeyError, "Warning: the following H5 type could not be converted: $# of class $#" % [$dtype_id, $H5Tget_class(dtype_id)])
-  
+
 template nimToH5type*(dtype: typedesc): hid_t =
   ## given a typedesc, we return a corresponding
   ## H5 data type. This is a template, since we
@@ -313,6 +313,16 @@ template nimToH5type*(dtype: typedesc): hid_t =
     # `result_type` as the second argument and the string you wish to
     # write as 1st after the call to this fn    
   result_type
+
+template anyTypeToString*(dtype: AnyKind): string =
+  ## return a datatype string from an AnyKind object
+  strip($dtype, chars = {'a', 'k'}).toLowerAscii
+
+proc getDtypeString*(dset_id: hid_t): string =
+  ## using a dataset id `dset_id`, return the name of the datatype by a call
+  ## to the H5 library to get the datatype of that dataset
+  let t = H5Dget_type(dset_id)
+  result = anyTypeToString(h5ToNimType(t))
 
 template special_type*(dtype: typedesc): untyped =
   ## calls the H5Tvlen_create() to create a special datatype
