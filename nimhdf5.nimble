@@ -19,4 +19,6 @@ task test, "Runs all tests":
   exec "nim c -r tests/tattributes.nim"
   exec "nim c -r tests/tvlen_array.nim"
   exec "nim c -r tests/tresize.nim"
+  exec "nim c -r tests/treshape.nim"
+  exec "nim c -r tests/tutil.nim"
   exec "nim c -r tests/tnested.nim"
