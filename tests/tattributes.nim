@@ -22,6 +22,8 @@ proc assert_attrs(grp: var H5Group) =
   assert(grp.attrs["Time", string] == TimeStr)
   assert(grp.attrs["Counter", int] == Counter)
   assert(grp.attrs["Seq", seq[int]] == SeqAttr)
+  assert("Time" in grp.attrs)
+  assert("NoTime" notin grp.attrs)
   assert(grp.attrs.parent_name == formatName(GrpName))
   assert(grp.attrs.parent_type == "H5Group")
   assert(grp.attrs.num_attrs == 3)
