@@ -324,3 +324,8 @@ template `[]`*(h5attr: H5Attributes, name: string): AnyKind =
   # accessing H5Attributes by string simply returns the datatype of the stored
   # attribute as an AnyKind value
   h5attr.attr_tab[name].dtypeAnyKind
+
+proc contains*(attr: H5Attributes, key: string): bool =
+  ## proc to check whether a given attribute with name `key` exists in the attribute
+  ## field of a group or dataset
+  result = if key in attr.attr_tab: true else: false
