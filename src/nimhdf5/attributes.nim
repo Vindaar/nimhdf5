@@ -6,6 +6,7 @@ The attribute types are defined in the datatypes.nim file.
 
 
 import typeinfo
+import typetraits
 import tables
 import strutils
 
@@ -247,7 +248,7 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
       echo "Type `bool` currently not supported as attribute"
       discard
     else:
-      echo "Type `$#` currently not supported as attribute" % $T.name
+      echo "Type `$#` currently not supported as attribute" % $T
       discard
 
     # add H5Attr tuple to H5Attributes table
@@ -329,3 +330,108 @@ proc contains*(attr: H5Attributes, key: string): bool =
   ## proc to check whether a given attribute with name `key` exists in the attribute
   ## field of a group or dataset
   result = if key in attr.attr_tab: true else: false
+
+template withAttr*(h5attr: var H5Attributes, name: string, actions: untyped) =
+  ## convenience template to read and work with an attribute from the file and perform actions
+  ## with that attribute, without having to manually check the data type of the attribute
+
+  # TODO: NOTE this is a very ugly solution, when we could just use H5Ocopy in the calling
+  # proc....
+  case h5attr.attr_tab[name].dtypeAnyKind
+  of akBool:
+    let attr {.inject.} = h5attr[name, bool]
+    actions
+  of akChar:
+    let attr {.inject.} = h5attr[name, char]
+    actions
+  of akString:
+    let attr {.inject.} = h5attr[name, string]
+    actions
+  of akFloat32:
+    let attr {.inject.} = h5attr[name, float32]
+    actions
+  of akFloat64:
+    let attr {.inject.} = h5attr[name, float64]
+    actions
+  of akInt8:
+    let attr {.inject.} = h5attr[name, int8]
+    actions
+  of akInt16:
+    let attr {.inject.} = h5attr[name, int16]
+    actions
+  of akInt32:
+    let attr {.inject.} = h5attr[name, int32]
+    actions
+  of akInt64:
+    let attr {.inject.} = h5attr[name, int64]
+    actions
+  of akUint8:
+    let attr {.inject.} = h5attr[name, uint8]
+    actions
+  of akUint16:
+    let attr {.inject.} = h5attr[name, uint16]
+    actions
+  of akUint32:
+    let attr {.inject.} = h5attr[name, uint32]
+    actions
+  of akUint64:
+    let attr {.inject.} = h5attr[name, uint64]
+    actions
+  of akSequence:
+    # need to perform same game again...
+    case h5attr.attr_tab[name].dtypeBaseKind
+    of akString:
+      let attr {.inject.} = h5attr[name, seq[string]]
+      actions
+    of akFloat32:
+      let attr {.inject.} = h5attr[name, seq[float32]]
+      actions
+    of akFloat64:
+      let attr {.inject.} = h5attr[name, seq[float64]]
+      actions
+    of akInt8:
+      let attr {.inject.} = h5attr[name, seq[int8]]
+      actions
+    of akInt16:
+      let attr {.inject.} = h5attr[name, seq[int16]]
+      actions
+    of akInt32:
+      let attr {.inject.} = h5attr[name, seq[int32]]
+      actions
+    of akInt64:
+      let attr {.inject.} = h5attr[name, seq[int64]]
+      actions
+    of akUint8:
+      let attr {.inject.} = h5attr[name, seq[uint8]]
+      actions
+    of akUint16:
+      let attr {.inject.} = h5attr[name, seq[uint16]]
+      actions
+    of akUint32:
+      let attr {.inject.} = h5attr[name, seq[uint32]]
+      actions
+    of akUint64:
+      let attr {.inject.} = h5attr[name, seq[uint64]]
+      actions
+    else:
+      echo "Seq type of ", h5attr.attr_tab[name].dtypeBaseKind, " not supported"
+  else:
+    echo "Attribute of dtype ", h5attr.attr_tab[name].dtypeAnyKind, " not supported"
+    discard
+
+proc copy_attributes*[T: H5Group | H5DataSet](h5o: var T, attrs: var H5Attributes) =
+  ## copies the attributes contained in `attrs` given to the function to the `h5o` attributes
+  ## this can be used to copy attributes also between different files
+  # simply walk over all key value pairs in the given attributes and
+  # write them as new attributes to `h5o`
+  for key, value in pairs(attrs.attr_tab):
+    # TODO: fix it using H5Ocopy instead!
+    # IMPORTANT!!!!
+    # let ocpypl_id = H5Pcreate(H5P_OBJECT_COPY)
+    # let lcpl_id = H5Pcreate(H5P_LINK_CREATE)
+    # H5Ocopy(value.attr_id, key, h5o.attrs.parent_id, key, ocpypl_id, lcpl_id)
+    attrs.withAttr(key):
+      # use injected read attribute value to write it
+      h5o.attrs[key] = attr
+
+  

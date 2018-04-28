@@ -6,6 +6,8 @@ import os
 const
   File = "tests/attrs.h5"
   GrpName = "group1"
+  # group to which we copy attributes
+  GrpCopy = "groupCopy"
   TimeStr = "21:19"     
   Counter = 128       
   SeqAttr = @[1, 2, 3, 4]
@@ -24,7 +26,12 @@ proc assert_attrs(grp: var H5Group) =
   assert(grp.attrs["Seq", seq[int]] == SeqAttr)
   assert("Time" in grp.attrs)
   assert("NoTime" notin grp.attrs)
-  assert(grp.attrs.parent_name == formatName(GrpName))
+  let nameCheck = if grp.attrs.parent_name == formatName(GrpName) or
+                     grp.attrs.parent_name == formatName(GrpCopy):
+                    true
+                  else:
+                    false
+  assert(nameCheck)
   assert(grp.attrs.parent_type == "H5Group")
   assert(grp.attrs.num_attrs == 3)
 
@@ -42,10 +49,16 @@ when isMainModule:
   var
     h5f = H5file(File, "rw")
     grp = h5f.create_group(GrpName)
+    grpCp = h5f.create_group(GrpCopy)
     err: herr_t
 
   grp.write_attrs
   grp.assert_attrs
+
+  # copy attributes of grp to grpCp
+  grpCp.copy_attributes(grp.attrs)
+  # now simply assert these attributes in the same way
+  grpCp.assert_attrs
 
   err = h5f.close()
   assert(err >= 0)
@@ -53,11 +66,14 @@ when isMainModule:
   # open again, again with write access to delete attributes again
   h5f = H5File(File, "rw")
   grp = h5f[GrpName.grp_str]
+  grpCp = h5f[GrpCopy.grp_str]  
   # and check again
   grp.assert_attrs
+  grpCp.assert_attrs
 
   # delete an attribute
   grp.assert_delete
+  grpCp.assert_delete
 
   err = h5f.close()
   assert(err >= 0)
