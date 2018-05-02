@@ -61,6 +61,6 @@ proc `==`*(x, y: hid_t): bool {.borrow.}
 proc `==`*(x: hid_t, y: int): bool =
   result = x == y.hid_t
 proc `==`*(x: int, y: hid_t): bool =
-  result = x.hid_t == < y  
+  result = x.hid_t == y
 
   

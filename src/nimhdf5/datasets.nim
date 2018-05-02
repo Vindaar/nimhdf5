@@ -371,7 +371,7 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
   # in case we wish to use chunked storage (either resizable or unlimited size)
   # we need to set the chunksize on the dataset create property list
   try:
-    status = hid_t(dset.parseChunkSizeAndMaxShape(chunksize, maxshape))
+    status = dset.parseChunkSizeAndMaxShape(chunksize, maxshape)
     if status >= 0:
       # check whether there already exists a dataset with the given name
       # first in H5FileObj:

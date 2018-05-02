@@ -274,32 +274,32 @@ proc nimToH5type*(dtype: typedesc): hid_t =
     result = H5T_NATIVE_INT # H5T_STD_I32LE
   when sizeOf(int) == 8:
     if dtype is int:
-      result = hid_t(H5T_NATIVE_LONG)
+      result = H5T_NATIVE_LONG
   else:
     if dtype is int:
       result = H5T_NATIVE_INT
   if dtype is int64:
-    result = hid_t(H5T_NATIVE_LONG)
+    result = H5T_NATIVE_LONG
   elif dtype is uint8:
     # for 8 bit int we take the STD LE one, since there is no
     # native type available (besides char)
     when cpuEndian == littleEndian:
-      result = hid_t(H5T_STD_U8LE)
+      result = H5T_STD_U8LE
     else:
       result = H5T_STD_U8BE
   elif dtype is uint16:
-    result = hid_t(H5T_NATIVE_USHORT)
+    result = H5T_NATIVE_USHORT
   elif dtype is uint32:
-    result = hid_t(H5T_NATIVE_UINT) # H5T_STD_I32LE
+    result = H5T_NATIVE_UINT # H5T_STD_I32LE
   elif dtype is uint or dtype is uint64:
-    result = hid_t(H5T_NATIVE_ULLONG) # H5T_STD_I64LE    
+    result = H5T_NATIVE_ULLONG # H5T_STD_I64LE    
   elif dtype is float32:
-    result = hid_t(H5T_NATIVE_FLOAT) # H5T_STD_    
+    result = H5T_NATIVE_FLOAT # H5T_STD_    
   elif dtype is float or dtype is float64:
-    result = hid_t(H5T_NATIVE_DOUBLE) # H5T_STD_
+    result = H5T_NATIVE_DOUBLE # H5T_STD_
   elif dtype is char:
     # Nim's char is an unsigned char!
-    result = hid_t(H5T_NATIVE_UCHAR)
+    result = H5T_NATIVE_UCHAR
   elif dtype is string:
     # NOTE: in case a string is desired, we still have to prepare it later, because
     # a normal string will end up as a sequence of characters otherwise. Instead
@@ -308,7 +308,7 @@ proc nimToH5type*(dtype: typedesc): hid_t =
     # the size of the dataspace we reserve back to 1!
     # Also we need to copy the datatype, in order to be able to change its size
     # later
-    result = hid_t(H5Tcopy(H5T_C_S1))
+    result = H5Tcopy(H5T_C_S1)
     # -> call string_dataspace(str: string, dtype: hid_t) with
     # `result` as the second argument and the string you wish to
     # write as 1st after the call to this fn    
