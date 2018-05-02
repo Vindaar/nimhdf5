@@ -13,7 +13,7 @@ import datatypes
 # files -> groups -> files
 # so that proc is already known when we encounter the
 # from files import visit_files statement in groups.nim
-proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0)
+proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t)
 
 from datasets import `[]`
 import attributes
@@ -31,7 +31,7 @@ proc newH5File*(): H5FileObj =
                      file_id: H5_NOFILE,
                      rw_type: H5F_INVALID_RW,
                      err: -1,
-                     status: -1,
+                     status: -1.hid_t,
                      datasets: dset,
                      dataspaces: dspace,
                      groups: groups,
@@ -302,7 +302,7 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
       # see, I'm going to where the HDF5 library is in the first place...
       discard h5f[name.dset_str]
     
-proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0) =
+proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) =
   ## this proc iterates over the whole file and reads the complete content
   ## optionally only visits all elements below hid_t
   ## H5Ovisit recursively visits any object (group or dataset + a couple specific

@@ -34,11 +34,11 @@ proc newH5DataSet*(name: string = ""): ref H5DataSet =
   result.shape = shape
   result.maxshape = maxshape
   result.dtype = nil
-  result.dtype_c = -1
+  result.dtype_c = -1.hid_t
   result.parent = ""
   result.file = ""
-  result.dataspace_id = -1
-  result.dataset_id = -1
+  result.dataspace_id = -1.hid_t
+  result.dataset_id = -1.hid_t
   result.all = RW_ALL
   result.attrs = attrs
     
@@ -276,7 +276,7 @@ proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int
       if result < 0:
         raise newException(HDF5LibraryError, "HDF5 library returned error on call to `H5Pset_chunk`")
     else:
-      result = 0
+      result = 0.hid_t
 
 proc create_dataset_in_file(h5file_id: hid_t, dset: H5DataSet): hid_t =
   ## proc to create a given dataset in the H5 file described by `h5file_id`
@@ -314,7 +314,7 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
   ##    ... some dataset object, part of the file?!
   ## throws:
   ##    ... some H5 C related errors ?!
-  var status: hid_t = 0
+  var status: hid_t = hid_t(0)
   when T is int:
     # in case we hand an int as the shape argument, it means we wish to write
     # 1 column data to the file. In this case define the shape from here on
@@ -371,7 +371,7 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
   # in case we wish to use chunked storage (either resizable or unlimited size)
   # we need to set the chunksize on the dataset create property list
   try:
-    status = dset.parseChunkSizeAndMaxShape(chunksize, maxshape)
+    status = hid_t(dset.parseChunkSizeAndMaxShape(chunksize, maxshape))
     if status >= 0:
       # check whether there already exists a dataset with the given name
       # first in H5FileObj:

@@ -29,10 +29,10 @@ proc newH5Attributes*(): H5Attributes =
   result = H5Attributes(attr_tab: attr,
                         num_attrs: -1,
                         parent_name: "",
-                        parent_id: -1,
+                        parent_id: -1.hid_t,
                         parent_type: "")
 
-proc initH5Attributes*(p_name: string = "", p_id: hid_t = -1, p_type: string = ""): H5Attributes =
+proc initH5Attributes*(p_name: string = "", p_id: hid_t = -1.hid_t, p_type: string = ""): H5Attributes =
   let attr = newTable[string, ref H5Attr]()
   var h5attr = H5Attributes(attr_tab: attr,
                             num_attrs: -1,

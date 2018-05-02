@@ -25,7 +25,8 @@ proc set_chunk*(papl_id: hid_t, chunksize: seq[int]): hid_t =
   ## proc to set chunksize of the given object, should be a dataset,
   ## but we do not perform checks!
   var mchunksize = mapIt(chunksize, hsize_t(it))
-  result = H5Pset_chunk(papl_id, cint(len(mchunksize)), addr(mchunksize[0]))
+  # convert return value of H5Pset_chunk to `hid_t`, because H5 wrapper returns `herr_t`
+  result = H5Pset_chunk(papl_id, cint(len(mchunksize)), addr(mchunksize[0])).hid_t
 
 proc parseMaxShape(maxshape: seq[int]): seq[hsize_t] =
   ## this proc parses the maxshape given to simple_dataspace by taking into

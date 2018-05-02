@@ -244,7 +244,7 @@ proc h5ToNimType*(dtype_id: hid_t): AnyKind =
   else:
     raise newException(KeyError, "Warning: the following H5 type could not be converted: $# of class $#" % [$dtype_id, $H5Tget_class(dtype_id)])
 
-template nimToH5type*(dtype: typedesc): hid_t =
+proc nimToH5type*(dtype: typedesc): hid_t =
   ## given a typedesc, we return a corresponding
   ## H5 data type. This is a template, since we
   ## the compiler won't be able to determine
@@ -258,48 +258,48 @@ template nimToH5type*(dtype: typedesc): hid_t =
   # TODO: this still seems to be very much wrong and it's only valid for my machine
   # (64 bit) anyways. 
 
-  var result_type: hid_t = -1
+  result = hid_t(-1)
   when dtype is int8:
     # for 8 bit int we take the STD LE one, since there is no
     # native type available (besides char)
     # TODO: are we doing this the correct way round? maybe only relevant, if
     # we read data, as the data is STORED in some byte order...!
     when cpuEndian == littleEndian:
-      result_type = H5T_STD_I8LE
+      result = H5T_STD_I8LE
     else:
-      result_type = H5T_STD_I8BE
+      result = H5T_STD_I8BE
   elif dtype is int16:
-    result_type = H5T_NATIVE_SHORT
+    result = H5T_NATIVE_SHORT
   elif dtype is int32:
-    result_type = H5T_NATIVE_INT # H5T_STD_I32LE
+    result = H5T_NATIVE_INT # H5T_STD_I32LE
   when sizeOf(int) == 8:
     if dtype is int:
-      result_type = H5T_NATIVE_LONG
+      result = hid_t(H5T_NATIVE_LONG)
   else:
     if dtype is int:
-      result_type = H5T_NATIVE_INT
+      result = H5T_NATIVE_INT
   if dtype is int64:
-    result_type = H5T_NATIVE_LONG
+    result = hid_t(H5T_NATIVE_LONG)
   elif dtype is uint8:
     # for 8 bit int we take the STD LE one, since there is no
     # native type available (besides char)
     when cpuEndian == littleEndian:
-      result_type = H5T_STD_U8LE
+      result = hid_t(H5T_STD_U8LE)
     else:
-      result_type = H5T_STD_U8BE
+      result = H5T_STD_U8BE
   elif dtype is uint16:
-    result_type = H5T_NATIVE_USHORT
+    result = hid_t(H5T_NATIVE_USHORT)
   elif dtype is uint32:
-    result_type = H5T_NATIVE_UINT # H5T_STD_I32LE
+    result = hid_t(H5T_NATIVE_UINT) # H5T_STD_I32LE
   elif dtype is uint or dtype is uint64:
-    result_type = H5T_NATIVE_ULLONG # H5T_STD_I64LE    
+    result = hid_t(H5T_NATIVE_ULLONG) # H5T_STD_I64LE    
   elif dtype is float32:
-    result_type = H5T_NATIVE_FLOAT # H5T_STD_    
+    result = hid_t(H5T_NATIVE_FLOAT) # H5T_STD_    
   elif dtype is float or dtype is float64:
-    result_type = H5T_NATIVE_DOUBLE # H5T_STD_
+    result = hid_t(H5T_NATIVE_DOUBLE) # H5T_STD_
   elif dtype is char:
     # Nim's char is an unsigned char!
-    result_type = H5T_NATIVE_UCHAR
+    result = hid_t(H5T_NATIVE_UCHAR)
   elif dtype is string:
     # NOTE: in case a string is desired, we still have to prepare it later, because
     # a normal string will end up as a sequence of characters otherwise. Instead
@@ -308,11 +308,10 @@ template nimToH5type*(dtype: typedesc): hid_t =
     # the size of the dataspace we reserve back to 1!
     # Also we need to copy the datatype, in order to be able to change its size
     # later
-    result_type = H5Tcopy(H5T_C_S1)
+    result = hid_t(H5Tcopy(H5T_C_S1))
     # -> call string_dataspace(str: string, dtype: hid_t) with
-    # `result_type` as the second argument and the string you wish to
+    # `result` as the second argument and the string you wish to
     # write as 1st after the call to this fn    
-  result_type
 
 template anyTypeToString*(dtype: AnyKind): string =
   ## return a datatype string from an AnyKind object

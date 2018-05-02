@@ -38,7 +38,9 @@ proc isInH5Root*(name: string): bool =
 proc existsInFile*(h5id: hid_t, name: string): hid_t =
   ## convenience function to check whether a given object `name` exists 
   ## in another H5 object given by the id `h5id`
-  result = H5Lexists(h5id, name, H5P_DEFAULT)
+  # need to convert result of H5Lexists to hid_t, because return type is
+  # `htri_t` from the H5 wrapper
+  result = H5Lexists(h5id, name, H5P_DEFAULT).hid_t
 
 template getH5Id*(h5o: typed): hid_t =
   ## this template returns the correct location id of either

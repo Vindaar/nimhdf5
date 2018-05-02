@@ -23,9 +23,9 @@ proc newH5Group*(name: string = ""): ref H5Group =
   result = new H5Group
   result.name = name
   result.parent = ""
-  result.parent_id = -1
+  result.parent_id = -1.hid_t
   result.file = ""
-  result.file_id = -1
+  result.file_id = -1.hid_t
   result.file_ref = nil
   result.datasets = datasets
   result.groups = groups
@@ -87,7 +87,7 @@ template get(h5f: H5FileObj, group_in: grp_str): H5Group =
     # - not created individually directly / indirectly
     # check for existence in file
     let exists = existsInFile(h5f.file_id, group_name)
-    if exists > 0:
+    if exists > hid_t(0):
       # get group from file
       result = h5f.create_group(group_name)
     else:
