@@ -833,7 +833,7 @@ proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   err = H5Dvlen_reclaim(dset.dtype_c, dspace_id, H5P_DEFAULT, addr(data[0]))
 
 proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
-  ## check whehter we have data for each coordinate
+  ## check whether we have data for each coordinate
   var err: herr_t
   when U isnot seq:
     var mdata = @[data]
@@ -1100,21 +1100,68 @@ proc write_hyperslab*[T](dset: var H5DataSet, data: seq[T], offset, count: seq[i
   ## https://support.hdfgroup.org/HDF5/doc/UG/HDF5_Users_Guide-Responsive%20HTML5/index.html
   var err: herr_t
 
-  # flatten the data array to be written
-  var mdata = data.flatten
-
+  # update the dataspace ID of the dataset
   dset.dataspace_id = H5Dget_space(dset.dataset_id)
-  let memspace_id = simple_dataspace(data.shape)
-  dset.select_hyperslab(offset, count, stride, blk)
 
-  err = H5Dwrite(dset.dataset_id, dset.dtype_c, memspace_id, dset.dataspace_id, H5P_DEFAULT, addr(mdata[0]))
-  if err < 0:
+  var memspace_id: hid_t
+  if dset.dtype_class == H5T_VLEN:
+    # in case of variable length data, the dataspace should be of layout
+    # (# VLEN elements, 1)
+    let memspaceShape = @[data.shape[0], 1]
+    memspace_id = simple_dataspace(memspaceShape)
     withDebug:
-      echo "Trying to write mdata with shape ", mdata.shape
-    raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `write_hyperslab`")
+      echo "Data shape ", data.shape
+      echo "Data type class ", dset.dtype_class
+      echo "memspace select ", H5Sget_select_npoints(memspace_id)
+      echo "dataspace is valid ", H5Sselect_valid(dset.dataspace_id)
+      echo "memspace is valid ", H5Sselect_valid(memspace_id)    
+      var start: seq[hsize_t] = @[hsize_t(999), 999]
+      var ending: seq[hsize_t] = @[hsize_t(999), 999]     
+      echo H5Sget_select_bounds(dset.dataspace_id, addr(start[0]), addr(ending[0]))
+      echo "start and ending ", start, " ", ending
+      
+    var md = data
+    when T is seq:
+      # in case we're dealing with variable length data, we know that the `data` is always
+      # a nested `seq`, i.e. `T` is a `seq`. Need this guard, because otherwise code, which
+      # does not actually run into the "VLEN" branch here will still be compiled against
+      # it. The call to `toH5vlen` will fail, since it's a template which does not return
+      # anything for `T isnot seq`.
+      # TODO: replace template by typed template / proc?
+      var mdata_hvl = md.toH5vlen
+      dset.select_hyperslab(offset, count, stride, blk)
+      err = H5Dwrite(dset.dataset_id,
+                     dset.dtype_c,
+                     memspace_id,
+                     dset.dataspace_id,
+                     H5P_DEFAULT,
+                     addr(mdata_hvl[0]))
+      if err < 0:
+        withDebug:
+          echo "Trying to write VLEN data with shape ", memspaceShape
+        raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling " &
+          "`H5Dwrite` in `write_hyperslab` trying to write VLEN data.")      
+  else:
+    # flatten the data array to be written
+    var mdata = data.flatten
+    
+    memspace_id = simple_dataspace(data.shape)
+    dset.select_hyperslab(offset, count, stride, blk)
+
+    err = H5Dwrite(dset.dataset_id,
+                   dset.dtype_c,
+                   memspace_id,
+                   dset.dataspace_id,
+                   H5P_DEFAULT,
+                   addr(mdata[0]))
+    if err < 0:
+      withDebug:
+        echo "Trying to write mdata with shape ", mdata.shape
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `write_hyperslab`")
+    
   err = H5Sclose(memspace_id)
   if err < 0:
-    raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sclose` in `write_vlen`")
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sclose` in `write_hyperslab`")
 
 
 proc sizeOfHyperslab(offset, count, stride, blk: seq[hsize_t]): int =
