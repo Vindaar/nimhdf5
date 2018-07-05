@@ -152,11 +152,9 @@ know.
 - and many more
 
 
-
-** To be done
-- tests for many features still missing
-- add filters for compression of datasets
-- rework return type of reading procs, such that it's possible to
-  receive the data in a non-flat =seq=. 
-- rewrite parts making better use of available H5 functions
-- ... lots and lots more
+** Major missing HDF5 features
+Most major HDF5 features are now supported (although they may not be
+perfectly stable yet, due to limited testing). The major exceptions
+are the following two:
+- support for filters
+- support for compound data types
