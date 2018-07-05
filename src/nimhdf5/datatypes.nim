@@ -382,5 +382,8 @@ template toH5vlen*[T](data: var seq[T]): untyped =
         hvl_t(`len`: csize(0), p: nil)
   else:
     # this doesn't make sense ?!...
-    mapIt(toSeq(0..data.high), hvl_t(`len`: csize(data[it]), p: addr(data[it][0])))
+    static:
+      warning("T is " & T.name)
+      warning("Cannot be converted to VLEN data!")
+    #mapIt(toSeq(0 .. data.high), hvl_t(`len`: csize(data[it]), p: addr(data[it][0])))
     
