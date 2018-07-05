@@ -41,7 +41,9 @@ import arraymancer
 
 # now import / include the relevant pieces of the library
 import nimhdf5/hdf5_wrapper
-include nimhdf5/H5nimtypes
+#include nimhdf5/H5nimtypes
+import nimhdf5/H5nimtypes
+export H5nimtypes
 
 # TODO: instead of exporting everything from each module, we should
 # instead only export the public fields of the types for example!
