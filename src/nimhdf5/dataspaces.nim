@@ -72,7 +72,10 @@ proc create_simple_memspace_1d*[T](coord: seq[T]): hid_t {.inline.} =
 proc string_dataspace*(str: string, dtype: hid_t): hid_t =
   ## returns a dataspace of size 1 for a string of length N, by
   ## changing the size of the datatype given
-  discard H5Tset_size(dtype, len(str))
+  # need at least a minimum size of 1 for a HDF5 string to store
+  # the null terminator
+  let dspaceLen = max(str.len, 1)
+  discard H5Tset_size(dtype, dspaceLen)
   # append null termination
   discard H5Tset_strpad(dtype, H5T_STR_NULLTERM)
   # now return dataspace of size 1

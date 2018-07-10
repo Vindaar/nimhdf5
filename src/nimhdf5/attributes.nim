@@ -234,7 +234,9 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
       # mutable copy for address
       var mval = val
       # write the value
-      discard H5Awrite(attribute_id, dtype, addr(mval[0]))
+      if mval.len > 0:
+        # only write the value, if we have something to write
+        discard H5Awrite(attribute_id, dtype, addr(mval[0]))
 
       # write information to H5Attr tuple
       attr.attr_id = attribute_id
