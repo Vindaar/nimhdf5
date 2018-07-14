@@ -208,6 +208,33 @@ proc parseObjectKindToH5(kind: ObjectKind): int =
   of okAll:
     result = H5F_OBJ_ALL    
 
+proc getOpenObjectIds(h5f: H5FileObj, kind: ObjectKind): seq[hid_t] =
+  let h5Kind = parseObjectKindToH5(kind)
+  # create buffer size of 1000. Should be plenty for open ids
+  # if not, something is wrong anyways (I'd assume?)
+  const maxObjects = 1000
+  var objList = newSeq[hid_t](maxObjects)
+  let objsOpen = H5Fget_obj_ids(h5f.file_id, h5Kind.cuint, 1000, addr objList[0])
+  result = objList.filterIt(it > 0)
+
+proc close(id: hid_t, kind: ObjectKind): herr_t =
+  ## calls the correct H5 `close` function for the given object kind
+  case kind
+  of okFile:
+    result = H5Fclose(id)
+  of okDset:
+    result = H5Dclose(id)
+  of okGroup:
+    result = H5Gclose(id)
+  of okAttr:
+    result = H5Aclose(id)
+  of okType:
+    # no close function?
+    discard
+  of okAll:
+    discard
+       
+
 proc close*(h5f: H5FileObj): herr_t =
   ## this procedure closes all known datasets, dataspaces, groups and the HDF5 file
   ## itself to clean up
