@@ -233,7 +233,6 @@ proc close(id: hid_t, kind: ObjectKind): herr_t =
     discard
   of okAll:
     discard
-       
 
 proc close*(h5f: H5FileObj): herr_t =
   ## this procedure closes all known datasets, dataspaces, groups and the HDF5 file
