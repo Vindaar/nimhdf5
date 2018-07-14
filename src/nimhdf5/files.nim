@@ -1,5 +1,5 @@
 import tables
-import strutils
+import strutils, sequtils
 import options
 import os
 
@@ -244,33 +244,64 @@ proc close*(h5f: H5FileObj): herr_t =
   ##    hid_t = status of the closing of the file
   # TODO: can we use iterate and H5Oclose to close all this stuff
   # somewhat cleaner?
+  withDebug:
+    echo "\n\nBefore closing: \n:"
+    h5f.printOpenObjects()
+    let objs = h5f.getOpenObjectIds(okAll)
+    echo "Objects open are ", objs
 
   for name, dset in pairs(h5f.datasets):
     withDebug:
-      discard
-      #echo("Closing dset ", name, " with dset ", dset)
+      echo("Closing dset ", name, " with dset ", dset)
     # close attributes
     for attr in values(dset.attrs.attr_tab):
       result = H5Aclose(attr.attr_id)
+      withDebug:
+        echo "Closed attribute with status ", result      
       result = H5Sclose(attr.attr_dspace_id)
     result = H5Dclose(dset.dataset_id)
     result = H5Sclose(dset.dataspace_id)
 
   for name, group in pairs(h5f.groups):
     withDebug:
-      discard
-      #echo("Closing group ", name, " with id ", group)
+      echo("Closing group ", name, " with id ", group)
     # close attributes
     for attr in values(group.attrs.attr_tab):
       result = H5Aclose(attr.attr_id)
+      withDebug:
+        echo "Closed attribute with status ", result
       result = H5Sclose(attr.attr_dspace_id)
     result = H5Gclose(group.group_id)
 
   # close attributes
   for attr in values(h5f.attrs.attr_tab):
     result = H5Aclose(attr.attr_id)
+    withDebug:
+      echo "Closed attribute with status ", result    
     result = H5Sclose(attr.attr_dspace_id)
-  
+
+  withDebug:
+    h5f.printOpenObjects()
+  # now close all remaining objects, which we might have missed above
+  # TODO: it seems we're missing some attributes. The rest is typically closed
+  # find out where we miss them!
+  for t in ObjectKind:
+    let objsStillOpen = h5f.getOpenObjectIds(t)
+    if objsStillOpen.len > 0:
+      for id in objsStillOpen:
+        # only close non files (file will be closed below)
+        case t
+        of okFile: discard
+        else:
+          result = close(id, t)
+
+  withDebug:
+    let objsYet = h5f.getOpenObjectIds(okAll)
+    h5f.printOpenObjects()
+    # should be zero now
+    echo "Still open objects are ", objsYet
+  # close the remaining attributes
+
   result = H5Fclose(h5f.file_id)
 
 template withH5*(h5file, rw_type: string, actions: untyped) =
