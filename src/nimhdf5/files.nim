@@ -160,6 +160,20 @@ proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
   # which are stored in the file
   result.attrs = initH5Attributes("/", result.file_id, "H5FileObj")
 
+proc printOpenObjects*(h5f: H5FileObj) =
+  let
+    filesOpen = H5Fget_obj_count(h5f.file_id, H5F_OBJ_FILE)
+    dsetsOpen = H5Fget_obj_count(h5f.file_id, H5F_OBJ_DATASET)
+    groupsOpen = H5Fget_obj_count(h5f.file_id, H5F_OBJ_GROUP)
+    typesOpen = H5Fget_obj_count(h5f.file_id, H5F_OBJ_DATATYPE)
+    attrsOpen = H5Fget_obj_count(h5f.file_id, H5F_OBJ_ATTR)
+  # always printing, regardless of debug
+  echo "\t objects open:"
+  echo "\t\t files open: ", filesOpen
+  echo "\t\t dsets open: ", dsetsOpen
+  echo "\t\t groups open: ", groupsOpen
+  echo "\t\t types open: ", typesOpen
+  echo "\t\t attrs open: ", attrsOpen
 proc close*(h5f: H5FileObj): herr_t =
   ## this procedure closes all known datasets, dataspaces, groups and the HDF5 file
   ## itself to clean up
