@@ -174,6 +174,40 @@ proc printOpenObjects*(h5f: H5FileObj) =
   echo "\t\t groups open: ", groupsOpen
   echo "\t\t types open: ", typesOpen
   echo "\t\t attrs open: ", attrsOpen
+
+type
+  ObjectKind = enum
+    okFile, okDset, okGroup, okType, okAttr, okAll
+
+proc parseH5toObjectKind(h5Kind: int): ObjectKind =
+  if h5Kind == H5F_OBJ_FILE:
+    result = okFile
+  elif h5Kind == H5F_OBJ_DATASET:
+    result = okDset
+  elif h5Kind == H5F_OBJ_GROUP:
+    result = okGroup
+  elif h5Kind == H5F_OBJ_DATATYPE:
+    result = okType
+  elif h5Kind == H5F_OBJ_ATTR:
+    result = okAttr
+  elif h5Kind == H5F_OBJ_ALL:
+    result = okAll
+
+proc parseObjectKindToH5(kind: ObjectKind): int =
+  case kind
+  of okFile:
+    result = H5F_OBJ_FILE
+  of okDset:
+    result = H5F_OBJ_DATASET
+  of okGroup:
+    result = H5F_OBJ_GROUP
+  of okType:
+    result = H5F_OBJ_DATATYPE
+  of okAttr:
+    result = H5F_OBJ_ATTR
+  of okAll:
+    result = H5F_OBJ_ALL    
+
 proc close*(h5f: H5FileObj): herr_t =
   ## this procedure closes all known datasets, dataspaces, groups and the HDF5 file
   ## itself to clean up
