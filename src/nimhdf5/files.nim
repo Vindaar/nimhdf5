@@ -251,7 +251,7 @@ proc close*(h5f: H5FileObj): herr_t =
 
   for name, dset in pairs(h5f.datasets):
     withDebug:
-      echo("Closing dset ", name, " with dset ", dset)
+      echo("Closing dset ", name, " with dset id ", dset.dataset_id)
     # close attributes
     for attr in values(dset.attrs.attr_tab):
       result = H5Aclose(attr.attr_id)
@@ -263,7 +263,7 @@ proc close*(h5f: H5FileObj): herr_t =
 
   for name, group in pairs(h5f.groups):
     withDebug:
-      echo("Closing group ", name, " with id ", group)
+      echo("Closing group ", name, " with id ", group.group_id)
     # close attributes
     for attr in values(group.attrs.attr_tab):
       result = H5Aclose(attr.attr_id)
