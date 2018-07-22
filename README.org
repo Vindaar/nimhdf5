@@ -89,7 +89,7 @@ Installation can either be done via nimble:
 nimble install nimhdf5
 #+END_SRC
 
-or manually by clining this git repository:
+or manually by cloning this git repository:
 #+BEGIN_SRC sh
 git clone https://github.com/vindaar/nimhdf5
 #+END_SRC
@@ -103,12 +103,6 @@ Or simply make use of nimble's Github interfacing capabilities:
 #+BEGIN_SRC sh
 nimble install https://github.com/vindaar/nimhdf5
 #+END_SRC
-
-** Dependencies
-
-Since I personally need to write [[https://github.com/mratsim/Arraymancer][Arraymancer]] tensors into HDF5 files,
-the requirement of Arraymancer is currently hardcoded, despite being
-unnecessary if the corresponding procedures are not used.
 
 ** Files
 
