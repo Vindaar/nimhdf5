@@ -41,7 +41,7 @@ proc newH5DataSet*(name: string = ""): ref H5DataSet =
   result.dataset_id = -1.hid_t
   result.all = RW_ALL
   result.attrs = attrs
-    
+
 proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
   ## convenience proc to return the dataset with name dset_name
   ## if it does not exist, KeyError is thrown
@@ -111,7 +111,7 @@ proc readMaxShape(dspace_id: hid_t): seq[int] =
   ##   HDF5LibraryError = if a call to the H5 library fails
   let (shape, maxshape) = readShape(dspace_id)
   result = maxshape
-  
+
 template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
   ## TODO: why is this still a template???
   ## convenience proc to return the dataset with name dset_name
@@ -124,7 +124,7 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
   ## throws:
   ##    KeyError: if dataset could not be found
   var status: cint
-  
+
   let dset_name = string(dset_in)
   let dset_exist = hasKey(h5f.datasets, dset_name)
   var result = newH5DataSet(dset_name)[]
@@ -155,18 +155,18 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       result.dtype_c = H5Tget_native_type(datatype_id, H5T_DIR_ASCEND)
       result.dtype_class = H5Tget_class(datatype_id)
 
-      # get the dataset access property list 
+      # get the dataset access property list
       result.dapl_id = H5Dget_access_plist(result.dataset_id)
       # get the dataset create property list
       result.dapl_id = H5Dget_create_plist(result.dataset_id)
       withDebug:
         echo "ACCESS PROPERTY LIST IS ", result.dapl_id
-        echo "CREATE PROPERTY LIST IS ", result.dapl_id      
+        echo "CREATE PROPERTY LIST IS ", result.dapl_id
         echo H5Tget_class(datatype_id)
 
       (result.shape, result.maxshape) = readShape(result.dataspace_id)
       # still need to determine the parents of the dataset
-      result.parent = getParent(result.name)      
+      result.parent = getParent(result.name)
       var parent = create_group(h5f, result.parent)
       result.parent_id = getH5Id(parent)
       result.file = h5f.name
@@ -178,7 +178,8 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       status = H5Tclose(datatype_id)
       if status < 0:
         #TODO: replace by exception
-        echo "Status of H5Tclose() returned non-negative value. H5 will probably complain now..."
+        echo "Status of H5Tclose() returned non-negative value."
+        echo "H5 will probably complain now..."
 
 
       # now that we have created the group fully (including IDs), we can add it to the file and
@@ -188,7 +189,8 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       parent.datasets[result.name] = dset_ref
       h5f.datasets[result.name] = dset_ref
     else:
-      raise newException(KeyError, "Dataset with name: " & dset_name & " not found in file " & h5f.name)
+      raise newException(KeyError, "Dataset with name: " & dset_name &
+        " not found in file " & h5f.name)
   else:
     result = h5f.datasets[dset_name][]
     # in this case we still need to update e.g. shape
@@ -206,7 +208,7 @@ template isDataSet(h5_object: typed): bool =
     result = true
   else:
     result = false
-  result  
+  result
 
 proc parseShapeTuple[T: tuple](dims: T): seq[int] =
   ## parses the shape tuple handed to create_dataset
@@ -224,7 +226,7 @@ proc parseShapeTuple[T: tuple](dims: T): seq[int] =
   # only place we use the result of this proc!)
   # TODO: move the when T is int: branch from create_dataset to here
   # to clean up create_dataset!
-  
+
   var n_dims: int
   # count the number of fields in the array, since that is number
   # of dimensions we have
@@ -242,7 +244,7 @@ proc parseShapeTuple[T: tuple](dims: T): seq[int] =
     result[count] = int(el)
     inc count
 
-  
+
 proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int]): hid_t =
   ## proc to parse the chunk size and maxhshape arguments handed to the create_dataset()
   ## Takes into account the different possible scenarios:
@@ -266,7 +268,8 @@ proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int
       dset.chunksize = chunksize
     result = set_chunk(dset.dcpl_id, dset.chunksize)
     if result < 0:
-      raise newException(HDF5LibraryError, "HDF5 library returned error on call to `H5Pset_chunk`")
+      raise newException(HDF5LibraryError, "HDF5 library returned error on " &
+        "call to `H5Pset_chunk`")
   else:
     # in this case max shape is current shape regardless
     dset.maxshape = dset.shape
@@ -274,7 +277,8 @@ proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int
       # chunksize given -> maxshape = shape
       result = set_chunk(dset.dcpl_id, dset.chunksize)
       if result < 0:
-        raise newException(HDF5LibraryError, "HDF5 library returned error on call to `H5Pset_chunk`")
+        raise newException(HDF5LibraryError, "HDF5 library returned error " &
+          "on call to `H5Pset_chunk`")
     else:
       result = 0.hid_t
 
@@ -289,18 +293,21 @@ proc create_dataset_in_file(h5file_id: hid_t, dset: H5DataSet): hid_t =
     result  = H5Dcreate2(h5file_id, dset.name, dset.dtype_c, dset.dataspace_id,
                          H5P_DEFAULT, dset.dcpl_id, H5P_DEFAULT)
 
-proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
-                                       dset_raw: string,
-                                       shape_raw: T,
-                                       dtype: (typedesc | hid_t),
-                                       chunksize: seq[int] = @[],
-                                       maxshape: seq[int] = @[]): H5DataSet = 
+proc create_dataset*[T: (tuple | int | seq)](
+    h5f: var H5FileObj,
+    dset_raw: string,
+    shape_raw: T,
+    dtype: (typedesc | hid_t),
+    chunksize: seq[int] = @[],
+    maxshape: seq[int] = @[]): H5DataSet =
   ## procedure to create a dataset given a H5file object. The shape of
   ## that type is given as a tuple, the datatype as a typedescription
   ## inputs:
   ##    h5file: H5FileObj = the H5FileObj received by H5file() into which the data
   ##                   set belongs
-  ##    shape: T = the shape of the dataset, given as a tuple
+  ##    shape: T = the shape of the dataset, given as:
+  ##           `int`: for 1D datasets
+  ##           `tuple` / `seq`: for N dim. datasets
   ##    dtype = typedesc = a Nim typedesc (e.g. int, float, etc.) for that
   ##            dataset. vlen not yet supported
   ##    chunksize: seq[int] = a sequence containing the chunksize, the dataset should be
@@ -345,7 +352,7 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
   var group: H5Group
   if is_root == false:
     group = create_group(h5f, dset.parent)
-  
+
   withDebug:
     echo "Getting parent Id of ", dset.name
   dset.parent_id = getParentId(h5f, dset)
@@ -392,30 +399,33 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
           dset.dataspace_id = H5Dget_space(dset.dataset_id)
           # TODO: include a check about whether the opened dataset actually conforms
           # to what we wanted to create (e.g. same shape etc.)
-          
+
         elif in_file == 0:
           # does not exist
           # now
           withDebug:
-            echo "Does not exist, so create dataspace ", dset.name, " with shape ", shape_seq
+            echo "Does not exist, so create dataspace ", dset.name
+            echo "with shape ", shape_seq
           dset.dataspace_id = simple_dataspace(shape_seq, maxshape)
-          
+
           # using H5Dcreate2, try to create the dataset
           withDebug:
             echo "Does not exist, so create dataset via H5create2 ", dset.name
           dset.dataset_id = create_dataset_in_file(h5f.file_id, dset)
         else:
-          raise newException(HDF5LibraryError, "Call to HDF5 library failed in `existsInFile` from `create_dataset`")
+          raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
+            "in `existsInFile` from `create_dataset`")
       else:
         # else the dataset is already known and in the table, get it
         dset = h5f[dset.name.dset_str]
     else:
-      raise newException(UnkownError, "Unkown error occured due to call to `parseChunkSizeAndMaxhShape` returning with status = $#" % $status)
+      raise newException(UnkownError, "Unkown error occured due to call to " &
+        "`parseChunkSizeAndMaxhShape` returning with status = $#" % $status)
   except HDF5LibraryError:
     #let msg = getCurrentExceptionMsg()
     echo "Call to HDF5 library failed in `parseChunkSizeAndMaxShape` from `create_dataset`"
     raise
-    
+
   # set the dtype fields of the object
   when dtype is hid_t:
     # for now we only support vlen arrays, later we need to
@@ -470,11 +480,7 @@ proc create_dataset*[T: (tuple | int)](h5f: var H5FileObj,
     # NOTE: create_dataset_in_file() should take care of this case.
     #dset.dcpl_id = H5P_DEFAULT
 
-
-
-
-      
-proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArray[T])  
+proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArray[T])
   ## procedure to write a sequence of array to a dataset
   ## will be given to HDF5 library upon call, H5DataSet object
   ## does not store the data
@@ -482,7 +488,7 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
   ##    dset: var H5DataSet = the dataset which contains the necessary information
   ##         about dataset shape, dtype etc. to write to
   ##    ind: DsetReadWrite = indicator telling us to write whole dataset,
-  ##         used to differentiate from the case in which we only write a hyperslab    
+  ##         used to differentiate from the case in which we only write a hyperslab
   ##    data: openArray[T] = any array type containing the data to be written
   ##         needs to be of the same size as the shape given during creation of
   ##         the dataset or smaller
@@ -495,12 +501,13 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
   # of a dataspace of certain dimensions for arrays / nested seqs we're handed
 
   var err: herr_t
-  
+
   if ind == RW_ALL:
     let shape = dset.shape
     withDebug:
       echo "shape is ", shape, " of dset ", dset.name
-      echo "shape is a ", type(shape).name, " and data is a ", type(data).name, " and data.shape = ", data.shape
+      echo "shape is a ", type(shape).name, " and data is a "
+      echo type(data).name, " and data.shape = ", data.shape
     # check whether we will write a 1 column dataset. If so, relax
     # requirements of shape check. In this case only compare 1st element of
     # shapes. We compare shape[1] with 1, because atm we demand VLEN data to be
@@ -508,13 +515,13 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
     # it is always promoted to a (N, 1) array.
     if (shape.len == 2 and shape[1] == 1 and shape(data)[0] == dset.shape[0]) or
       data.shape == dset.shape:
-      
+
       if dset.dtype_class == H5T_VLEN:
-        # TODO: should we also check whether data really is 1D? or let user deal with that?
-        # will flatten the array anyways, so in case on tries to write a 2D array as vlen,
-        # the flattened array will end up as vlen in the file
-        # in this case we need to prepare the data further by assigning the data to
-        # a hvl_t struct
+        # TODO: should we also check whether data really is 1D? or let user
+        # deal with that? will flatten the array anyways, so in case on tries
+        # to write a 2D array as vlen, the flattened array will end up as vlen
+        # in the file in this case we need to prepare the data further by
+        # assigning the data to a hvl_t struct
         when T is seq:
           var mdata = data
           # var data_hvl = newSeq[hvl_t](mdata.len)
@@ -524,27 +531,37 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
           #   data_hvl[i].p = addr(d[0])#cast[pointer]()
           #   inc i
           var data_hvl = mdata.toH5vlen
-          err = H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+          err = H5Dwrite(dset.dataset_id,
+                         dset.dtype_c,
+                         H5S_ALL,
+                         H5S_ALL,
+                         H5P_DEFAULT,
                          addr(data_hvl[0]))
           if err < 0:
             withDebug:
               echo "Trying to write data_hvl ", data_hvl
-            raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `[All]=`")
+            raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
+                               "while calling `H5Dwrite` in `[All]=`")
         else:
           echo "VLEN datatype does not make sense, if the data is of type seq[$#]" % T.name
           echo "Use normal datatype instead. Or did you only hand a single element"
           echo "of your vlen data?"
       else:
-        var data_write = flatten(data) 
-        err = H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+        var data_write = flatten(data)
+        err = H5Dwrite(dset.dataset_id,
+                       dset.dtype_c,
+                       H5S_ALL,
+                       H5S_ALL,
+                       H5P_DEFAULT,
                        addr(data_write[0]))
         if err < 0:
           withDebug:
             echo "Trying to write data_write ", data_write
-          raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `[All]=`")
+          raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
+            "while calling `H5Dwrite` in `[All]=`")
     else:
-      var msg = """
-Wrong input shape of data to write in `[]=` while accessing `$#`. Given shape `$#`, dataset has shape `$#`"""
+      var msg = "Wrong input shape of data to write in `[]=` while accessing " &
+        "`$#`. Given shape `$#`, dataset has shape `$#`"
       msg = msg % [$dset.name, $data.shape, $dset.shape]
       raise newException(ValueError, msg)
   else:
@@ -596,13 +613,18 @@ proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: var seq[T]) = 
     withDebug:
       echo "shape before is ", data.shape
       echo data
-    var data_write = flatten(data) 
-    let err = H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    var data_write = flatten(data)
+    let err = H5Dwrite(dset.dataset_id,
+                       dset.dtype_c,
+                       H5S_ALL,
+                       H5S_ALL,
+                       H5P_DEFAULT,
                        addr(data_write[0]))
     if err < 0:
       withDebug:
         echo "Trying to write data_write from slice ", data_write
-      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `[Slice]=`")
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+        "calling `H5Dwrite` in `[Slice]=`")
   else:
     # TODO: replace by exception
     echo "All bad , shapes are ", data.shape, " ", dset.shape
@@ -651,7 +673,7 @@ template withDset*(h5dset: H5DataSet, actions: untyped) =
     actions
   of akUint64:
     let dset {.inject.} = h5dset[uint64]
-    actions    
+    actions
   else:
     echo "it's of type ", h5dset.dtypeAnyKind
     discard
@@ -661,7 +683,10 @@ proc select_elements[T](dset: var H5DataSet, coord: seq[T]) {.inline.} =
   ## the given dataset
   # first flatten coord tuples
   var flat_coord = mapIt(coord.flatten, hsize_t(it))
-  discard H5Sselect_elements(dset.dataspace_id, H5S_SELECT_SET, csize(coord.len), addr(flat_coord[0]))
+  discard H5Sselect_elements(dset.dataspace_id,
+                             H5S_SELECT_SET,
+                             csize(coord.len),
+                             addr(flat_coord[0]))
 
 proc read*[T: seq, U](dset: var H5DataSet, coord: seq[T], buf: var seq[U]) =
   ## proc to read specific coordinates (or single values) from a dataset
@@ -677,17 +702,21 @@ proc read*[T: seq, U](dset: var H5DataSet, coord: seq[T], buf: var seq[U]) =
   ##     does not match the shape of the dataset. Otherwise would cause H5 library error
   # select the coordinates in the dataset
   if coord[0].len != dset.shape.len:
-    raise newException(IndexError, """Coordinate shape mismatch. Coordinate has dimension $#, 
-dataset is dimension $#!""" % [$coord[0].len, $dset.shape.len])
+    raise newException(IndexError, "Coordinate shape mismatch. Coordinate has " &
+      "dimension $#, dataset is dimension $#!" % [$coord[0].len, $dset.shape.len])
 
   # select all elements from the coordinate seq
   dset.select_elements(coord)
   let memspace_id = create_simple_memspace_1d(coord)
   # now read the elements
   if buf.len == coord.len:
-    discard H5Dread(dset.dataset_id, dset.dtype_c, memspace_id, dset.dataspace_id, H5P_DEFAULT,
+    discard H5Dread(dset.dataset_id,
+                    dset.dtype_c,
+                    memspace_id,
+                    dset.dataspace_id,
+                    H5P_DEFAULT,
                     addr(buf[0]))
-    
+
   else:
     echo "Provided buffer is not of same length as number of points to read"
   # close memspace again
@@ -719,14 +748,14 @@ proc `[]`*[T](dset: var H5DataSet, ind: int, t: typedesc[T]): T =
   # since read() expects seq[seq[T]]
   # Done by checking for each dimension whether the given index still "fits"
   # into the dimension. If yes, `ind` is taken, else we use the last element
-  # in that dimension (-> diagonal if 
+  # in that dimension (-> diagonal if
   let coord = @[mapIt(toSeq(0 .. shape.high), if ind < shape[it]: ind else: shape[it] - 1)]
   # create buffer seq of size 1 to read data into
   var buf = newSeq[t](1)
   dset.read(coord, buf)
   # return element of bufer
   result = buf[0]
-  
+
 
 proc read*[T](dset: var H5DataSet, buf: var seq[T]) =
   ## read whole dataset
@@ -738,14 +767,14 @@ proc read*[T](dset: var H5DataSet, buf: var seq[T]) =
     #   let inds = getIndexSeq(ind, shape)
     #   buf.set_element(inds, data[ind])
   else:
-    var msg = """
-Wrong input shape of buffer to write to in `read`. Buffer shape `$#`, dataset has shape `$#`"""
+    var msg = "Wrong input shape of buffer to write to in `read`. " &
+      "Buffer shape `$#`, dataset has shape `$#`"
     msg = msg % [$buf.shape, $dset.shape]
     raise newException(ValueError, msg)
 
 
 proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
-  ## procedure to read the data of an existing dataset into 
+  ## procedure to read the data of an existing dataset into
   ## inputs:
   ##    dset: var H5DataSet = the dataset which contains the necessary information
   ##         about dataset shape, dtype etc. to read from
@@ -765,7 +794,8 @@ proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
   # if basetype != dset.dtypeAnyKind:
 
   if $t != dset.dtype:
-    raise newException(ValueError, "Wrong datatype as arg to `[]`. Given `$#`, dset is `$#`" % [$t, $dset.dtype]) 
+    raise newException(ValueError, "Wrong datatype as arg to `[]`. " &
+      "Given `$#`, dset is `$#`" % [$t, $dset.dtype])
 
   let
     shape = dset.shape
@@ -773,9 +803,9 @@ proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
   # create a flat sequence of the size of the dataset in the H5 file, then read data
   # cannot use the result sequence, since we need to hand the address of the sequence to
   # the H5 library
-  var data = newSeq[T](n_elements)    
+  var data = newSeq[T](n_elements)
   dset.read(data)
-  
+
   result = data
 
 proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
@@ -801,7 +831,8 @@ proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   # check whether t is variable length
   let basetype = h5ToNimType(t)
   if basetype != dset.dtypeAnyKind:
-    raise newException(ValueError, "Wrong datatype as arg to `[]`. Given `$#`, dset is `$#`" % [$t, $dset.dtype])
+    raise newException(ValueError, "Wrong datatype as arg to `[]`. Given " &
+                       "`$#`, dset is `$#`" % [$t, $dset.dtype])
   let
     shape = dset.shape
     n_elements = foldl(shape, a * b)
@@ -828,7 +859,7 @@ proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
     for j in 0 ..< elem_len:
       result[i][j] = data_seq[j]
   # since we have in effect copied the whole array, we can now safely let the H5 library
-  # reclaim the memory, which it alloc'd 
+  # reclaim the memory, which it alloc'd
   let dspace_id = H5Dget_space(dset.dataset_id)
   err = H5Dvlen_reclaim(dset.dtype_c, dspace_id, H5P_DEFAULT, addr(data[0]))
 
@@ -851,13 +882,13 @@ proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
       echo "dataspace select ", H5Sget_select_npoints(dset.dataspace_id)
       echo "dataspace select ", H5Sget_select_elem_npoints(dset.dataspace_id)
       echo "dataspace is valid ", H5Sselect_valid(dset.dataspace_id)
-      echo "memspace is valid ", H5Sselect_valid(memspace_id)    
+      echo "memspace is valid ", H5Sselect_valid(memspace_id)
 
       var start: seq[hsize_t] = @[hsize_t(999), 999]
-      var ending: seq[hsize_t] = @[hsize_t(999), 999]     
+      var ending: seq[hsize_t] = @[hsize_t(999), 999]
       echo H5Sget_select_bounds(dset.dataspace_id, addr(start[0]), addr(ending[0]))
       echo "start and ending ", start, " ", ending
-    
+
     err = H5Dwrite(dset.dataset_id,
                    dset.dtype_c,
                    memspace_id,
@@ -867,14 +898,16 @@ proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
     if err < 0:
       withDebug:
         echo "Trying to write data_hvl ", data_hvl
-      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `write_vlen`")
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+        "calling `H5Dwrite` in `write_vlen`")
     err = H5Sclose(memspace_id)
     if err < 0:
-      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sclose` in `write_vlen`")
-    
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+        "calling `H5Sclose` in `write_vlen`")
+
   else:
-    var msg = """
-Invalid coordinates or corresponding data to write in `write_vlen`. Coord shape `$#`, data shape `$#`"""
+    var msg = "Invalid coordinates or corresponding data to write in " &
+      "`write_vlen`. Coord shape `$#`, data shape `$#`"
     msg = msg % [$coord.shape, $data.shape]
     raise newException(ValueError, msg)
 
@@ -904,17 +937,19 @@ proc write_norm*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
     if err < 0:
       withDebug:
         echo "Trying to write mdata ", mdata
-      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `write_norm`")
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
+        "while calling `H5Dwrite` in `write_norm`")
     err = H5Sclose(memspace_id)
     if err < 0:
-      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sclose` in `write_norm`")    
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
+        "while calling `H5Sclose` in `write_norm`")
   else:
-    var msg = """
-Invalid coordinates or corresponding data to write in `write_norm`. Coord shape `$#`, data shape `$#`"""
+    var msg = "Invalid coordinates or corresponding data to write in " &
+      "`write_norm`. Coord shape `$#`, data shape `$#`"
     msg = msg % [$coord.shape, $data.shape]
     raise newException(ValueError, msg)
 
-  
+
 template write*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
   ## template around both write fns for normal and vlen data
   if dset.dtype_class == H5T_VLEN:
@@ -925,8 +960,8 @@ template write*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
 template write*[T: (SomeNumber | bool | char | string), U](dset: var H5DataSet,
                                                            coord: seq[T],
                                                            data: seq[U]) =
-  ## template around both write fns for normal and vlen data in case the coordinates are given as
-  ## a seq of numbers (i.e. for 1D datasets!)
+  ## template around both write fns for normal and vlen data in case
+  ## the coordinates are given as a seq of numbers (i.e. for 1D datasets!)
   if dset.dtype_class == H5T_VLEN:
     # we convert the list of indices to corresponding (y, x) coordinates, because
     # each VLEN table with 1 column, still is a 2D array, which only has the
@@ -955,7 +990,7 @@ template write*[T: (seq | SomeNumber | bool | char | string)](dset: var H5DataSe
   ##    ValueError: in case data does not fit to whole row or column, if we want to write
   ##                whole row or column by giving index and broadcasting the indices to
   ##                cover whole row
-  
+
   when T is seq:
     # if this is the case we either want to write a whole row (2D array) or
     # a single value in VLEN data
@@ -966,10 +1001,9 @@ template write*[T: (seq | SomeNumber | bool | char | string)](dset: var H5DataSe
       # want to write the whole row, need to broadcast the index
       let shape = dset.shape
       if data.len != shape[0] and data.len != shape[1]:
-        let msg = """
-Cannot broadcast ind to dataset in `write`, because data does not fit into array row / column wise. 
-    data.len = $#
-    dset.shape = $#""" % [$data.len, $dset.shape]
+        let msg = "Cannot broadcast ind to dataset in `write`, because " &
+          "data does not fit into array row / column wise. data.len = $# " &
+          "dset.shape = $#" % [$data.len, $dset.shape]
         raise newException(ValueError, msg)
       # NOTE: currently broadcasting ONLY works on 2D arrays!
       let inds = toSeq(0..<shape[1])
@@ -985,11 +1019,11 @@ Cannot broadcast ind to dataset in `write`, because data does not fit into array
     # in this case we're dealing with a single value for a single element
     # do not have to differentiate between VLEN and normal data
     dset.write(@[ind], @[data])
-  
+
 template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
   ## a simple wrapper around get for datasets
   h5f.get(name)
-    
+
 proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
   ## proc to resize the dataset to the new size given by `shape`
   ## inputs:
@@ -1020,9 +1054,11 @@ proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
     # after all is said and done, refresh again
     dset.dataspace_id = H5Dget_space(dset.dataset_id)
     if status < 0:
-      raise newException(HDF5LibraryError, "Call to HDF5 library failed in `resize` calling `H5Dset_extent`")
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed in " &
+                         "`resize` calling `H5Dset_extent`")
   else:
-    raise newException(ImmutableDatasetError, "Cannot resize a non-chunked (i.e. contiguous) dataset!")
+    raise newException(ImmutableDatasetError, "Cannot resize a non-chunked " &
+                       " (i.e. contiguous) dataset!")
 
 proc h5SelectHyperslab(dspace_id: hid_t, offset, count, stride, blk: var seq[hsize_t]): herr_t {.inline.} =
   ## wrapper for the H5 C hyperslab selection function
@@ -1047,7 +1083,7 @@ proc h5SelectHyperslab(dspace_id: hid_t, offset, count, stride, blk: var seq[hsi
                                addr(stride[0]),
                                addr(count[0]),
                                addr(blk[0]))
-  
+
 proc parseHyperslabSelection(offset, count: seq[int], stride, blk: seq[int] = @[]):
                             (seq[hsize_t], seq[hsize_t], seq[hsize_t], seq[hsize_t]) =
   ## proc to perform parsing and type conversion of input selections for hyperslabs
@@ -1074,26 +1110,39 @@ proc parseHyperslabSelection(offset, count: seq[int], stride, blk: seq[int] = @[
     mblk = mapIt(toSeq(0..offset.high), hsize_t(1))
   result = (moffset, mcount, mstride, mblk)
 
-proc select_hyperslab(dset: var H5DataSet, offset, count: seq[int], stride, blk: seq[int] = @[]) =
-  ## high level proc to select a hyperslab on a H5DataSet. Calls low level access proc h5SelectHyperslab
-  ## given the dataspace of `dset`, select a hyperslab of it using `offset`, `stride`, `count` and `blk`
-  ## for which all needs to hold:
-  ## dset.shape.len == offset.shape.len, i.e. they need to be of the same rank as dset is
-  ## we currently set the hyperslab selection such that previous selections are overwritten (2nd argument)
+proc select_hyperslab(dset: var H5DataSet,
+                      offset,
+                      count: seq[int],
+                      stride, blk: seq[int] = @[]) =
+  ## high level proc to select a hyperslab on a H5DataSet. Calls low level
+  ## access proc h5SelectHyperslab given the dataspace of `dset`, select a
+  ## hyperslab of it using `offset`, `stride`, `count` and `blk` for which
+  ## all needs to hold:
+  ## dset.shape.len == offset.shape.len, i.e. they need to be of the same
+  ## rank as dset is we currently set the hyperslab selection such that
+  ## previous selections are overwritten (2nd argument)
   var
     err: herr_t
 
   # parse and convert the hyperslab selection sequences
-  var (moffset, mcount, mstride, mblk) = parseHyperslabSelection(offset, count, stride, blk)
+  var (moffset, mcount, mstride, mblk) = parseHyperslabSelection(offset,
+                                                                 count,
+                                                                 stride,
+                                                                 blk)
 
   # just in case get the most current dataspace
   dset.dataspace_id = H5Dget_space(dset.dataset_id)
   # and perform the selection on this dataspace
   err = h5SelectHyperslab(dset.dataspace_id, moffset, mcount, mstride, mblk)
   if err < 0:
-    raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sselect_hyperslab` in `select_hyperslab`")
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+      "calling `H5Sselect_hyperslab` in `select_hyperslab`")
 
-proc write_hyperslab*[T](dset: var H5DataSet, data: seq[T], offset, count: seq[int], stride, blk: seq[int] = @[]) =
+proc write_hyperslab*[T](dset: var H5DataSet,
+                         data: seq[T],
+                         offset,
+                         count: seq[int],
+                         stride, blk: seq[int] = @[]) =
   ## proc to select a hyperslab and write to it
   ## The HDF5 notation for hyperslabs is used.
   ## See sec. 7.4.1.1 in the HDF5 user's guide:
@@ -1114,12 +1163,12 @@ proc write_hyperslab*[T](dset: var H5DataSet, data: seq[T], offset, count: seq[i
       echo "Data type class ", dset.dtype_class
       echo "memspace select ", H5Sget_select_npoints(memspace_id)
       echo "dataspace is valid ", H5Sselect_valid(dset.dataspace_id)
-      echo "memspace is valid ", H5Sselect_valid(memspace_id)    
+      echo "memspace is valid ", H5Sselect_valid(memspace_id)
       var start: seq[hsize_t] = @[hsize_t(999), 999]
-      var ending: seq[hsize_t] = @[hsize_t(999), 999]     
+      var ending: seq[hsize_t] = @[hsize_t(999), 999]
       echo H5Sget_select_bounds(dset.dataspace_id, addr(start[0]), addr(ending[0]))
       echo "start and ending ", start, " ", ending
-      
+
     var md = data
     when T is seq:
       # in case we're dealing with variable length data, we know that the `data` is always
@@ -1139,12 +1188,12 @@ proc write_hyperslab*[T](dset: var H5DataSet, data: seq[T], offset, count: seq[i
       if err < 0:
         withDebug:
           echo "Trying to write VLEN data with shape ", memspaceShape
-        raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling " &
-          "`H5Dwrite` in `write_hyperslab` trying to write VLEN data.")      
+        raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+          "calling `H5Dwrite` in `write_hyperslab` trying to write VLEN data.")
   else:
     # flatten the data array to be written
     var mdata = data.flatten
-    
+
     memspace_id = simple_dataspace(data.shape)
     dset.select_hyperslab(offset, count, stride, blk)
 
@@ -1157,11 +1206,13 @@ proc write_hyperslab*[T](dset: var H5DataSet, data: seq[T], offset, count: seq[i
     if err < 0:
       withDebug:
         echo "Trying to write mdata with shape ", mdata.shape
-      raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `write_hyperslab`")
-    
+      raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+        "calling `H5Dwrite` in `write_hyperslab`")
+
   err = H5Sclose(memspace_id)
   if err < 0:
-    raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Sclose` in `write_hyperslab`")
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+      "calling `H5Sclose` in `write_hyperslab`")
 
 
 proc sizeOfHyperslab(offset, count, stride, blk: seq[hsize_t]): int =
@@ -1204,13 +1255,13 @@ proc reshape[T](s: seq[T], shape: varargs[int]): seq[seq[T]] =
   # now we have seqs of inner most shape
   # add this data to correctly shaped output
   #for dim in mshape[0..^2]:
-  result = reshape(r_data, mshape[0..^2]) 
+  result = reshape(r_data, mshape[0..^2])
 
-    
+
 proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
                         offset, count: seq[int], stride, blk: seq[int] = @[],
                         full_output = false): seq[T] =
-  ## proc to read an arbitrary hyperslab from a given dataset. 
+  ## proc to read an arbitrary hyperslab from a given dataset.
   ## HDF5 notation for hyperslab selection applies
   ## See sec. 7.4.1.1 in the HDF5 user's guide:
   ## https://support.hdfgroup.org/HDF5/doc/UG/HDF5_Users_Guide-Responsive%20HTML5/index.html
@@ -1229,13 +1280,17 @@ proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
   ## throws:
   ##    HDF5LibraryError = if a call to the H5 library fails
   var err: herr_t
-    
+
   if $dtype != dset.dtype:
     raise newException(ValueError,
-                       "Wrong datatype as arg to `read_hyperslab`. Given `$#`, dset is `$#`" % [$dtype, $dset.dtype])
+                       "Wrong datatype as arg to `read_hyperslab`. Given " &
+                       "`$#`, dset is `$#`" % [$dtype, $dset.dtype])
 
   # parse the input hyperslab selections
-  var (moffset, mcount, mstride, mblk) = parseHyperslabSelection(offset, count, stride, blk)
+  var (moffset, mcount, mstride, mblk) = parseHyperslabSelection(offset,
+                                                                 count,
+                                                                 stride,
+                                                                 blk)
   # get a memory space for the size of the whole dataset, on which we will perform the
   # selection of the hyperslab we wish to read
   var memspace_id: hid_t
@@ -1243,17 +1298,18 @@ proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
     memspace_id = simple_dataspace(dset.shape)
     # in this case need to perform selection of the hyperslab on memspace
     # as well as dataspace
-    err = h5SelectHyperslab(memspace_id, moffset, mcount, mstride, mblk)      
+    err = h5SelectHyperslab(memspace_id, moffset, mcount, mstride, mblk)
   else:
     # combine count and blk to get the size of the data we read as a sequence
     let shape = mapIt(zip(mcount, mblk), it[0] * it[1])
     memspace_id = simple_dataspace(shape)
 
   # perform hyperslab selection on dataspace
-  dset.select_hyperslab(offset, count, stride, blk)  
+  dset.select_hyperslab(offset, count, stride, blk)
   if err < 0:
     raise newException(HDF5LibraryError,
-                       "Call to HDF5 library failed while calling `h5SelectHyperslab` in `read_hyperslab`")
+                       "Call to HDF5 library failed while calling " &
+                       "`h5SelectHyperslab` in `read_hyperslab`")
 
   # now create the necessary array to store the data in
   # given the hyperslab parameters, calculate the length of the neeeded
@@ -1265,12 +1321,18 @@ proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
     n_elements = foldl(dset.shape, a * b)
   var mdata = newSeq[T](n_elements)
 
-  
-  err = H5Dread(dset.dataset_id, dset.dtype_c, memspace_id, dset.dataspace_id, H5P_DEFAULT, addr(mdata[0]))
+
+  err = H5Dread(dset.dataset_id,
+                dset.dtype_c,
+                memspace_id,
+                dset.dataspace_id,
+                H5P_DEFAULT,
+                addr(mdata[0]))
   if err < 0:
     withDebug:
       echo "Trying to write mdata with shape ", mdata.shape
-    raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dread` in `read_hyperslab`")
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+      "calling `H5Dread` in `read_hyperslab`")
 
   result = mdata
 
