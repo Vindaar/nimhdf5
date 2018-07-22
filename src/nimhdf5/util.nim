@@ -37,7 +37,7 @@ proc shape*[T](x: seq[T]): seq[int] =
   ## we simply append the dimension of the current seq to the
   ## result and call this function again recursively until
   ## we hit the type at core, which is catched by the above proc
-  ## 
+  ##
   ## Example:
   ##    let x = @[ @[ @[1, 2, 3], @[1, 2, 3]],
   ##               @[ @[1, 2, 3], @[1, 2, 3]] ]
@@ -60,7 +60,7 @@ proc flatten*[T: seq](a: seq[T]): auto =
   ##   echo a_flat
   ##   -> @[1, 2, 3, 4, 5, 6]
   a.concat.flatten
-  
+
 # not working due to no return value overloading
 template getSeq(t: untyped, data: untyped): untyped =
   when t is float64:
@@ -92,7 +92,7 @@ template getIndexSeq(ind: int, shape: openArray[int]): seq[int] =
     # multiply with current dimensionality
     d *= j
     # given remainder, get the current index by dividing out the rest of the
-    # dimensionality 
+    # dimensionality
     result[i] = rem div int(dim / d)
     rem = rem mod int(dim / d)
   result
@@ -101,11 +101,11 @@ proc newSeqOf2D*[T](shape: openArray[int]): seq[seq[T]] =
   ## returns a nested (2D) sequence of the given dimensionality
   assert shape.len == 2
   result = @[]
-  let vsize = shape[1]  
+  let vsize = shape[1]
   for i in 0 ..< shape[0]:
     result.add(newSeq[T](vsize))
 
-import strformat     
+import strformat
 proc newSeqOf3D*[T](shape: openArray[int]): seq[seq[seq[T]]] =
   ## returns a nested (3D) sequence of the given dimensionality
   ## utilizes newSeqOf2D to build the 3D seq
@@ -122,12 +122,12 @@ proc reshape2D*[T](s: seq[T], shape: openArray[int]): seq[seq[T]] =
   result = newSeqOf2D[T](shape)
   for i, el in s:
     # TODO: replace by running indices mimicking the calculation that
-    # happens inside of getIndexSeq. 
+    # happens inside of getIndexSeq.
     let inds = getIndexSeq(i, shape)
     result[inds[0]][inds[1]] = el
 
 proc reshape3D*[T](s: seq[T], shape: openArray[int]): seq[seq[seq[T]]] =
-  ## returns a reshaped version of `s` to the given shape of `shape`  
+  ## returns a reshaped version of `s` to the given shape of `shape`
   assert s.len == foldl(@shape, a * b)
   result = newSeqOf3D[T](shape)
   for i, el in s:
@@ -140,4 +140,4 @@ template reshape*[T](s: seq[T], shape: array[2, int]): seq[seq[T]] =
 
 template reshape*[T](s: seq[T], shape: array[3, int]): seq[seq[seq[T]]] =
   ## convenience template around reshape3D using 3 element array as input
-  s.reshape3D(shape)  
+  s.reshape3D(shape)

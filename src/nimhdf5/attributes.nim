@@ -1,5 +1,5 @@
 #[
-This file contains the procedures related to attributes. 
+This file contains the procedures related to attributes.
 
 The attribute types are defined in the datatypes.nim file.
 ]#
@@ -23,7 +23,7 @@ proc read_all_attributes*(h5attr: var H5Attributes)
 proc `$`*(h5attr: ref H5Attr): string =
   ## proc to define echo of ref H5Attr by echoing its contained object
   result = $(h5attr[])
-    
+
 proc newH5Attributes*(): H5Attributes =
   let attr = newTable[string, ref H5Attr]()
   result = H5Attributes(attr_tab: attr,
@@ -41,8 +41,6 @@ proc initH5Attributes*(p_name: string = "", p_id: hid_t = -1.hid_t, p_type: stri
                             parent_type: p_type)
   read_all_attributes(h5attr)
   result = h5attr
-
-    
 
 proc openAttrByIdx(h5attr: var H5Attributes, idx: int): hid_t =
   ## proc to open an attribute by its id in the H5 file and returns
@@ -167,7 +165,7 @@ proc deleteAttribute*[T: (H5FileObj | H5Group | H5DataSet)](h5o: var T, name: st
   result = deleteAttribute(getH5Id(h5o), name)
   # if successful also lower the number of attributes
   h5o.attrs.num_attrs = h5o.attrs.getNumAttrs
-    
+
 proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_check = false) =
   ## writes the attribute `name` of value `val` to the object `h5o`
   ## NOTE: by defalt this function overwrites an attribute, if an attribute
@@ -191,7 +189,7 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
     # create a H5Attr, which we add to the table attr_tab of the given
     # h5attr object once we wrote it to file
     var attr = new H5Attr
-    
+
     when T is SomeNumber or T is char:
       let
         dtype = nimToH5type(T)
@@ -209,7 +207,7 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
       attr.attr_dspace_id = attr_dspace_id
       # set any kind fields (check whether is sequence)
       attr[].setAttrAnyKind
-      
+
     elif T is seq or T is string:
       # NOTE:
       # in principle we need to differentiate between simple sequences and nested
@@ -289,7 +287,7 @@ proc read_attribute*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[
   ##   KeyError: In case the key does not exist as an attribute
 
   # TODO: check err values!
-  
+
   let attr_exists = hasKey(h5attr.attr_tab, name)
   var err: herr_t
 
@@ -435,5 +433,3 @@ proc copy_attributes*[T: H5Group | H5DataSet](h5o: var T, attrs: var H5Attribute
     attrs.withAttr(key):
       # use injected read attribute value to write it
       h5o.attrs[key] = attr
-
-  

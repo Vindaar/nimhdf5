@@ -719,6 +719,35 @@ template withDset*(h5dset: H5DataSet, actions: untyped) =
     echo "it's of type ", h5dset.dtypeAnyKind
     discard
 
+proc convertType*(h5dset: H5DataSet, dt: typedesc):
+  proc(dset: var H5DataSet): seq[dt] {.nimcall.} =
+  ## return a converter proc, which casts the data from `h5dset` to the desired
+  ## datatype `dtype`
+  ## Note: only numerical types are supported!
+  # for some reason we need this very weird conversion taking the type
+  # explicitly of `tt`
+  # make sure it's a no-op if we don't convert the type
+  template fromTo(d: untyped, ft, tt: untyped): untyped =
+    when tt is ft:
+      d[ft]
+    else:
+      d[ft].mapIt(type(tt)(it))
+
+  case h5dset.dtypeAnyKind
+  of akFloat32: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(float32, dt)
+  of akFloat64: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(float64, dt)
+  of akInt8: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(int8, dt)
+  of akInt16: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(int16, dt)
+  of akInt32: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(int32, dt)
+  of akInt64: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(int64, dt)
+  of akUint8: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(uint8, dt)
+  of akUint16: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(uint16, dt)
+  of akUint32: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(uint32, dt)
+  of akUint64: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(uint64, dt)
+  else:
+    echo "it's of type ", h5dset.dtypeAnyKind
+    result = proc(d: var H5DataSet): seq[dt] = discard
+
 proc select_elements[T](dset: var H5DataSet, coord: seq[T]) {.inline.} =
   ## convenience proc to select specific coordinates in the dataspace of
   ## the given dataset
