@@ -567,30 +567,46 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
   else:
     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
 
-proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: AnyTensor[T]) =
-  ## equivalent of above fn, to support arraymancer tensors as input data
-  if ind == RW_ALL:
-    let tensor_shape = data.squeeze.shape
-    # first check whether number of dimensions is the same
-    let dims_fit = if tensor_shape.len == dset.shape.len: true else: false
-    if dims_fit == true:
-      # check whether each dimension is the same size
-      let shape_good = foldl(mapIt(toSeq(0..dset.shape.high), tensor_shape[it] == dset.shape[it]), a == b, true)
-      var data_write = data.squeeze.toRawSeq
-      let err = H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                         addr(data_write[0]))
+proc unsafeWrite*[T](dset: var H5DataSet, data: ptr T, length: int) =
+  ## procedure to write a raw `ptr T` to the H5 file.
+  ## Note: we cannot do any checks on the given size of the `data` buffer,
+  ## i.e. this is an unsafe proc!
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##         about dataset shape, dtype etc. to write to
+  ##    data: ptr[T] = A raw `ptr T` pointing to the first element of a buffer of
+  ##         `T` values of `length`.
+  ##    length: int = Length of the `data` buffer. We check whether the `length`
+  ##         fits into the `shape` of the dataset we write to.
+
+  var err: herr_t
+  let shape = dset.shape
+  withDebug:
+    echo "shape is ", shape, " of dset ", dset.name
+    echo "data is of " type(data).name, " and length = ", length
+
+  # only write pointer data if shorter than size of dataset
+  if dset.shape.foldl(a * b) <= length:
+    if dset.dtype_class == H5T_VLEN:
+      raise newException(ValueError, "Cannot write variable length data " &
+        "using `unsafeWrite`!")
+    else:
+      err = H5Dwrite(dset.dataset_id,
+                     dset.dtype_c,
+                     H5S_ALL,
+                     H5S_ALL,
+                     H5P_DEFAULT,
+                     data)
       if err < 0:
         withDebug:
-          echo "Trying to write tensor ", data_write
-        raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `[Tensor]=`")
-    else:
-      var msg = """
-Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has shape `$#`"""
-      msg = msg % [$data.shape, $dset.shape]
-      raise newException(ValueError, msg)
+          echo "Trying to write data_write ", data_write
+        raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
+          "while calling `H5Dwrite` in `unsafeWrite`")
   else:
-    # TODO: replace by exception
-    echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
+    var msg = "Length of `data` in `unsafeWrite` exceeds size of dataset " &
+     "Length: $#, Dataset: $#, Dataset shape: $#"
+    msg = msg % [$length, $dset.name, $dset.shape]
+    raise newException(ValueError, msg)
 
 # proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: AnyTensor[T]) =
 #   ## equivalent of above fn, to support arraymancer tensors as input data
