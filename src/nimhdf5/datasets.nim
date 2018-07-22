@@ -323,10 +323,16 @@ proc create_dataset*[T: (tuple | int | seq)](
   when T is int:
     # in case we hand an int as the shape argument, it means we wish to write
     # 1 column data to the file. In this case define the shape from here on
-    # as a (shape, 1) tuple instead. 
+    # as a (shape, 1) tuple instead.
     var shape = (shape_raw, 1)
-  else:
+    # need to deal with the shape of the dataset to be created
+    let shape_seq = parseShapeTuple(shape)
+  elif T is tuple:
     var shape = shape_raw
+    # need to deal with the shape of the dataset to be created
+    let shape_seq = parseShapeTuple(shape)
+  elif T is seq:
+    let shape_seq = shape_raw
 
   # TODO: before call to create_simple and create2, we need to check whether
   # any such dataset already exists. Could include that in the opening procedure
@@ -334,10 +340,6 @@ proc create_dataset*[T: (tuple | int | seq)](
 
   # remove any trailing / and insert potential missing root /
   var dset_name = formatName(dset_raw)
-
-  # need to deal with the shape of the dataset to be created
-  #let shape_ar = parseShapeTuple(shape)
-  var shape_seq = parseShapeTuple(shape)
 
   # set up the dataset object
   var dset = newH5DataSet(dset_name)[]
