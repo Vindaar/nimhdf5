@@ -9,9 +9,6 @@ import future
 import algorithm
 #import seqmath
 
-# TODO: fix requirement of arraymancer!
-import arraymancer
-
 # NOTE:
 # a short note on naming convention:
 # The idea originally was to use snake_case for all procedures, which
@@ -68,4 +65,3 @@ import nimhdf5/dataspaces
 #export dataspaces
 import nimhdf5/datasets
 export datasets
-

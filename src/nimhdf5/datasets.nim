@@ -11,8 +11,6 @@ import tables
 import strutils
 import sequtils
 
-import arraymancer
-
 import hdf5_wrapper
 import H5nimtypes
 import datatypes
@@ -592,7 +590,32 @@ Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has sha
     # TODO: replace by exception
     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
 
-proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #openArray[T])  
+# proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: AnyTensor[T]) =
+#   ## equivalent of above fn, to support arraymancer tensors as input data
+#   if ind == RW_ALL:
+#     let tensor_shape = data.squeeze.shape
+#     # first check whether number of dimensions is the same
+#     let dims_fit = if tensor_shape.len == dset.shape.len: true else: false
+#     if dims_fit == true:
+#       # check whether each dimension is the same size
+#       let shape_good = foldl(mapIt(toSeq(0..dset.shape.high), tensor_shape[it] == dset.shape[it]), a == b, true)
+#       var data_write = data.squeeze.toRawSeq
+#       let err = H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+#                          addr(data_write[0]))
+#       if err < 0:
+#         withDebug:
+#           echo "Trying to write tensor ", data_write
+#         raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `[Tensor]=`")
+#     else:
+#       var msg = """
+# Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has shape `$#`"""
+#       msg = msg % [$data.shape, $dset.shape]
+#       raise newException(ValueError, msg)
+#   else:
+#     # TODO: replace by exception
+#     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
+
+proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #openArray[T])
   ## procedure to write a sequence of array to a dataset
   ## will be given to HDF5 library upon call, H5DataSet object
   ## does not store the data
