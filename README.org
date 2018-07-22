@@ -84,9 +84,12 @@ name is correctly set for Windows, however an additional header file
 
 ** Installation
 
-As the state of the library is still in such an early stage, it's not
-yet added to the nimble repository. You can either clone this repository
-manually 
+Installation can either be done via nimble:
+#+BEGIN_SRC sh
+nimble install nimhdf5
+#+END_SRC
+
+or manually by clining this git repository:
 #+BEGIN_SRC sh
 git clone https://github.com/vindaar/nimhdf5
 #+END_SRC
