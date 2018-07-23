@@ -117,3 +117,11 @@ proc getObjectTypeByName*(h5id: hid_t, name: string): H5O_type_t =
     result = h5info.`type`
   else:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getObjectTypeByName`")
+
+proc contains*(h5f: var H5FileObj, name: string): bool =
+  ## faster version of `contains` below, simply making use of
+  ## `H5Lexists` using `existsInFile`. Does not require us to
+  ## traverse our tables
+  # format the given name
+  let target = formatName name
+  result = if existsInFile(h5f.file_id, target) > 0: true else: false
