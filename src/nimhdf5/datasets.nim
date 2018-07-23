@@ -727,11 +727,12 @@ proc convertType*(h5dset: H5DataSet, dt: typedesc):
   # for some reason we need this very weird conversion taking the type
   # explicitly of `tt`
   # make sure it's a no-op if we don't convert the type
-  template fromTo(d: untyped, ft, tt: untyped): untyped =
-    when tt is ft:
-      d[ft]
+  template fromTo(dset: untyped, fromType, toType: untyped): untyped =
+    when toType is fromType:
+      dset[fromType]
     else:
-      d[ft].mapIt(type(tt)(it))
+      type tt = toType
+      dset[fromType].mapIt(tt(it))
 
   case h5dset.dtypeAnyKind
   of akFloat32: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(float32, dt)
