@@ -149,7 +149,7 @@ proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
     # check whether file exists already
     # then use open call
     withDebug:
-      echo "exists and read write"      
+      echo "exists and read write"
     result.file_id = H5Fopen(name, rw, H5P_DEFAULT)
   elif rw == H5F_ACC_EXCL:
     # use create call
@@ -206,7 +206,7 @@ proc parseObjectKindToH5(kind: ObjectKind): int =
   of okAttr:
     result = H5F_OBJ_ATTR
   of okAll:
-    result = H5F_OBJ_ALL    
+    result = H5F_OBJ_ALL
 
 proc getOpenObjectIds(h5f: H5FileObj, kind: ObjectKind): seq[hid_t] =
   let h5Kind = parseObjectKindToH5(kind)
@@ -256,7 +256,7 @@ proc close*(h5f: H5FileObj): herr_t =
     for attr in values(dset.attrs.attr_tab):
       result = H5Aclose(attr.attr_id)
       withDebug:
-        echo "Closed attribute with status ", result      
+        echo "Closed attribute with status ", result
       result = H5Sclose(attr.attr_dspace_id)
     result = H5Dclose(dset.dataset_id)
     result = H5Sclose(dset.dataspace_id)
@@ -276,7 +276,7 @@ proc close*(h5f: H5FileObj): herr_t =
   for attr in values(h5f.attrs.attr_tab):
     result = H5Aclose(attr.attr_id)
     withDebug:
-      echo "Closed attribute with status ", result    
+      echo "Closed attribute with status ", result
     result = H5Sclose(attr.attr_dspace_id)
 
   withDebug:
@@ -337,7 +337,7 @@ proc getObjectIdByName(h5file: var H5FileObj, name: string): hid_t =
   elif h5type == H5O_TYPE_DATASET:
     result = h5file[name.dset_str].dataset_id
 
-    
+
 # TODO: should this remain in files.nim?
 proc create_hardlink*(h5file: var H5FileObj, target: string, link_name: string) =
   ## proc to create hardlinks between pointing to an object `target`. Can be either a group
@@ -352,7 +352,7 @@ proc create_hardlink*(h5file: var H5FileObj, target: string, link_name: string) 
       withDebug:
         echo "Parent does not exist in file, create parent ", parent
       discard h5file.create_group(parent)
-    
+
     if existsInFile(h5file.file_id, link_name) == 0:
       # get the information about the existing link by its name
       let target_id = getObjectIdByName(h5file, target)
@@ -378,7 +378,7 @@ proc addH5Object*(location_id: hid_t, name_c: cstring, h5info: H5O_info_t, h5f_p
   ## simply open the object then and there, I suppose...
   ## NEED a proper openObjectById function...!
   discard
-    
+
 proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_t, h5f_p: pointer): herr_t {.cdecl.} =
   ## this proc is called for each object iterated over in visitFile.
   ## we basically just extract the information we want to have from the
@@ -390,7 +390,7 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
   var h5f = cast[var H5FileObj](h5f_p)
   if name_c == ".":
     # in case the location is `.`, we are simply at our starting point (currently
-    # means root group), we don't want to do anything here, so continue 
+    # means root group), we don't want to do anything here, so continue
     result = 0
   else:
     let name = formatName($name_c)
@@ -406,7 +406,7 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
       # TODO: write proc which opens and reads dataset from file by id...
       # see, I'm going to where the HDF5 library is in the first place...
       discard h5f[name.dset_str]
-    
+
 proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) =
   ## this proc iterates over the whole file and reads the complete content
   ## optionally only visits all elements below hid_t
@@ -434,10 +434,10 @@ proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) =
     err = H5Ovisit(h5f.file_id, H5_INDEX_NAME, H5_ITER_NATIVE,
                    cast[H5O_iterate_t](addH5ObjectFromRoot),
                    cast[pointer](addr(h5f)))
-    
+
   # now set visited flag
   h5f.visited = true
-    
+
 
 iterator items*(h5f: var H5FileObj, start_path = "/", depth = 0): H5Group =
   ## iterator, which returns a non mutable group objects starting from `start_path` in the
@@ -467,14 +467,14 @@ iterator items*(h5f: var H5FileObj, start_path = "/", depth = 0): H5Group =
   # now make sure the start_path is properly formatted
   if start_path != "/":
     mstart_path = formatName start_path
-    # in this case count number of / 
-    n_start = mstart_path.count('/')    
+    # in this case count number of /
+    n_start = mstart_path.count('/')
   else:
     # if we start at root group, start with 0
     # otherwise cannot differentiate level 1 from root, since
     # both have exactly 1 `/`
     n_start = 0
-    
+
   # now loop over all groups, checking for start_path in each group name
   for grp in keys(h5f.groups):
     if grp.startsWith(mstart_path) == true and grp != mstart_path:
@@ -488,7 +488,6 @@ iterator items*(h5f: var H5FileObj, start_path = "/", depth = 0): H5Group =
           continue
       yield h5f[grp.grp_str]
 
-  
 proc contains*[T: (H5FileObj | H5Group)](h5f: var T, name: string): bool =
   ## proc to check whehther an element named `name` is contained in the
   ## HDF5 file. Checks for both groups and datasets!

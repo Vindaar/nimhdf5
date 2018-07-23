@@ -57,6 +57,14 @@ proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
   else:
     result = some(h5f.datasets[dset_name][])
 
+proc isDataset*(h5f: var H5FileObj, name: string): bool =
+  ## checks for existence of object in file. If it exists checks whether
+  ## object is a dataset or not
+  let target = formatName name
+  if target in h5f:
+    let objType = getObjectTypeByName(h5f.file_id, target)
+    result = if objType == H5O_TYPE_DATASET: true else: false
+
 proc readShape(dspace_id: hid_t): tuple[shape, maxshape: seq[int]] =
   ## read the shape and maxshape of a dataset
   ## inputs:

@@ -36,7 +36,7 @@ proc isInH5Root*(name: string): bool =
     result = true
 
 proc existsInFile*(h5id: hid_t, name: string): hid_t =
-  ## convenience function to check whether a given object `name` exists 
+  ## convenience function to check whether a given object `name` exists
   ## in another H5 object given by the id `h5id`
   # need to convert result of H5Lexists to hid_t, because return type is
   # `htri_t` from the H5 wrapper

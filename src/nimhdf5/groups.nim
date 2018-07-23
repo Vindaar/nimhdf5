@@ -13,13 +13,13 @@ import util
 #from h5util import `$`
 
 # get visit_file from files.nim for dataset iterator
-from files import visit_file  
+from files import visit_file
 
 proc newH5Group*(name: string = ""): ref H5Group =
   ## default constructor for a H5Group object, for internal use
   let datasets = newTable[string, ref H5DataSet]()
   let groups = newTable[string, ref H5Group]()
-  let attrs = newH5Attributes()  
+  let attrs = newH5Attributes()
   result = new H5Group
   result.name = name
   result.parent = ""
@@ -66,6 +66,13 @@ proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
   else:
     result = some(h5f.groups[grp_name][])
 
+proc isGroup*(h5f: var H5FileObj, name: string): bool =
+  ## checks for existence of object in file. If it exists checks whether
+  ## object is a group or not
+  let target = formatName name
+  if target in h5f:
+    let objType = getObjectTypeByName(h5f.file_id, target)
+    result = if objType == H5O_TYPE_GROUP: true else: false
 
 template get(h5f: H5FileObj, group_in: grp_str): H5Group =
   ## convenience proc to return the group with name group_name
@@ -78,7 +85,7 @@ template get(h5f: H5FileObj, group_in: grp_str): H5Group =
   ## throws:
   ##    KeyError: if group could not be found
   let
-    group_name = string(group_in)  
+    group_name = string(group_in)
     group_known = hasKey(h5f.groups, group_name)
   var result: H5Group
   if group_known == false:
@@ -95,9 +102,9 @@ template get(h5f: H5FileObj, group_in: grp_str): H5Group =
       raise newException(KeyError, "Group with name: " & group_name & " not found in file " & h5f.name)
   else:
     result = h5f.groups[group_name][]
-  result    
+  result
 
-  
+
 template isGroup(h5_object: typed): bool =
   # procedure to check whether object is a H5Group
   result: bool = false
@@ -145,7 +152,7 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
     # group exists, open it
     result.group_id = H5Gopen2(location_id, result.name, H5P_DEFAULT)
     withDebug:
-      echo "Group exists H5Gopen2() returned id ", result.group_id    
+      echo "Group exists H5Gopen2() returned id ", result.group_id
   elif exists == 0:
     withDebug:
       echo "Group non existant, creating group ", result.name
@@ -179,7 +186,7 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   else:
     # else use the ref of the parent creating this object
     result.file_ref = h5f.file_ref
-  
+
   # now that we have created the group fully (including IDs), we can add it
   # to the H5FileObj
   var grp = new H5Group
@@ -188,8 +195,8 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
     echo "Adding element to h5f groups ", group_name
   h5f.groups[group_name] = grp
   grp.groups = h5f.groups
-  
-  
+
+
 proc create_group*[T](h5f: var T, group_name: string): H5Group =
   ## checks whether the given group name already exists or not.
   ## If yes:
@@ -218,7 +225,7 @@ proc create_group*[T](h5f: var T, group_name: string): H5Group =
       echo "Group path is now ", group_path, " ", h5f.name
   else:
     let group_path = formatName group_name
-  
+
   let exists = hasKey(h5f.groups, group_path)
   if exists == true:
     # then we return the object
