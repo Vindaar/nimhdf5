@@ -19,8 +19,7 @@ import attributes
 import util
 import h5util
 
-from groups import create_group
-
+from groups import create_group, isGroup
 
 proc newH5DataSet*(name: string = ""): ref H5DataSet =
   ## default constructor for a H5File object, for internal use
@@ -140,8 +139,8 @@ proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
     withDebug:
       echo "file id is ", h5f.file_id
       echo "name is ", result.name
-    let exists = existsInFile(h5f.file_id, result.name)
-    if exists > 0:
+    let dsetInFile = h5f.isDataset(result.name)
+    if dsetInFile:
       result.dataset_id   = H5Dopen2(h5f.file_id, result.name, H5P_DEFAULT)
       result.dataspace_id = H5Dget_space(result.dataset_id)
       # does exist, add to H5FileObj
@@ -187,7 +186,6 @@ proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
         echo "Status of H5Tclose() returned non-negative value."
         echo "H5 will probably complain now..."
 
-
       # now that we have created the group fully (including IDs), we can add it to the file and
       # the parent
       var dset_ref = new H5DataSet
@@ -195,8 +193,15 @@ proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       parent.datasets[result.name] = dset_ref
       h5f.datasets[result.name] = dset_ref
     else:
-      raise newException(KeyError, "Dataset with name: " & dset_name &
-        " not found in file " & h5f.name)
+      # check whether there exists a group of same name?
+      let groupOfName = h5f.isGroup(result.name)
+      if groupOfName:
+        raise newException(ValueError, "Dataset with name: " & dset_name &
+          " not found in file " & h5f.name & ". Instead found a group " &
+          "of the same name")
+      else:
+        raise newException(KeyError, "Dataset with name: " & dset_name &
+          " not found in file " & h5f.name)
   else:
     result = h5f.datasets[dset_name][]
     # in this case we still need to update e.g. shape
