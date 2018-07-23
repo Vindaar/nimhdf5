@@ -110,8 +110,7 @@ proc readMaxShape(dspace_id: hid_t): seq[int] =
   let (shape, maxshape) = readShape(dspace_id)
   result = maxshape
 
-template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
-  ## TODO: why is this still a template???
+proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
   ## convenience proc to return the dataset with name dset_name
   ## if it does not exist, KeyError is thrown
   ## inputs:
@@ -125,7 +124,8 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
 
   let dset_name = string(dset_in)
   let dset_exist = hasKey(h5f.datasets, dset_name)
-  var result = newH5DataSet(dset_name)[]
+
+  result = newH5DataSet(dset_name)[]
   if dset_exist == false:
     # before we raise an exception, because the dataset does not yet exist,
     # check whether such a dataset exists in the file we're not aware of yet
@@ -196,8 +196,6 @@ template get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
     result.dataspace_id = H5Dget_space(result.dataset_id)
     (result.shape, result.maxshape) = readShape(result.dataspace_id)
     # TODO: also read maxshape and chunksize if any
-  result
-
 
 template isDataSet(h5_object: typed): bool =
   ## procedure to check whether object is a H5DataSet
