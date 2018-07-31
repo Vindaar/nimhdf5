@@ -114,7 +114,6 @@ proc read_all_attributes*(h5attr: var H5Attributes) =
   h5attr.num_attrs = h5attr.getNumAttrs
   for i in 0..<h5attr.num_attrs:
     var attr = new H5Attr
-    let idx = hsize_t(i)
     attr.attr_id = openAttrByIdx(h5attr, i)
     let name = getAttrName(attr.attr_id)
     withDebug:
