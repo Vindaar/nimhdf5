@@ -10,6 +10,7 @@ import options
 import tables
 import strutils
 import sequtils
+import seqmath
 
 import hdf5_wrapper
 import H5nimtypes

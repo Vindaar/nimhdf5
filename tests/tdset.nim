@@ -24,11 +24,11 @@ proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet) =
   assert(dset.maxshape == dset.shape)
 
   assert(dset.dtype == "float64")
-  
+
   # currently if we hand a float64 for a datatype, we end up with
   # akFloat after creation, but when reading it back we get a
   # akFloat64. The first is due to Nim defining float64
-  # 1. as the default float type on a 64 bit machine 
+  # 1. as the default float type on a 64 bit machine
   # 2. in case of float64 actually even more nuanced, in the sense
   #    that Nim defines float as an alias for float64
   let anyKindCheck = if dset.dtypeAnyKind == akFloat or dset.dtypeAnyKind == akFloat64: true else: false
@@ -39,7 +39,7 @@ proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet) =
   assert(dset.file == File)
 
 proc assert_data(dset: var H5DataSet) =
-  
+
   let data = dset[float64]
 
   # now flatten the data we wrote to file
@@ -71,7 +71,7 @@ when isMainModule:
 
   # now read actual data and compare with what we wrote to file
   dset.assert_data()
-  
+
   err = h5f_read.close()
   assert(err >= 0)
 

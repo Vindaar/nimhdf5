@@ -65,3 +65,9 @@ import nimhdf5/dataspaces
 #export dataspaces
 import nimhdf5/datasets
 export datasets
+
+# finally import and export seqmath, so that calls to procs, which use
+# e.g. `shape` or `flatten` internally do not fail, if the calling module
+# has not imported seqmath itself
+import seqmath
+export seqmath
