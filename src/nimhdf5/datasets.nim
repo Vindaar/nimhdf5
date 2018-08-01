@@ -578,7 +578,7 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
   else:
     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
 
-proc unsafeWrite*[T](dset: var H5DataSet, data: ptr T, length: int) =
+proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
   ## procedure to write a raw `ptr T` to the H5 file.
   ## Note: we cannot do any checks on the given size of the `data` buffer,
   ## i.e. this is an unsafe proc!
@@ -804,7 +804,7 @@ proc read*[T: seq, U](dset: var H5DataSet, coord: seq[T], buf: var seq[U]) =
   # close memspace again
   discard H5Sclose(memspace_id)
 
-proc `[]`*[T](dset: var H5DataSet, ind: int, t: typedesc[T]): T =
+proc `[]`*[T](dset: H5DataSet, ind: int, t: typedesc[T]): T =
   ## convenience proc to return a single element from a dataset
   ## mostly useful to read one element from a 1D dataset. In case of
   ## N-D datasets, still only a single element
@@ -839,7 +839,7 @@ proc `[]`*[T](dset: var H5DataSet, ind: int, t: typedesc[T]): T =
   result = buf[0]
 
 
-proc read*[T](dset: var H5DataSet, buf: var seq[T]) =
+proc read*[T](dset: H5DataSet, buf: var seq[T]) =
   ## read whole dataset
   if buf.len == foldl(dset.shape, a * b, 1):
     discard H5Dread(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
@@ -855,7 +855,7 @@ proc read*[T](dset: var H5DataSet, buf: var seq[T]) =
     raise newException(ValueError, msg)
 
 
-proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
+proc `[]`*[T](dset: H5DataSet, t: typedesc[T]): seq[T] =
   ## procedure to read the data of an existing dataset into
   ## inputs:
   ##    dset: var H5DataSet = the dataset which contains the necessary information
@@ -890,7 +890,7 @@ proc `[]`*[T](dset: var H5DataSet, t: typedesc[T]): seq[T] =
 
   result = data
 
-proc `[]`*[T](dset: var H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
+proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   ## procedure to read the data of an existing dataset based on variable length data
   ## inputs:
   ##    dset: var H5DataSet = the dataset which contains the necessary information
