@@ -559,7 +559,9 @@ proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArr
           echo "Use normal datatype instead. Or did you only hand a single element"
           echo "of your vlen data?"
       else:
-        var data_write = flatten(data)
+        # NOTE: for some reason if we don't specify `seqmath` for `flatten`, the
+        # correct proc is not found
+        var data_write = seqmath.flatten(data)
         err = H5Dwrite(dset.dataset_id,
                        dset.dtype_c,
                        H5S_ALL,
