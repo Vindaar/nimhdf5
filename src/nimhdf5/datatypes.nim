@@ -10,7 +10,7 @@ import util
 type
   # these distinct types provide the ability to distinguish the `[]` function
   # acting on H5FileObj between a dataset and a group, s.t. we can access groups
-  # as well as datasets from the object using `[]`. Typecast the name (as a string) 
+  # as well as datasets from the object using `[]`. Typecast the name (as a string)
   # of the object to either of the two types (you have to know the type of the
   # dset / group you want to access of course!)
   grp_str*  = distinct string
@@ -90,8 +90,6 @@ type
     # implicitly on it, e.g. create_dataset (called from group) etc.
     # TODO: is this needed for dataset?
     # file_ref*: ref H5FileObj
-    #  the id of the reserved dataspace
-    dataspace_id*: hid_t
     # the id of the dataset
     dataset_id*: hid_t
     # `all` index, to indicate that we wish to set the whole dataset to the
@@ -100,9 +98,9 @@ type
     # attr stores information about attributes
     attrs*: H5Attributes
     # property list identifiers, which stores information like "is chunked storage" etc.
-    # here we store H5P_DATASET_ACCESS property list 
+    # here we store H5P_DATASET_ACCESS property list
     dapl_id*: hid_t
-    # here we store H5P_DATASET_CREATE property list 
+    # here we store H5P_DATASET_CREATE property list
     dcpl_id*: hid_t
 
   # an object to store information about a HDF5 group
@@ -135,9 +133,9 @@ type
     # attr stores information about attributes
     attrs*: H5Attributes
     # property list identifier, which stores information like "is chunked storage" etc.
-    # here we store H5P_GROUP_ACCESS property list 
+    # here we store H5P_GROUP_ACCESS property list
     gapl_id*: hid_t
-    # here we store H5P_GROUP_CREATE property list 
+    # here we store H5P_GROUP_CREATE property list
     gcpl_id*: hid_t
 
 
@@ -167,12 +165,12 @@ type
     # flag to be aware if we visited the whole file yet (discovered groups and dsets)
     visited*: bool
     # property list identifier, which stores information like "is chunked storage" etc.
-    # here we store H5P_FILE_ACCESS property list    
+    # here we store H5P_FILE_ACCESS property list
     fapl_id*: hid_t
-    # here we store H5P_FILE_CREATE property list    
+    # here we store H5P_FILE_CREATE property list
     fcpl_id*: hid_t
 
-    
+
 
   # this exception is used in cases where all conditional cases are already thought
   # to be covered to annotate (hopefully!) unreachable branches
@@ -185,7 +183,7 @@ type
   # raised if some part of code that is not yet implemented (but planned) is being called
   NotImplementedError* = object of Exception
 
-const    
+const
     H5_NOFILE* = hid_t(-1)
     H5_OPENFILE* = hid_t(1)
 
@@ -206,7 +204,7 @@ proc h5ToNimType*(dtype_id: hid_t): AnyKind =
   ## throws:
   ##    KeyError: if the given H5 data type is currently not mapped to a Nim type
   ##              (see src/nimhdf5/H5Tpublic.nim for a list of *all* H5 types...)
-  
+
   # TODO: we may can seperate the dtypes by class using H5Tget_class, which returns a value
   # of the H5T_class_t enum (e.g. H5T_FLOAT)
   withDebug:
@@ -256,7 +254,7 @@ proc nimToH5type*(dtype: typedesc): hid_t =
   ##    hid_t = the identifier int value of the HDF5 library for the data types
 
   # TODO: this still seems to be very much wrong and it's only valid for my machine
-  # (64 bit) anyways. 
+  # (64 bit) anyways.
 
   result = hid_t(-1)
   when dtype is int8:
@@ -292,9 +290,9 @@ proc nimToH5type*(dtype: typedesc): hid_t =
   elif dtype is uint32:
     result = H5T_NATIVE_UINT # H5T_STD_I32LE
   elif dtype is uint or dtype is uint64:
-    result = H5T_NATIVE_ULLONG # H5T_STD_I64LE    
+    result = H5T_NATIVE_ULLONG # H5T_STD_I64LE
   elif dtype is float32:
-    result = H5T_NATIVE_FLOAT # H5T_STD_    
+    result = H5T_NATIVE_FLOAT # H5T_STD_
   elif dtype is float or dtype is float64:
     result = H5T_NATIVE_DOUBLE # H5T_STD_
   elif dtype is char:
@@ -311,7 +309,7 @@ proc nimToH5type*(dtype: typedesc): hid_t =
     result = H5Tcopy(H5T_C_S1)
     # -> call string_dataspace(str: string, dtype: hid_t) with
     # `result` as the second argument and the string you wish to
-    # write as 1st after the call to this fn    
+    # write as 1st after the call to this fn
 
 template anyTypeToString*(dtype: AnyKind): string =
   ## return a datatype string from an AnyKind object
@@ -329,7 +327,7 @@ template special_type*(dtype: typedesc): untyped =
   when dtype isnot string:
     H5Tvlen_create(nimToH5type(dtype))
   else:
-    echo "Currently not implemented to create variable string datatype" 
+    echo "Currently not implemented to create variable string datatype"
 
 
 proc parseH5rw_type*(rw_type: string, exists: bool): cuint =
@@ -346,7 +344,7 @@ proc parseH5rw_type*(rw_type: string, exists: bool): cuint =
   ##            the constans defined in H5Fpublic.nim. These can be
   ##            handed directly to the low level C functions
   ## throws:
-  ##    
+  ##
   if rw_type == "w" or
      rw_type == "rw" or
      rw_type == "write":
@@ -366,9 +364,9 @@ template getH5rw_invalid_error*(): string =
   - {'r', 'read'} = read access\n
   - {'w', 'write', 'rw'} =  read/write access
   """
-  
+
 template getH5read_non_exist_file*(): string =
-  """ 
+  """
   Cannot open a non-existing file with read only access. Write access would\n
   create the file for you.
   """
@@ -386,4 +384,3 @@ template toH5vlen*[T](data: var seq[T]): untyped =
       warning("T is " & T.name)
       warning("Cannot be converted to VLEN data!")
     #mapIt(toSeq(0 .. data.high), hvl_t(`len`: csize(data[it]), p: addr(data[it][0])))
-    

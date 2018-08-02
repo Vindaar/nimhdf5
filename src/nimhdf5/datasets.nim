@@ -35,7 +35,6 @@ proc newH5DataSet*(name: string = ""): ref H5DataSet =
   result.dtype_c = -1.hid_t
   result.parent = ""
   result.file = ""
-  result.dataspace_id = -1.hid_t
   result.dataset_id = -1.hid_t
   result.all = RW_ALL
   result.attrs = attrs
@@ -143,7 +142,8 @@ proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
     let dsetInFile = h5f.isDataset(result.name)
     if dsetInFile:
       result.dataset_id   = H5Dopen2(h5f.file_id, result.name, H5P_DEFAULT)
-      result.dataspace_id = H5Dget_space(result.dataset_id)
+      # get the dataspace id of the dataset
+      let dataspace_id = result.dataspace_id
       # does exist, add to H5FileObj
       let datatype_id = H5Dget_type(result.dataset_id)
       let f = h5ToNimType(datatype_id)
@@ -170,7 +170,7 @@ proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
         echo "CREATE PROPERTY LIST IS ", result.dapl_id
         echo H5Tget_class(datatype_id)
 
-      (result.shape, result.maxshape) = readShape(result.dataspace_id)
+      (result.shape, result.maxshape) = readShape(dataspace_id)
       # still need to determine the parents of the dataset
       result.parent = getParent(result.name)
       var parent = create_group(h5f, result.parent)
@@ -207,8 +207,8 @@ proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
     result = h5f.datasets[dset_name][]
     # in this case we still need to update e.g. shape
     # TODO: think about what else we might have to update!
-    result.dataspace_id = H5Dget_space(result.dataset_id)
-    (result.shape, result.maxshape) = readShape(result.dataspace_id)
+    let dataspace_id = result.dataset_id.dataspace_id
+    (result.shape, result.maxshape) = readShape(dataspace_id)
     # TODO: also read maxshape and chunksize if any
 
 template isDataSet(h5_object: typed): bool =
@@ -294,13 +294,18 @@ proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int
 
 proc create_dataset_in_file(h5file_id: hid_t, dset: H5DataSet): hid_t =
   ## proc to create a given dataset in the H5 file described by `h5file_id`
+
+  # TODO: I think the first if branch is never used, because `maxshape` is always
+  # set to the `shape` (if no maxshape is given) or the given max shape. Therefore
+  # the check can never succeed. Ok if we only check for chunksize?
+  let dataspace_id = simple_dataspace(dset.shape, dset.maxshape)
   if dset.maxshape.len == 0 and dset.chunksize.len == 0:
-    result  = H5Dcreate2(h5file_id, dset.name, dset.dtype_c, dset.dataspace_id,
+    result  = H5Dcreate2(h5file_id, dset.name, dset.dtype_c, dataspace_id,
                          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
   else:
     # in this case we are definitely working with chunked memory of some
     # sorts, which means that the dataset creation property list is set
-    result  = H5Dcreate2(h5file_id, dset.name, dset.dtype_c, dset.dataspace_id,
+    result  = H5Dcreate2(h5file_id, dset.name, dset.dtype_c, dataspace_id,
                          H5P_DEFAULT, dset.dcpl_id, H5P_DEFAULT)
 
 proc create_dataset*[T: (tuple | int | seq)](
@@ -400,29 +405,23 @@ proc create_dataset*[T: (tuple | int | seq)](
         # TODO: FOR NOW the location id given to H5Dopen2 is only the file id
         # once we have the parent properly determined, we can also check for
         # the parent (group) id!
+        let in_file = existsInFile(h5f.file_id, dset.name)
         withDebug:
           echo "Checking if dataset exists via H5Lexists ", dset.name
-        let in_file = existsInFile(h5f.file_id, dset.name)
+          echo "Does exists ? ", in_file
         if in_file > 0:
           # in this case successful, dataset exists already
           exists = true
           # in this case open the dataset to read
           dset.dataset_id   = H5Dopen2(h5f.file_id, dset.name, H5P_DEFAULT)
-          dset.dataspace_id = H5Dget_space(dset.dataset_id)
           # TODO: include a check about whether the opened dataset actually conforms
           # to what we wanted to create (e.g. same shape etc.)
 
         elif in_file == 0:
-          # does not exist
-          # now
-          withDebug:
-            echo "Does not exist, so create dataspace ", dset.name
-            echo "with shape ", shape_seq
-          dset.dataspace_id = simple_dataspace(shape_seq, maxshape)
-
-          # using H5Dcreate2, try to create the dataset
+          # does not exist in file, so create
           withDebug:
             echo "Does not exist, so create dataset via H5create2 ", dset.name
+            echo "with shape ", dset.shape
           dset.dataset_id = create_dataset_in_file(h5f.file_id, dset)
         else:
           raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
@@ -1129,15 +1128,16 @@ proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
     # before we resize the dataspace, we get a copy of the
     # dataspace, since this internally refreshes the dataset. Important
     # since the dataset might be opened for reading when this
-    # proc is called
-    dset.dataspace_id = H5Dget_space(dset.dataset_id)
+    # proc is called. We discard the dataspace_id, since we don't need it
+    # (dataspace_id is a proc!)
+    discard dset.dataspace_id
     let status = H5Dset_extent(dset.dataset_id, addr(newshape[0]))
     # set the shape we just resized to as the current shape
     withDebug:
       echo "Extending the dataspace to ", newshape
     dset.shape = mapIt(newshape, int(it))
     # after all is said and done, refresh again
-    dset.dataspace_id = H5Dget_space(dset.dataset_id)
+    discard H5Dget_space(dset.dataset_id)
     if status < 0:
       raise newException(HDF5LibraryError, "Call to HDF5 library failed in " &
                          "`resize` calling `H5Dset_extent`")
@@ -1195,10 +1195,10 @@ proc parseHyperslabSelection(offset, count: seq[int], stride, blk: seq[int] = @[
     mblk = mapIt(toSeq(0..offset.high), hsize_t(1))
   result = (moffset, mcount, mstride, mblk)
 
-proc select_hyperslab(dset: var H5DataSet,
+proc select_hyperslab(dset: H5DataSet,
                       offset,
                       count: seq[int],
-                      stride, blk: seq[int] = @[]) =
+                      stride, blk: seq[int] = @[]): hid_t =
   ## high level proc to select a hyperslab on a H5DataSet. Calls low level
   ## access proc h5SelectHyperslab given the dataspace of `dset`, select a
   ## hyperslab of it using `offset`, `stride`, `count` and `blk` for which
@@ -1206,6 +1206,8 @@ proc select_hyperslab(dset: var H5DataSet,
   ## dset.shape.len == offset.shape.len, i.e. they need to be of the same
   ## rank as dset is we currently set the hyperslab selection such that
   ## previous selections are overwritten (2nd argument)
+  ## outputs:
+  ##   hid_t: the dataspace on which the hyperslab selection was performed
   var
     err: herr_t
 
@@ -1215,15 +1217,14 @@ proc select_hyperslab(dset: var H5DataSet,
                                                                  stride,
                                                                  blk)
 
-  # just in case get the most current dataspace
-  dset.dataspace_id = H5Dget_space(dset.dataset_id)
   # and perform the selection on this dataspace
-  err = h5SelectHyperslab(dset.dataspace_id, moffset, mcount, mstride, mblk)
+  result = dset.dataspace_id
+  err = h5SelectHyperslab(result, moffset, mcount, mstride, mblk)
   if err < 0:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
       "calling `H5Sselect_hyperslab` in `select_hyperslab`")
 
-proc write_hyperslab*[T](dset: var H5DataSet,
+proc write_hyperslab*[T](dset: H5DataSet,
                          data: seq[T],
                          offset,
                          count: seq[int],
@@ -1233,9 +1234,6 @@ proc write_hyperslab*[T](dset: var H5DataSet,
   ## See sec. 7.4.1.1 in the HDF5 user's guide:
   ## https://support.hdfgroup.org/HDF5/doc/UG/HDF5_Users_Guide-Responsive%20HTML5/index.html
   var err: herr_t
-
-  # update the dataspace ID of the dataset
-  dset.dataspace_id = H5Dget_space(dset.dataset_id)
 
   var memspace_id: hid_t
   if dset.dtype_class == H5T_VLEN:
@@ -1263,11 +1261,11 @@ proc write_hyperslab*[T](dset: var H5DataSet,
       # anything for `T isnot seq`.
       # TODO: replace template by typed template / proc?
       var mdata_hvl = md.toH5vlen
-      dset.select_hyperslab(offset, count, stride, blk)
+      let hyperslab_id = dset.select_hyperslab(offset, count, stride, blk)
       err = H5Dwrite(dset.dataset_id,
                      dset.dtype_c,
                      memspace_id,
-                     dset.dataspace_id,
+                     hyperslab_id,
                      H5P_DEFAULT,
                      addr(mdata_hvl[0]))
       if err < 0:
@@ -1280,12 +1278,12 @@ proc write_hyperslab*[T](dset: var H5DataSet,
     var mdata = data.flatten
 
     memspace_id = simple_dataspace(data.shape)
-    dset.select_hyperslab(offset, count, stride, blk)
-
+    let hyperslab_id = dset.select_hyperslab(offset, count, stride, blk)
+    echo "Selected now write space id ", hyperslab_id
     err = H5Dwrite(dset.dataset_id,
                    dset.dtype_c,
                    memspace_id,
-                   dset.dataspace_id,
+                   hyperslab_id,
                    H5P_DEFAULT,
                    addr(mdata[0]))
     if err < 0:
@@ -1343,7 +1341,7 @@ proc reshape[T](s: seq[T], shape: varargs[int]): seq[seq[T]] =
   result = reshape(r_data, mshape[0..^2])
 
 
-proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
+proc read_hyperslab*[T](dset: H5DataSet, dtype: typedesc[T],
                         offset, count: seq[int], stride, blk: seq[int] = @[],
                         full_output = false): seq[T] =
   ## proc to read an arbitrary hyperslab from a given dataset.
@@ -1390,7 +1388,7 @@ proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
     memspace_id = simple_dataspace(shape)
 
   # perform hyperslab selection on dataspace
-  dset.select_hyperslab(offset, count, stride, blk)
+  let hyperslab_id = dset.select_hyperslab(offset, count, stride, blk)
   if err < 0:
     raise newException(HDF5LibraryError,
                        "Call to HDF5 library failed while calling " &
@@ -1410,7 +1408,7 @@ proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
   err = H5Dread(dset.dataset_id,
                 dset.dtype_c,
                 memspace_id,
-                dset.dataspace_id,
+                hyperslab_id,
                 H5P_DEFAULT,
                 addr(mdata[0]))
   if err < 0:
@@ -1422,7 +1420,7 @@ proc read_hyperslab*[T](dset: var H5DataSet, dtype: typedesc[T],
   result = mdata
 
 
-proc high*(dset: var H5DataSet, axis = 0): int =
+proc high*(dset: H5DataSet, axis = 0): int =
   ## convenience proc to return the highest possible index of
   ## the dataset along a given axis (in a given dimension)
   ## inputs:
