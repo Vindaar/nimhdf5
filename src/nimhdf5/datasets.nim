@@ -491,7 +491,7 @@ proc create_dataset*[T: (tuple | int | seq)](
     # NOTE: create_dataset_in_file() should take care of this case.
     #dset.dcpl_id = H5P_DEFAULT
 
-proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArray[T])
+proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArray[T])
   ## procedure to write a sequence of array to a dataset
   ## will be given to HDF5 library upon call, H5DataSet object
   ## does not store the data
@@ -646,7 +646,7 @@ proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
 #     # TODO: replace by exception
 #     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
 
-proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #openArray[T])
+proc `[]=`*[T](dset: H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #openArray[T])
   ## procedure to write a sequence of array to a dataset
   ## will be given to HDF5 library upon call, H5DataSet object
   ## does not store the data
@@ -733,7 +733,7 @@ template withDset*(h5dset: H5DataSet, actions: untyped) =
     discard
 
 proc convertType*(h5dset: H5DataSet, dt: typedesc):
-  proc(dset: var H5DataSet): seq[dt] {.nimcall.} =
+  proc(dset: H5DataSet): seq[dt] {.nimcall.} =
   ## return a converter proc, which casts the data from `h5dset` to the desired
   ## datatype `dtype`
   ## Note: only numerical types are supported!
@@ -748,21 +748,21 @@ proc convertType*(h5dset: H5DataSet, dt: typedesc):
       dset[fromType].mapIt(tt(it))
 
   case h5dset.dtypeAnyKind
-  of akFloat32: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(float32, dt)
-  of akFloat64: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(float64, dt)
-  of akInt8: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(int8, dt)
-  of akInt16: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(int16, dt)
-  of akInt32: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(int32, dt)
-  of akInt64: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(int64, dt)
-  of akUint8: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(uint8, dt)
-  of akUint16: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(uint16, dt)
-  of akUint32: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(uint32, dt)
-  of akUint64: result = proc(d: var H5DataSet): seq[dt] = d.fromTo(uint64, dt)
+  of akFloat32: result = proc(d: H5DataSet): seq[dt] = d.fromTo(float32, dt)
+  of akFloat64: result = proc(d: H5DataSet): seq[dt] = d.fromTo(float64, dt)
+  of akInt8: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int8, dt)
+  of akInt16: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int16, dt)
+  of akInt32: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int32, dt)
+  of akInt64: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int64, dt)
+  of akUint8: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint8, dt)
+  of akUint16: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint16, dt)
+  of akUint32: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint32, dt)
+  of akUint64: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint64, dt)
   else:
     echo "it's of type ", h5dset.dtypeAnyKind
-    result = proc(d: var H5DataSet): seq[dt] = discard
+    result = proc(d: H5DataSet): seq[dt] = discard
 
-proc select_elements[T](dset: var H5DataSet, coord: seq[T]) {.inline.} =
+proc select_elements[T](dset: H5DataSet, coord: seq[T]) {.inline.} =
   ## convenience proc to select specific coordinates in the dataspace of
   ## the given dataset
   # first flatten coord tuples
@@ -772,7 +772,7 @@ proc select_elements[T](dset: var H5DataSet, coord: seq[T]) {.inline.} =
                              csize(coord.len),
                              addr(flat_coord[0]))
 
-proc read*[T: seq, U](dset: var H5DataSet, coord: seq[T], buf: var seq[U]) =
+proc read*[T: seq, U](dset: H5DataSet, coord: seq[T], buf: var seq[U]) =
   ## proc to read specific coordinates (or single values) from a dataset
   ## inputs:
   ##   dset: var H5DataSet = mutable copy of dataset from which to read
@@ -947,7 +947,7 @@ proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   let dspace_id = H5Dget_space(dset.dataset_id)
   err = H5Dvlen_reclaim(dset.dtype_c, dspace_id, H5P_DEFAULT, addr(data[0]))
 
-proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
+proc write_vlen*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
   ## check whether we have data for each coordinate
   var err: herr_t
   when U isnot seq:
@@ -995,7 +995,7 @@ proc write_vlen*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
     msg = msg % [$coord.shape, $data.shape]
     raise newException(ValueError, msg)
 
-proc write_norm*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
+proc write_norm*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
   ## write procedure for normal (read non-vlen) data based on a set of coordinates 'coord'
   ## to write 'data' to. Need to have one element in data for each coord and
   ## data needs to be of shape corresponding to coord
