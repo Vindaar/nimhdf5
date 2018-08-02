@@ -52,7 +52,7 @@ template getH5Id*(h5o: typed): hid_t =
   when h5o is H5FileObj:
     let result = h5o.file_id
   elif h5o is H5DataSet:
-    let result = h5o.dataspace_id
+    let result = h5o.dataset_id
   elif h5o is H5Group:
     let result = h5o.group_id
   result
