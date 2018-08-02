@@ -6,6 +6,7 @@ import os
 import hdf5_wrapper
 import H5nimtypes
 import datatypes
+import dataspaces
 
 # need to forward declare visit file, due to cyclic import statements
 # files -> datasets -> groups -> files
@@ -258,8 +259,8 @@ proc close*(h5f: H5FileObj): herr_t =
       withDebug:
         echo "Closed attribute with status ", result
       result = H5Sclose(attr.attr_dspace_id)
-    result = H5Dclose(dset.dataset_id)
     result = H5Sclose(dset.dataspace_id)
+    result = H5Dclose(dset.dataset_id)
 
   for name, group in pairs(h5f.groups):
     withDebug:
