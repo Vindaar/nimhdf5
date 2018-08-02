@@ -4,11 +4,10 @@ This file contains the procedures related to attributes.
 The attribute types are defined in the datatypes.nim file.
 ]#
 
-
 import typeinfo
 import typetraits
 import tables
-import strutils
+import strutils, sequtils
 
 import hdf5_wrapper
 import H5nimtypes
@@ -120,6 +119,11 @@ proc read_all_attributes*(h5attr: var H5Attributes) =
       echo "Found? ", attr.attr_id, " with name ", name
     # get dtypes and dataspace id
     attr.dtype_c = H5Aget_type(attr.attr_id)
+
+    # TODO: remove debug
+    echo "attr ", name, " is vlen string ", H5Tis_variable_str(attr.dtype_c)
+    #attr.dtype_c = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
+    #echo "Encoding is native ", H5Tget_cset(attr.dtype_c)
     attr.attr_dspace_id = H5Aget_space(attr.attr_id)
     # now set the attribute any kind fields (checks whether attr is a sequence)
     attr[].setAttrAnyKind
@@ -269,6 +273,54 @@ template `[]=`*[T](h5attr: var H5Attributes, name: string, val: T) =
   ## convenience access to write_attribue
   h5attr.write_attribute(name, val)
 
+proc parseString(buffer: ptr UncheckedArray[char]): string =
+  ## parses the given unchecked array until a null delimiter is reached
+  ## and returns the string
+  var i = 0
+  while buffer[i] != '\0':
+    result.add buffer[i]
+    inc i
+
+proc readStringAttribute(attr: ref H5Attr): string =
+  ## proc to read a string attribute from a H5 file, for an existing
+  ## `H5Attr`. This proc is only used in the `read_attribute` proc
+  ## for users after checking of attribute is done.
+  # TODO: complete documentation
+  attr.attr_dspace_id = H5Aget_space(attr.attr_id)
+
+  let isVlen = H5Tis_variable_str(attr.dtype_c)
+  # TODO: remove debug
+  echo "isVlen ", isVlen
+  let nativeType = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
+  # TODO: remove debug
+  echo "Native type is ", nativeType
+
+  # read data
+  # TODO: remove debug
+  echo "Encoding is ", H5Tget_cset(attr.dtype_c)
+  if isVlen == 1:
+    # create a void pointer equivalent
+    var bufPtrPtr = alloc(8 * sizeof(char))
+    # TODO: remove debug
+    echo "Pointer is ", bufPtrPtr.repr
+    let err2 = H5Aread(attr.attr_id, nativeType, bufPtrPtr)
+    # cast the void pointer to a ptr on a ptr of an unchecked array
+    # and dereference it to get a ptr to an unchecked char array
+    let bufData = cast[ptr ptr UncheckedArray[char]](bufPtrPtr)[]
+    # parse the unchecked char array
+    result = parseString(bufData)
+
+    # TODO: remove debug
+    echo "Freeing pointer ", bufPtrPtr.repr
+    dealloc bufPtrPtr
+  else:
+    # in case of string, need to determine size. use:
+    # in case of existence, read the data and return
+    let string_len = H5Aget_storage_size(attr.attr_id)
+    var buf_string = newString(string_len)
+    let err = H5Aread(attr.attr_id, nativeType, addr buf_string[0])
+    result = buf_string
+
 proc read_attribute*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[T]): T =
   ## now implement reading of attributes
   ## finally still need a read_all attribute. This function only reads a single one, if
@@ -303,16 +355,31 @@ proc read_attribute*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[
       # return correct type based on base kind
       var buf_seq: T = @[]
       buf_seq.setLen(npoints)
-      # read data
-      err = H5Aread(attr.attr_id, attr.dtype_c, addr(buf_seq[0]))
-      result = buf_seq
+
+      # given number of elements in seq attribute, check what user desired
+      # basetype is
+      const TT = type(buf_seq[0])
+
+      # in case it's a string, do things differently..
+      when TT is string:
+        # get string attribute as single string first
+        let s = readStringAttribute attr
+        # now split the attribute into a seq of correct length each
+        let strLength = s.len div npoints
+        for i in 0 ..< npoints:
+          # iterate over each substring and append a string w/o additional
+          # null-terminators (if substring shorter max length)
+          let
+            start = i * strLength
+            stop = (i + 1) * strLength
+          result.add s[start ..< stop].strip(chars = {'\0'})
+      else:
+        # read data
+        err = H5Aread(attr.attr_id, attr.dtype_c, addr buf_seq[0])
+        result = buf_seq
     elif T is string:
-      # in case of string, need to determine size. use:
-      let string_len = H5Aget_storage_size(attr.attr_id)
-      var buf_string = newString(string_len)
-      # read data
-      err = H5Aread(attr.attr_id, attr.dtype_c, addr(buf_string[0]))
-      result = buf_string
+      # case of single string attribute
+      result = readStringAttribute attr
   else:
     raise newException(KeyError, "No key `$#` exists in group `$#`" % [name, h5attr.parent_name])
 
