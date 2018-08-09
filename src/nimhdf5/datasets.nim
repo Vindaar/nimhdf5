@@ -1203,6 +1203,12 @@ proc write_hyperslab*[T](dset: H5DataSet,
   ## The HDF5 notation for hyperslabs is used.
   ## See sec. 7.4.1.1 in the HDF5 user's guide:
   ## https://support.hdfgroup.org/HDF5/doc/UG/HDF5_Users_Guide-Responsive%20HTML5/index.html
+  # if no data given, simply return
+  # TODO: parse hyperslab selection and make sure data is same number as hyperslab
+  # covers!
+  if data.len == 0:
+    return
+
   var err: herr_t
 
   var memspace_id: hid_t
