@@ -491,7 +491,7 @@ proc create_dataset*[T: (tuple | int | seq)](
     # NOTE: create_dataset_in_file() should take care of this case.
     #dset.dcpl_id = H5P_DEFAULT
 
-proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArray[T])
+proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) =
   ## procedure to write a sequence of array to a dataset
   ## will be given to HDF5 library upon call, H5DataSet object
   ## does not store the data
@@ -507,7 +507,6 @@ proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArray[T
   ##    ValueError: if the shape of the input dataset is different from the reserved
   ##         size of the dataspace on which we wish to write in the H5 file
   ##         TODO: create an appropriate Exception for this case!
-
   # TODO: IMPORTANT: think about whether we should be using array types instead
   # of a dataspace of certain dimensions for arrays / nested seqs we're handed
 
@@ -535,12 +534,6 @@ proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) = #openArray[T
         # assigning the data to a hvl_t struct
         when T is seq:
           var mdata = data
-          # var data_hvl = newSeq[hvl_t](mdata.len)
-          # var i = 0
-          # for d in mitems(mdata):
-          #   data_hvl[i].`len` = d.len
-          #   data_hvl[i].p = addr(d[0])#cast[pointer]()
-          #   inc i
           var data_hvl = mdata.toH5vlen
           err = H5Dwrite(dset.dataset_id,
                          dset.dtype_c,
@@ -621,31 +614,6 @@ proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
     msg = msg % [$length, $dset.name, $dset.shape]
     raise newException(ValueError, msg)
 
-# proc `[]=`*[T](dset: var H5DataSet, ind: DsetReadWrite, data: AnyTensor[T]) =
-#   ## equivalent of above fn, to support arraymancer tensors as input data
-#   if ind == RW_ALL:
-#     let tensor_shape = data.squeeze.shape
-#     # first check whether number of dimensions is the same
-#     let dims_fit = if tensor_shape.len == dset.shape.len: true else: false
-#     if dims_fit == true:
-#       # check whether each dimension is the same size
-#       let shape_good = foldl(mapIt(toSeq(0..dset.shape.high), tensor_shape[it] == dset.shape[it]), a == b, true)
-#       var data_write = data.squeeze.toRawSeq
-#       let err = H5Dwrite(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-#                          addr(data_write[0]))
-#       if err < 0:
-#         withDebug:
-#           echo "Trying to write tensor ", data_write
-#         raise newException(HDF5LibraryError, "Call to HDF5 library failed while calling `H5Dwrite` in `[Tensor]=`")
-#     else:
-#       var msg = """
-# Wrong input shape of data to write in `[]=`. Given shape `$#`, dataspace has shape `$#`"""
-#       msg = msg % [$data.shape, $dset.shape]
-#       raise newException(ValueError, msg)
-#   else:
-#     # TODO: replace by exception
-#     echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
-
 proc `[]=`*[T](dset: H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #openArray[T])
   ## procedure to write a sequence of array to a dataset
   ## will be given to HDF5 library upon call, H5DataSet object
@@ -662,8 +630,7 @@ proc `[]=`*[T](dset: H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #ope
 
   # TODO: change this function to do what it's supposed to!
   if dset.shape == data.shape:
-    #var ten = data.toTensor()
-    # in this case run over all dimensions and flatten arrayA
+    # in this case run over all dimensions and flatten array
     withDebug:
       echo "shape before is ", data.shape
       echo data
@@ -949,6 +916,7 @@ proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
 
 proc write_vlen*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
   ## check whether we have data for each coordinate
+
   var err: herr_t
   when U isnot seq:
     var mdata = @[data]
@@ -999,8 +967,9 @@ proc write_norm*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
   ## write procedure for normal (read non-vlen) data based on a set of coordinates 'coord'
   ## to write 'data' to. Need to have one element in data for each coord and
   ## data needs to be of shape corresponding to coord
-  # mutable copy
+
   var err: herr_t
+  # mutable copy
   var mdata = data
   let
     # check if coordinates are valid, i.e. each coordinate has rank of dataset
@@ -1323,24 +1292,6 @@ proc sizeOfHyperslab(offset, count, stride, blk: seq[hsize_t]): int =
     mblk   = mapIt(blk, if it < 0: hsize_t(0) else: it)
   result = int(foldl(mcount, a * b) * foldl(mblk, a * b))
 
-proc reshape[T](s: seq[T], shape: varargs[int]): seq[seq[T]] =
-  var mshape = @[2, 2, 5] #shape
-  var ndims = shape.len
-  var j = 0
-  var r_data: seq[seq[T]] = @[]
-  for i, el in s:
-    # iterate over s, create new sequences once filled
-    var dim_s = newSeq[T](mshape[^1])
-    for j in 0 ..< dim_s:
-      dim_s[j] = s[i]
-    r_data.add(dim_s)
-
-  # now we have seqs of inner most shape
-  # add this data to correctly shaped output
-  #for dim in mshape[0..^2]:
-  result = reshape(r_data, mshape[0..^2])
-
-
 proc read_hyperslab*[T](dset: H5DataSet, dtype: typedesc[T],
                         offset, count: seq[int], stride, blk: seq[int] = @[],
                         full_output = false): seq[T] =
@@ -1418,7 +1369,6 @@ proc read_hyperslab*[T](dset: H5DataSet, dtype: typedesc[T],
       "calling `H5Dread` in `read_hyperslab`")
 
   result = mdata
-
 
 proc high*(dset: H5DataSet, axis = 0): int =
   ## convenience proc to return the highest possible index of
