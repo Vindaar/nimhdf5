@@ -614,7 +614,7 @@ proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
     msg = msg % [$length, $dset.name, $dset.shape]
     raise newException(ValueError, msg)
 
-proc `[]=`*[T](dset: H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #openArray[T])
+proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: seq[T]) =
   ## procedure to write a sequence of array to a dataset
   ## will be given to HDF5 library upon call, H5DataSet object
   ## does not store the data
@@ -627,6 +627,7 @@ proc `[]=`*[T](dset: H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #ope
   ##         the dataset or smaller
 
   # only write slice of dset by using hyperslabs
+  raise newException(NotImplementedError, "This proc is not properly implemented!")
 
   # TODO: change this function to do what it's supposed to!
   if dset.shape == data.shape:
@@ -647,8 +648,8 @@ proc `[]=`*[T](dset: H5DataSet, inds: HSlice[int, int], data: var seq[T]) = #ope
       raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
         "calling `H5Dwrite` in `[Slice]=`")
   else:
-    # TODO: replace by exception
-    echo "All bad , shapes are ", data.shape, " ", dset.shape
+    raise newException(HDF5LibraryError, "Length of data " & data.len & " does " &
+      "not match number of given indices to write: " & inds.len)
 
 
 template withDset*(h5dset: H5DataSet, actions: untyped) =
