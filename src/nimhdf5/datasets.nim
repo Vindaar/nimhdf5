@@ -17,6 +17,7 @@ import H5nimtypes
 import datatypes
 import dataspaces
 import attributes
+import filters
 import util
 import h5util
 
@@ -313,8 +314,9 @@ proc create_dataset*[T: (tuple | int | seq)](
     dset_raw: string,
     shape_raw: T,
     dtype: (typedesc | hid_t),
-    chunksize: seq[int] = @[],
-    maxshape: seq[int] = @[]): H5DataSet =
+    chunksize: seq[int],
+    maxshape: seq[int],
+    filter: H5Filter): H5DataSet =
   ## procedure to create a dataset given a H5file object. The shape of
   ## that type is given as a tuple, the datatype as a typedescription
   ## inputs:
@@ -397,6 +399,9 @@ proc create_dataset*[T: (tuple | int | seq)](
   try:
     status = dset.parseChunkSizeAndMaxShape(chunksize, maxshape)
     if status >= 0:
+      # potentially apply filters
+      dset.setFilters(filter)
+
       # check whether there already exists a dataset with the given name
       # first in H5FileObj:
       var exists = hasKey(h5f.datasets, dset_name)
@@ -467,6 +472,23 @@ proc create_dataset*[T: (tuple | int | seq)](
   h5f.dataspaces[dset_name] = dset.dataspace_id
 
   result = dset
+
+proc create_dataset*[T: (tuple | int | seq)](
+    h5f: var H5FileObj,
+    dset_raw: string,
+    shape_raw: T,
+    dtype: (typedesc | hid_t),
+    chunksize: seq[int] = @[],
+    maxshape: seq[int] = @[]): H5DataSet {.inline.} =
+  ## Wrapper around full `create_dataset` proc if no filter is being used.
+  ## In this case chunksize and maxshape are optional
+  let filter = H5Filter(kind: fkNone)
+  result = h5f.create_dataset(dset_raw,
+                              shape_raw,
+                              dtype,
+                              chunksize,
+                              maxshape,
+                              filter)
 
 # proc create_dataset*[T: (tuple | int)](h5f: var H5Group, dset_raw: string, shape_raw: T, dtype: typedesc): H5DataSet =
   # convenience wrapper around create_dataset to create a dataset within a group with a

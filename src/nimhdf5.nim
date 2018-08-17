@@ -66,6 +66,10 @@ import nimhdf5/dataspaces
 import nimhdf5/datasets
 export datasets
 
+# compression / filter support
+import nimhdf5/filters
+export filters
+
 # finally import and export seqmath, so that calls to procs, which use
 # e.g. `shape` or `flatten` internally do not fail, if the calling module
 # has not imported seqmath itself
