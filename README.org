@@ -1,8 +1,11 @@
 * nimhdf5
 
-This repository contains a wrapper for the [[https://www.hdfgroup.org/HDF5/][HDF5 data format]] for the Nim
-programming language as well as some work in progress
-high-level bindings. 
+This repository contains thin high-level bindings for the [[https://www.hdfgroup.org/HDF5/][HDF5 data
+format]] for the Nim programming language. It also provides a wrapper of
+the full HDF5 C library, importable using:
+#+BEGIN_SRC nim
+import nimhdf5/hdf5_wrapper
+#+END_SRC
 
 The raw wrapper dynamically links the libhdf5.so (the main library)
 and libhdf5_hl.so (a library containing high-level convenience
@@ -11,27 +14,31 @@ libraries are callable by their corresponding C names and C
 arguments. That means the Nim datatypes need to be manually cast to
 the corresponding compatible types, if only the wrapper is used.
 
-This is currently in an alpha state, with no guarantees that it will
-work for you (but if you use it and let me know it's broken, I'd be
-happy to fix it!). The wrapper was built making heavy use of [[https://www.github.com/nim-lang/c2nim][c2nim]] and
-the main goal was to have a usable interface for the HDF5 data
-format. More advanced features (e.g. single writer / multiple reader)
-were of lower priority. Via the wrapper all features should in
-principle work, but many have not been tested. 
+The high-level bindings, while covering most general HDF5 features,
+are still in a rough state, due to limited testing by actual
+users. Most features should work fine (at least using linux), but some
+known bugs are still there. See
+[[file:examples/h5_high_level_example.nim]] as an overview (soon to be
+cleaned up, split and put into a tutorial form) on the available
+features and their usage. Also take a look at the tests for simple
+examples of specific features. For a more indepth example of usage of
+this library, take a look at:
+- [[https://github.com/Vindaar/TimepixAnalysis/blob/master/InGridDatabase/src/ingridDatabase]]
+  as an example using HDF5 as a simple database
+- https://github.com/Vindaar/TimepixAnalysis/blob/master/Analysis/ingrid/raw_data_manipulation.nim
+  for usage of more advanced features like variable length data,
+  writing hyperslabs, creating hard links, etc. in a bigger project.
 
-The high-level bindings now provide a reasonble interface if reading
-and writing of groups, datasets and attributes is the use
-case. Especially reading comes with a few quirks for now
-unfortunately. See [[file:examples/h5_high_level_example.nim]] as an
-overview (soon to be cleaned up, split and put into a tutorial form)
-on the available features and their usage.
+The wrapper was built making heavy use of [[https://www.github.com/nim-lang/c2nim][c2nim]] and the main goal was
+to have a usable interface for the HDF5 data format. More advanced
+features (e.g. single writer / multiple reader) were of lower
+priority. Via the wrapper all features should in principle work, but
+many have not been tested.
 
 ** Compatibility
 
 The wrapper is currently tested using Nim version =0.18.0= and the
-current devel branch (=0.18.1=). The previous release =0.17.2= might
-potentially still work, but alone it's too much work to support more
-than the latest stable release and its devel branch.
+current devel branch (=0.18.1=).
 
 The wrapper is built from HDF5 version =1.10.1=.
 
@@ -52,7 +59,7 @@ The HDF5 headers contain macros for many variables, such as
 #+BEGIN_SRC C
 #define H5F_ACC_RDONLY	(H5CHECK H5OPEN 0x0000u)
 #+END_SRC
-where 
+where
 #+BEGIN_SRC C
 #define H5CHECK          H5check(),
 #+END_SRC
@@ -76,7 +83,7 @@ library via [[file:src/nimhdf5/wrapper/H5niminitialize.nim]].
 As HDF5 is a very macro heavy library, other important macros may not
 have been correctly wrapped to Nim, e.g. determination of correct
 sizes of data types. This may cause some weird side-effects (to be
-fair, I haven't noticed any!). 
+fair, I haven't noticed any!).
 
 Additionally, Windows support is unknown at this time. The library
 name is correctly set for Windows, however an additional header file
@@ -113,7 +120,7 @@ resulting .nim file was still necessary.
 
 The folder [[file:examples/][examples]] contains the basic HDF5 C examples (see here:
 [[https://support.hdfgroup.org/HDF5/examples/intro.html#c]]) converted to
-Nim utilizing the wrapper. 
+Nim utilizing the wrapper.
 
 [[file:examples/h5_high_level_example.nim][h5_high_level_example.nim]] serves as a replacement for a tutorial for
 now (tutorial will be added soon!), showcasing (almost) all available
@@ -129,7 +136,7 @@ know.
   =ValueError= to be raised (see issue #9)
 - when reading back a dataset with dimension > 1, the returned data is
   returned in a flat =seq=, instead of e.g. a nested
-  =seq[seq[<type>]]= as one might expect. 
+  =seq[seq[<type>]]= as one might expect.
   To get the data in the correct shape, use the =reshape= or
   (=reshape2D=, =reshape3D=) procs from =util.nim=. See the example
   file or the following tests: [[file:tests/tutil.nim][tutil.nim]], [[file:tests/treshape.nim][treshape.nim]] for the usage.
@@ -148,10 +155,37 @@ know.
   but are represented by =(N, 1)= instead.
 - and many more
 
+** Implemented HDF5 features
+- groups
+  - creating (nested) groups
+  - iterating over groups (recursively)
+- datasets
+  - writing / reading static sized N-D arrays of any type
+  - writing / reading variable length data
+  - chunked storage
+- hyperslabs
+  - writing / reading hyperslabs using H5 notation
+- compression / filters
+  - zlib compression
+  - szip compression
+  - _soon:_ blosc compression (external)
+  - _sort of soon:_ fletcher32, shuffle, nbits
+- attributes
+  - writing / reading on datasets, groups
+  - all types supported
+    - basic types (int, float, ...)
+    - seqs of basic types
+    - strings
+    - reading variable length strings
+      (different from static length strings in H5 attributes!)
+- hardlink datasets and groups within a file
+- iterators over:
+  - groups
+  - datasets
+  - attributes
 
 ** Major missing HDF5 features
 Most major HDF5 features are now supported (although they may not be
 perfectly stable yet, due to limited testing). The major exception
 is the following:
 - support for compound data types
-
