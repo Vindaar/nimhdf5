@@ -168,7 +168,17 @@ know.
 - compression / filters
   - zlib compression
   - szip compression
-  - _soon:_ blosc compression (external)
+  - blosc compression (external)
+    User needs to compile / install:
+    - https://github.com/Blosc/c-blosc
+    - https://github.com/Skrylar/nblosc
+
+      (Note: if [[https://github.com/Skrylar/nblosc/pull/1][PR#1]] is not merged yet, install
+      [[https://github.com/Vindaar/nblosc]] instead)
+    Note: Windows / OSX not yet supported, due to wrong name of
+    =libblosc.so= in [[https://github.com/Vindaar/nblosc/blob/master/blosc.nim#L6][blosc.nim#L6]]. Change it appropriately.
+    Note2: filter needs to be registered manually with the HDF5
+    library so far, see [[file:tests/tblosc.nim]].
   - _sort of soon:_ fletcher32, shuffle, nbits
 - attributes
   - writing / reading on datasets, groups
