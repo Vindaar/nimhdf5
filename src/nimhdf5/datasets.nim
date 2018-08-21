@@ -32,7 +32,7 @@ proc newH5DataSet*(name: string = ""): ref H5DataSet =
   result.name = name
   result.shape = shape
   result.maxshape = maxshape
-  result.dtype = nil
+  result.dtype = ""
   result.dtype_c = -1.hid_t
   result.parent = ""
   result.file = ""

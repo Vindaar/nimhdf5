@@ -35,7 +35,7 @@ proc parseMaxShape(maxshape: seq[int]): seq[hsize_t] =
   ## per dimension:
   ## `int.high` -> H5S_UNLIMITED
   if maxshape.len == 0:
-    result = nil
+    result = @[]
   else:
     result = mapIt(maxshape, if it == int.high: H5S_UNLIMITED else: hsize_t(it))
 
