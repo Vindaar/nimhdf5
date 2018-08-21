@@ -4,6 +4,9 @@ import hdf5_wrapper
 import datatypes
 import H5nimtypes
 
+
+import blosc/blosc_plugin
+
 const SzipPixPerBlockSeq = toSeq(0'u8 .. 32'u8).filterIt(it mod 2 == 0)
 const ZlibCompressionLevel = {0 .. 9}
 # define allowed values for the Szip pixels per block (even values < 32)
@@ -12,6 +15,16 @@ static:
   for x in SzipPixPerBlockSeq:
     tempSet.incl x
 const SzipPixPerBlockSet = tempSet
+
+when HasBloscSupport:
+  type
+    BloscCompressor* {.pure.} = enum
+      BloscLZ = BLOSC_BLOSCLZ
+      LZ4 = BLOSC_LZ4
+      LZ4HC = BLOSC_LZ4HC
+      Snappy = BLOSC_SNAPPY
+      Zlib = BLOSC_ZLIB
+      Zstd = BLOSC_ZSTD
 
 type
   H5FilterKind* = enum
@@ -29,7 +42,12 @@ type
     of fkZlib:
       zlibLevel*: int
     of fkBlosc:
-      bloscLevel*: int
+      when HasBloscSupport:
+        bloscLevel*: int
+        doShuffle*: bool
+        compressor*: BloscCompressor
+      else:
+        discard
     of fkNone:
       # if no filter used, empty object
       discard
@@ -57,7 +75,19 @@ proc setFilters*(dset: H5DataSet, filter: H5Filter) =
         "compression. Valid values are {0 .. 9}")
     status = H5Pset_deflate(dset.dcpl_id, filter.zlibLevel.cuint)
   of fkBlosc:
-    raise newException(NotImplementedError, "Blosc support not yet implemented!")
+    # TODO: only
+    when HasBloscSupport:
+      var filterVals = newSeq[cuint](7)
+      filterVals[4] = filter.bloscLevel.cuint
+      filterVals[5] = if filter.doShuffle: 1 else: 0
+      filterVals[6] = filter.compressor.cuint
+      # set the filter
+      status = H5Pset_filter(dset.dcpl_id, FILTER_BLOSC, H5Z_FLAG_OPTIONAL,
+                             filterVals.len, addr filterVals[0])
+    else:
+      raise newException(NotImplementedError, "Blosc support not available, due " &
+        "to missing `nblosc` library!")
+    # raise newException(NotImplementedError, "Blosc support not yet implemented!")
   of fkNone:
     discard
 

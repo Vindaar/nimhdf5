@@ -75,3 +75,9 @@ export filters
 # has not imported seqmath itself
 import seqmath
 export seqmath
+
+# import the blosc plugin. If the user doesn't have blosc installed,
+# the plugin will be empty and only set the `HasBloscSupport` variable
+# to false
+import blosc/blosc_plugin
+export blosc_plugin
