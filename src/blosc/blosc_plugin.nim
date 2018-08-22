@@ -22,6 +22,7 @@ when HasBloscSupport:
   import ../nimhdf5/H5nimtypes
   import ../nimhdf5/datatypes
   import ../nimhdf5/hdf5_wrapper
+  import ../nimhdf5/util
 
   # Filter revision number, starting at 1
   const FILTER_BLOSC_VERSION* = 2 # multiple compressors since Blosc 1.3
@@ -265,3 +266,21 @@ when HasBloscSupport:
 
   proc H5PLget_plugin_info*(): H5Z_class2_t {.exportc: "H5PLget_plugin_info", cdecl.} =
     result = Blosc_H5Filter
+
+
+  # finally register the blosc plugin with the HDF5 library
+  let available = if H5Zfilter_avail(FILTER_BLOSC) == 1: true else: false
+  if not available:
+    var
+      version: string
+      date: string
+    let r = registerBlosc(version, date)
+    if r >= 0:
+      assert H5Zfilter_avail(FILTER_BLOSC) == 1
+
+      withDebug:
+        debugEcho "Registered Blosc."
+        debugEcho "\tversion: " & $version
+        debugEcho "\tdate: " & $date
+    else:
+      echo "Warning: could not register Blosc plugin with library!"
