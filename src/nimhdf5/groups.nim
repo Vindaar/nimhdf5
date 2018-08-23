@@ -132,12 +132,17 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   # of root
   var p_str: string = "/"
   if isInH5Root(group_name) == false:
+    withDebug:
+      debugEcho "isInH5Root(" & group_name & ") is false"
+
     # the location id is the id of the parent of group_name
     # i.e. the group is created in the parent group
     p_str = getParent(group_name)
     let parent = h5f.groups[p_str][]
     location_id = getH5Id(parent)
   else:
+    withDebug:
+      debugEcho "isInH5Root(" & group_name & ") is true"
     # the group will be created in the root of the file
     location_id = h5f.file_id
 
@@ -152,10 +157,10 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
     # group exists, open it
     result.group_id = H5Gopen2(location_id, result.name, H5P_DEFAULT)
     withDebug:
-      echo "Group exists H5Gopen2() returned id ", result.group_id
+      debugEcho "Group exists H5Gopen2() returned id ", result.group_id
   elif exists == 0:
     withDebug:
-      echo "Group non existant, creating group ", result.name
+      debugEcho "Group non existant, creating group ", result.name
     # group non existant, create
     result.group_id = H5Gcreate2(location_id, result.name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
   else:
@@ -192,7 +197,7 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   var grp = new H5Group
   grp[] = result
   withDebug:
-    echo "Adding element to h5f groups ", group_name
+    debugEcho "Adding element to h5f groups ", group_name
   h5f.groups[group_name] = grp
   grp.groups = h5f.groups
 
@@ -222,7 +227,7 @@ proc create_group*[T](h5f: var T, group_name: string): H5Group =
     else:
       group_path = group_name
     withDebug:
-      echo "Group path is now ", group_path, " ", h5f.name
+      debugEcho "Group path is now ", group_path, " ", h5f.name
   else:
     let group_path = formatName group_name
 

@@ -26,7 +26,7 @@ proc `$`*(dset: ref H5DataSet): string =
 proc isInH5Root*(name: string): bool =
   ## this procedure returns whether the given group or dataset is in a group
   ## or in the root of the HDF5 file.
-  ## NOTE: make suree the name is a formated string via formatName!
+  ## NOTE: make sure the name is a formated string via formatName!
   ##       otherwise the result may be completely wrong
   let n_slash = count(name, '/')
   assert n_slash > 0

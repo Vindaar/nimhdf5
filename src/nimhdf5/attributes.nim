@@ -60,7 +60,7 @@ proc getAttrName(attr_id: hid_t, buf_space = 20): string =
   ## proc to get the attribute name of the attribute with the given id
   ## reserves space for the name to be written to
   withDebug:
-    echo "Call to getAttrName! with size $#" % $buf_space
+    debugEcho "Call to getAttrName! with size $#" % $buf_space
   var name = newString(buf_space)
   # read the name
   let length = attr_id.H5Aget_name(len(name), name)
@@ -86,13 +86,13 @@ proc getNumAttrs(h5attr: H5Attributes): int =
   if err >= 0:
     # successful
     withDebug:
-      echo "getNumAttrs(): ", h5attr
+      debugEcho "getNumAttrs(): ", h5attr
     var status: hid_t
     var loc = cstring(".")
     result = int(h5info.num_attrs)
   else:
     withDebug:
-      echo "getNumAttrs(): ", h5attr
+      debugEcho "getNumAttrs(): ", h5attr
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getNumAttr` when reading $#" % $h5attr.parent_name)
 
 proc setAttrAnyKind(attr: var H5Attr) =
@@ -116,12 +116,13 @@ proc read_all_attributes*(h5attr: var H5Attributes) =
     attr.attr_id = openAttrByIdx(h5attr, i)
     let name = getAttrName(attr.attr_id)
     withDebug:
-      echo "Found? ", attr.attr_id, " with name ", name
+      debugEcho "Found? ", attr.attr_id, " with name ", name
     # get dtypes and dataspace id
     attr.dtype_c = H5Aget_type(attr.attr_id)
 
     # TODO: remove debug
-    echo "attr ", name, " is vlen string ", H5Tis_variable_str(attr.dtype_c)
+    withDebug:
+      debugEcho "attr ", name, " is vlen string ", H5Tis_variable_str(attr.dtype_c)
     #attr.dtype_c = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
     #echo "Encoding is native ", H5Tget_cset(attr.dtype_c)
     attr.attr_dspace_id = H5Aget_space(attr.attr_id)
@@ -157,7 +158,7 @@ proc deleteAttribute*(h5id: hid_t, name: string): bool =
   ##   HDF5LibraryError = may be raised by the call to `existsAttribute`
   ##     if a call to the H5 library fails
   withDebug:
-    echo "Deleting attribute $# on id $#" % [name, $h5id]
+    debugEcho "Deleting attribute $# on id $#" % [name, $h5id]
   if existsAttribute(h5id, name) == true:
     let success = H5Adelete(h5id, name)
     result = if success >= 0: true else: false
@@ -187,7 +188,7 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
   if skip_check == false:
     attr_exists = existsAttribute(h5attr.parent_id, name)
     withDebug:
-      echo "Attribute $# exists $#" % [name, $attr_exists]
+      debugEcho "Attribute $# exists $#" % [name, $attr_exists]
   if attr_exists == false:
     # create a H5Attr, which we add to the table attr_tab of the given
     # h5attr object once we wrote it to file
@@ -287,22 +288,16 @@ proc readStringAttribute(attr: ref H5Attr): string =
   ## for users after checking of attribute is done.
   # TODO: complete documentation
   attr.attr_dspace_id = H5Aget_space(attr.attr_id)
-
   let isVlen = H5Tis_variable_str(attr.dtype_c)
-  # TODO: remove debug
-  echo "isVlen ", isVlen
   let nativeType = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
-  # TODO: remove debug
-  echo "Native type is ", nativeType
-
-  # read data
-  # TODO: remove debug
-  echo "Encoding is ", H5Tget_cset(attr.dtype_c)
+  withDebug:
+    # TODO: remove debug
+    debugEcho "isVlen ", isVlen
+    debugEcho "Native type is ", nativeType
+    debugEcho "Encoding is ", H5Tget_cset(attr.dtype_c)
   if isVlen == 1:
     # create a void pointer equivalent
     var bufPtrPtr = alloc(8 * sizeof(char))
-    # TODO: remove debug
-    echo "Pointer is ", bufPtrPtr.repr
     let err2 = H5Aread(attr.attr_id, nativeType, bufPtrPtr)
     # cast the void pointer to a ptr on a ptr of an unchecked array
     # and dereference it to get a ptr to an unchecked char array
@@ -311,7 +306,8 @@ proc readStringAttribute(attr: ref H5Attr): string =
     result = parseString(bufData)
 
     # TODO: remove debug
-    echo "Freeing pointer ", bufPtrPtr.repr
+    withDebug:
+      debugEcho "Freeing pointer ", bufPtrPtr.repr
     dealloc bufPtrPtr
   else:
     # in case of string, need to determine size. use:
