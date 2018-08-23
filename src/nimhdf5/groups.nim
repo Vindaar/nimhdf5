@@ -126,8 +126,11 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   ## outputs:
   ##    H5Group = returns a group object with the basic properties set
 
+  result = newH5Group(group_name)[]
+
   # the location id (id of group or the root) at which to create the group
   var location_id: hid_t
+  var exists: hid_t = 0.hid_t
   # default for parent is root, might be changed if group_name lies outside
   # of root
   var p_str: string = "/"
@@ -140,19 +143,24 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
     p_str = getParent(group_name)
     let parent = h5f.groups[p_str][]
     location_id = getH5Id(parent)
+    # check if non root group exists
+    exists = location_id.existsInFile(result.name)
   else:
     withDebug:
       debugEcho "isInH5Root(" & group_name & ") is true"
     # the group will be created in the root of the file
     location_id = h5f.file_id
+    # if in root group, check whether this IS the root group
+    if group_name == "/":
+      # the root group always exists
+      exists = 1.hid_t
+    else:
+      # else check for its existence as well
+      exists = location_id.existsInFile(result.name)
 
-  result = newH5Group(group_name)[]
-  # before we create a greoup, check whether said group exists in the H5 file
-  # already
-  withDebug:
-    echo "Checking for existence of group ", result.name, " ", group_name
+  # set the parent name
+  result.parent = p_str
 
-  let exists = location_id.existsInFile(result.name)
   if exists > 0:
     # group exists, open it
     result.group_id = H5Gopen2(location_id, result.name, H5P_DEFAULT)
@@ -164,9 +172,10 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
     # group non existant, create
     result.group_id = H5Gcreate2(location_id, result.name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
   else:
-    #TODO: replace by exception
-    echo "create_group(): You probably see the HDF5 errors piling up..."
-  result.parent = p_str
+    raise newException(HDF5LibraryError, "call to H5 library failed in " &
+      "`createGroupFromParent` trying to create group: " & group_name &
+      ". Such a group exists? " & $exists)
+
   # since we know that the parent exists, we can simply use the (recursive!) getParentId
   # to get the id of the parent, without worrying about receiving a parent id of an
   # object, which is in reality not a parent
