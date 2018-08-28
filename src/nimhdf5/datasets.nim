@@ -266,32 +266,69 @@ proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int
   ##            - If empty sequence and chunksize == @[] -> no chunking, maxshape == shape
   ##            - If empty sequence and chunksize != @[] -> chunking, maxshape == shape
   ##            To set a specific dimension to unlimited set that dimensions value to `int.high`.
-  dset.maxshape = maxshape
-  dset.chunksize = chunksize
-  if maxshape.len > 0:
-    # user wishes to create unlimited sized or limited sized + resizable dataset
-    # need to create chunked storage.
-    if chunksize.len == 0:
-      # no chunksize, but maxshape -> chunksize = shape
-      dset.chunksize = dset.shape
-    else:
-      # chunksize given, use it
-      dset.chunksize = chunksize
-    result = set_chunk(dset.dcpl_id, dset.chunksize)
+
+  template invalidSize(s: seq[int]) =
+    if s.len > 0:
+      let invalid = s.anyIt(it == 0) or s.len != dset.shape.len
+      if invalid:
+        raise newException(ValueError, "Invalid value (dimension of size 0 " &
+          "or missing dimension) in chunksize " & $chunksize & " or maxshape " &
+          $maxshape & " while trying to create dataset: " & dset.name)
+  # first of all check whether any dimension is given size 0 for chunksize or
+  # maxshape. Invalid, raise exception
+  maxshape.invalidSize
+  chunksize.invalidSize
+
+  template check(actions: untyped) =
+    actions
     if result < 0:
       raise newException(HDF5LibraryError, "HDF5 library returned error on " &
         "call to `H5Pset_chunk`")
-  else:
-    # in this case max shape is current shape regardless
+
+  if chunksize.len == 0 and maxshape.len == 0:
+    # if neither given, maxshape will be current shape
+    # and return 0
     dset.maxshape = dset.shape
-    if chunksize.len > 0:
-      # chunksize given -> maxshape = shape
-      result = set_chunk(dset.dcpl_id, dset.chunksize)
-      if result < 0:
-        raise newException(HDF5LibraryError, "HDF5 library returned error " &
-          "on call to `H5Pset_chunk`")
+    result = 0.hid_t
+  # handle case where maxshape.len == 0 while chunksize.len > 0
+  # issue #17
+  elif chunksize.len > 0 and maxshape.len == 0:
+    # in this case set maxshape to the larger of (dset.shape, chunksize)
+    # element wise
+    dset.maxshape = newSeq[int](dset.shape.len)
+    for i in 0 ..< dset.shape.len:
+      dset.maxshape[i] = max(dset.shape[i], chunksize[i])
+
+    # user wishes to create unlimited sized or limited sized + resizable dataset
+    # need to create chunked storage
+    dset.chunksize = chunksize
+    check:
+      result = set_chunk(dset.dcpl_id, chunksize)
+  elif chunksize.len > 0 and maxshape.len > 0:
+    # check whether maxshape >= as chunksize
+    if zip(chunksize, maxshape).anyIt(it[0] > it[1]):
+      raise newException(ValueError, "Maxshape " & $maxshape & " needs to be " &
+        ">= chunksize " & $chunksize & " in every dimension! Tried to create " &
+        "dataset: " & $dset.name)
     else:
-      result = 0.hid_t
+      # got chunksize and maxshape, checked if valid, so use them
+      dset.maxshape = maxshape
+      dset.chunksize = chunksize
+      check:
+        result = set_chunk(dset.dcpl_id, chunksize)
+  elif chunksize.len == 0:
+    # final case if chunksize not given, maxshape is given, else we would
+    # be in the first branch. maxshape.len > 0 means user wants to cap
+    # dataset size.
+    if zip(dset.shape, maxshape).anyIt(it[0] > it[1]):
+      raise newException(ValueError, "Maxshape " & $maxshape & " must not be " &
+        "smaller than dataset shape " & $dset.shape & " for dataset " & $dset.name)
+    else:
+      dset.maxshape = maxshape
+      # we chunk to the size of maxshape
+      dset.chunksize = maxshape
+      check:
+        result = set_chunk(dset.dcpl_id, dset.chunksize)
 
 proc create_dataset_in_file(h5file_id: hid_t, dset: H5DataSet): hid_t =
   ## proc to create a given dataset in the H5 file described by `h5file_id`

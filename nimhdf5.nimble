@@ -26,3 +26,4 @@ task test, "Runs all tests":
   exec "nim c -r tests/tfilter.nim"
   # regression tests
   exec "nim c -r tests/tint64_dset.nim"
+  exec "nim c -r tests/t17.nim"
