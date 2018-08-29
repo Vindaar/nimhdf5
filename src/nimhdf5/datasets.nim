@@ -1314,7 +1314,8 @@ proc write_hyperslab*[T](dset: H5DataSet,
 
     memspace_id = simple_dataspace(data.shape)
     let hyperslab_id = dset.select_hyperslab(offset, count, stride, blk)
-    echo "Selected now write space id ", hyperslab_id
+    withDebug:
+      echo "Selected now write space id ", hyperslab_id
     err = H5Dwrite(dset.dataset_id,
                    dset.dtype_c,
                    memspace_id,
