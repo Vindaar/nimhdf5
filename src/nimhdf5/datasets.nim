@@ -40,6 +40,18 @@ proc newH5DataSet*(name: string = ""): ref H5DataSet =
   result.all = RW_ALL
   result.attrs = attrs
 
+proc flush*(dset: H5DataSet, flushKind: FlushKind) =
+  ## wrapper around H5Fflush for convenience
+  var err: herr_t
+  case flushKind
+  of fkGlobal:
+      err = H5Fflush(dset.dataset_id, H5F_SCOPE_GLOBAL)
+  of fkLocal:
+      err = H5Fflush(dset.dataset_id, H5F_SCOPE_LOCAL)
+  if err < 0:
+    raise newException(HDF5LibraryError, "Trying to flush dataset " & dset.name &
+      " as " & $flushKind & " failed!")
+
 proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
   ## convenience proc to return the dataset with name dset_name
   ## if it does not exist, KeyError is thrown
@@ -326,9 +338,9 @@ proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int
     else:
       dset.maxshape = maxshape
       # we chunk to the size of maxshape
-      dset.chunksize = maxshape
-      check:
-        result = set_chunk(dset.dcpl_id, dset.chunksize)
+      #dset.chunksize = maxshape
+      #check:
+      #  result = set_chunk(dset.dcpl_id, dset.chunksize)
 
 proc create_dataset_in_file(h5file_id: hid_t, dset: H5DataSet): hid_t =
   ## proc to create a given dataset in the H5 file described by `h5file_id`

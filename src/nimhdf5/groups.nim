@@ -49,6 +49,18 @@ proc `$`*(group: H5Group): string =
     result = result & "\n\t\t" & k
   result = result & "\n\t}\n}"
 
+proc flush*(group: H5Group, flushKind: FlushKind) =
+  ## wrapper around H5Fflush for convenience
+  var err: herr_t
+  case flushKind
+  of fkGlobal:
+      err = H5Fflush(group.group_id, H5F_SCOPE_GLOBAL)
+  of fkLocal:
+      err = H5Fflush(group.group_id, H5F_SCOPE_LOCAL)
+  if err < 0:
+    raise newException(HDF5LibraryError, "Trying to flush group " & group.name &
+      " as " & $flushKind & " failed!")
+
 proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
   ## convenience proc to return the group with name grp_name
   ## if it does not exist, KeyError is thrown

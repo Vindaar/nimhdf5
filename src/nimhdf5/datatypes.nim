@@ -183,6 +183,11 @@ type
   # raised if some part of code that is not yet implemented (but planned) is being called
   NotImplementedError* = object of Exception
 
+  # enum which determines how the given H5 object should be flushed
+  # corresponds to the H5F_SCOPE flags
+  FlushKind* = enum
+    fkLocal, fkGlobal
+
 const
     H5_NOFILE* = hid_t(-1)
     H5_OPENFILE* = hid_t(1)

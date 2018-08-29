@@ -218,6 +218,18 @@ proc getOpenObjectIds(h5f: H5FileObj, kind: ObjectKind): seq[hid_t] =
   let objsOpen = H5Fget_obj_ids(h5f.file_id, h5Kind.cuint, 1000, addr objList[0])
   result = objList.filterIt(it > 0)
 
+proc flush*(h5f: var H5FileObj, flushKind: FlushKind = fkGlobal) =
+  ## wrapper around H5Fflush for convenience
+  var err: herr_t
+  case flushKind
+  of fkGlobal:
+      err = H5Fflush(h5f.file_id, H5F_SCOPE_GLOBAL)
+  of fkLocal:
+      err = H5Fflush(h5f.file_id, H5F_SCOPE_LOCAL)
+  if err < 0:
+    raise newException(HDF5LibraryError, "Trying to flush file " & h5f.name &
+      " as " & $flushKind & " failed!")
+
 proc close(id: hid_t, kind: ObjectKind): herr_t =
   ## calls the correct H5 `close` function for the given object kind
   case kind
