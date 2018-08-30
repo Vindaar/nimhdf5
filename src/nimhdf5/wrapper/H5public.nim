@@ -23,12 +23,12 @@ when not declared(libname):
     const
       libname* = "libhdf5.so"
 
-## 
+##
 ##  This file contains public declarations for the HDF5 module.
-## 
+##
 
 ##  Include files for public use...
-## 
+##
 ##  Since H5pubconf.h is a generated header file, it is messy to try
 ##  to put a #ifndef _H5pubconf_H ... #endif guard in it.
 ##  HDF5 has set an internal rule that it is being included here.
@@ -76,7 +76,7 @@ import ../H5nimtypes
 ##  (see the following web-sites for more info:
 ##       http://www.dbp-consulting.com/tutorials/SuppressingGCCWarnings.html
 ##       http://gcc.gnu.org/onlinedocs/gcc/Diagnostic-Pragmas.html#Diagnostic-Pragmas
-## 
+##
 ##  These pragmas are only implemented usefully in gcc 4.6+
 ##  #if ((__GNUC__ * 100) + __GNUC_MINOR__) >= 406
 ##      #define H5_GCC_DIAG_STR(s) #s
@@ -115,24 +115,24 @@ template H5_VERSION_LE*(Maj, Min, Rel: untyped): untyped =
   (((H5_VERS_MAJOR == Maj) and (H5_VERS_MINOR == Min) and (H5_VERS_RELEASE <= Rel)) or
       ((H5_VERS_MAJOR == Maj) and (H5_VERS_MINOR < Min)) or (H5_VERS_MAJOR < Maj))
 
-## 
+##
 ##  Status return values.  Failed integer functions in HDF5 result almost
 ##  always in a negative value (unsigned failing functions sometimes return
 ##  zero for failure) while successfull return is non-negative (often zero).
 ##  The negative failure value is most commonly -1, but don't bet on it.  The
 ##  proper way to detect failure is something like:
-## 
+##
 ##  	if((dset = H5Dopen2(file, name)) < 0)
 ## 	    fprintf(stderr, "unable to open the requested dataset\n");
-## 
+##
 
-## 
+##
 ##  Boolean type.  Successful return values are zero (false) or positive
 ##  (true). The typical true value is 1 but don't bet on it.  Boolean
 ##  functions cannot fail.  Functions that return `htri_t' however return zero
 ##  (false), positive (true), or negative (failure). The proper way to test
 ##  for truth from a htri_t function is:
-## 
+##
 ##  	if ((retval = H5Tcommitted(type))>0) {
 ## 	    printf("data type is committed\n");
 ## 	} else if (!retval) {
@@ -140,7 +140,7 @@ template H5_VERSION_LE*(Maj, Min, Rel: untyped): untyped =
 ## 	} else {
 ##  	    printf("error determining whether data type is committed\n");
 ## 	}
-## 
+##
 ##  #ifdef H5_HAVE_STDBOOL_H
 ##    #include <stdbool.h>
 ##  #else /\* H5_HAVE_STDBOOL_H *\/
@@ -180,10 +180,10 @@ else:
   type
     ssize_t* = csize
 #   else:
-## 
+##
 ##  The sizes of file objects have their own types defined here, use a 64-bit
 ##  type.
-## 
+##
 ##  #if H5_SIZEOF_LONG_LONG >= 8
 ##  H5_GCC_DIAG_OFF(long-long)
 
@@ -201,7 +201,7 @@ else:
 #const
 #  HSIZE_UNDEF* = ((hsize_t)(hssize_t)(- 1))
 
-## 
+##
 ##  File addresses have their own types.
 ##
 
@@ -231,7 +231,7 @@ elif H5_SIZEOF_LONG_LONG >= 8:
   type
     haddr_t* = culonglong
   const
-    HADDR_UNDEF* = ((haddr_t)(long, long)(- 1))
+    HADDR_UNDEF* = ((haddr_t)(clong, clong)(- 1))
     H5_SIZEOF_HADDR_T* = H5_SIZEOF_LONG_LONG
   when defined(H5_HAVE_PARALLEL):
     const
@@ -252,7 +252,7 @@ elif H5_SIZEOF_LONG_LONG >= 8:
 
 ##  uint32_t type is used for creation order field for messages.  It may be
 ##  defined in Posix.1g, otherwise it is defined here.
-## 
+##
 
 const H5_SIZEOF_UINT32_T = sizeof(cuint)
 const H5_SIZEOF_SHORT = sizeof(cshort)
@@ -268,7 +268,7 @@ elif H5_SIZEOF_LONG >= 4:
 # else:
 # ##  int64_t type is used for creation order field for links.  It may be
 # ##  defined in Posix.1g, otherwise it is defined here.
-# ## 
+# ##
 
 # when H5_SIZEOF_INT64_T >= 8:
 # elif H5_SIZEOF_INT >= 8:
@@ -289,7 +289,7 @@ elif H5_SIZEOF_LONG >= 4:
 # else:
 # ##  uint64_t type is used for fields for H5O_info_t.  It may be
 # ##  defined in Posix.1g, otherwise it is defined here.
-# ## 
+# ##
 
 # when H5_SIZEOF_UINT64_T >= 8:
 # elif H5_SIZEOF_INT >= 8:
@@ -322,18 +322,18 @@ type
 ##  Iteration callback values
 ##  (Actually, any postive value will cause the iterator to stop and pass back
 ##       that positive value to the function that called the iterator)
-## 
+##
 
 const
   H5_ITER_ERROR* = (- 1)
   H5_ITER_CONT* = (0)
   H5_ITER_STOP* = (1)
 
-## 
+##
 ##  The types of indices on links in groups/attributes on objects.
 ##  Primarily used for "<do> <foo> by index" routines and for iterating over
 ##  links in groups/attributes on objects.
-## 
+##
 
 type
   H5_index_t* {.size: sizeof(cint).} = enum
@@ -343,9 +343,9 @@ type
     H5_INDEX_N                ##  Number of indices defined
 
 
-## 
+##
 ##  Storage info struct used by H5O_info_t and H5F_info_t
-## 
+##
 
 type
   H5_ih_info_t* = object
