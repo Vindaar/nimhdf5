@@ -222,7 +222,7 @@ elif H5_SIZEOF_LONG >= 8:
   type
     haddr_t* = culong
   const
-    #HADDR_UNDEF* = ((haddr_t)(long)(- 1))
+    HADDR_UNDEF* = (-1).clong.haddr_t
     H5_SIZEOF_HADDR_T* = H5_SIZEOF_LONG
   when defined(H5_HAVE_PARALLEL):
     const
@@ -231,7 +231,7 @@ elif H5_SIZEOF_LONG_LONG >= 8:
   type
     haddr_t* = culonglong
   const
-    HADDR_UNDEF* = ((haddr_t)(clonglong)(- 1))
+    HADDR_UNDEF* = (-1).clonglong.haddr_t
     H5_SIZEOF_HADDR_T* = H5_SIZEOF_LONG_LONG
   when defined(H5_HAVE_PARALLEL):
     const
@@ -247,8 +247,8 @@ elif H5_SIZEOF_LONG_LONG >= 8:
 ##  #   error "nothing appropriate for H5_PRINTF_HADDR_FMT"
 ##  #endif
 
-#const
-#  HADDR_MAX* = (HADDR_UNDEF - 1)
+const
+  HADDR_MAX* = (HADDR_UNDEF - 1)
 
 ##  uint32_t type is used for creation order field for messages.  It may be
 ##  defined in Posix.1g, otherwise it is defined here.
