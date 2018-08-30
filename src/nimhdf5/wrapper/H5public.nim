@@ -231,7 +231,7 @@ elif H5_SIZEOF_LONG_LONG >= 8:
   type
     haddr_t* = culonglong
   const
-    HADDR_UNDEF* = ((haddr_t)(clong, clong)(- 1))
+    HADDR_UNDEF* = ((haddr_t)(clonglong)(- 1))
     H5_SIZEOF_HADDR_T* = H5_SIZEOF_LONG_LONG
   when defined(H5_HAVE_PARALLEL):
     const
