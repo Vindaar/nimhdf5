@@ -12,25 +12,15 @@
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
 {.deadCodeElim: on.}
-## 
+##
 ##  This file contains public declarations for the H5T module.
-## 
+##
 
 ##  Public headers needed by this file
 
 import
-  H5public, H5Ipublic, ../H5nimtypes
+  H5public, H5Ipublic, ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
 
 
 # before we can import any of the variables, from the already shared library
@@ -94,10 +84,10 @@ type
     H5T_NORM_NONE = 2
 
 
-## 
+##
 ##  Character set to use for text strings.  Do not change these values since
 ##  they appear in HDF5 files!
-## 
+##
 
 type
   H5T_cset_t* {.size: sizeof(cint).} = enum
@@ -123,10 +113,10 @@ type
 const
   H5T_NCSET* = H5T_CSET_RESERVED_2
 
-## 
+##
 ##  Type of padding to use in character strings.  Do not change these values
 ##  since they appear in HDF5 files!
-## 
+##
 
 type
   H5T_str_t* {.size: sizeof(cint).} = enum
@@ -189,7 +179,7 @@ type
     need_bkg*: H5T_bkg_t       ## is the background buffer needed?
     recalc*: hbool_t           ## recalculate private data
     priv*: pointer             ## private data
-  
+
 
 ##  Conversion function persistence
 
@@ -238,7 +228,7 @@ type
   hvl_t* = object
     `len`*: csize                ##  Length of VL data (in base type units)
     p*: pointer                ##  Pointer to VL data
-  
+
 
 ##  Variable Length String information
 
@@ -261,7 +251,7 @@ type
 
 ##  Exception handler.  If an exception like overflow happenes during conversion,
 ##  this function is called if it's registered through H5Pset_type_conv_cb.
-## 
+##
 
 type
   H5T_conv_except_func_t* = proc (except_type: H5T_conv_except_t; src_id: hid_t;
@@ -276,7 +266,7 @@ type
 # else:
 #   const
 #     H5OPEN* = true
-## 
+##
 ##  The IEEE floating point types in various byte orders.
 ##
 
@@ -295,10 +285,10 @@ let
   H5T_IEEE_F64LE* = H5T_IEEE_F64LE_g
 
 
-## 
+##
 ##  These are "standard" types.  For instance, signed (2's complement) and
 ##  unsigned integers of various sizes and byte orders.
-## 
+##
 
 var H5T_STD_I8BE_g* {.importc: "H5T_STD_I8BE_g", dynlib: libname.}: hid_t
 
@@ -381,9 +371,9 @@ let
   H5T_STD_REF_DSETREG* = H5T_STD_REF_DSETREG_g
 
 
-## 
+##
 ##  Types which are particular to Unix.
-## 
+##
 
 var H5T_UNIX_D32BE_g* {.importc: "H5T_UNIX_D32BE_g", dynlib: libname.}: hid_t
 
@@ -400,10 +390,10 @@ let
   H5T_UNIX_D64LE* = H5T_UNIX_D64LE_g
 
 
-## 
+##
 ##  Types particular to the C language.  String types use `bytes' instead
 ##  of `bits' as their size.
-## 
+##
 
 var H5T_C_S1_g* {.importc: "H5T_C_S1_g", dynlib: libname.}: hid_t
 
@@ -411,19 +401,19 @@ let
   H5T_C_S1* = H5T_C_S1_g
 
 
-## 
+##
 ##  Types particular to Fortran.
-## 
+##
 
 var H5T_FORTRAN_S1_g* {.importc: "H5T_FORTRAN_S1_g", dynlib: libname.}: hid_t
 
 let
   H5T_FORTRAN_S1* = H5T_FORTRAN_S1_g
 
-## 
+##
 ##  These types are for Intel CPU's.  They are little endian with IEEE
 ##  floating point.
-## 
+##
 
 let
   H5T_INTEL_I8* = H5T_STD_I8LE
@@ -441,10 +431,10 @@ let
   H5T_INTEL_F32* = H5T_IEEE_F32LE
   H5T_INTEL_F64* = H5T_IEEE_F64LE
 
-## 
+##
 ##  These types are for DEC Alpha CPU's.  They are little endian with IEEE
 ##  floating point.
-## 
+##
 
 let
   H5T_ALPHA_I8* = H5T_STD_I8LE
@@ -462,10 +452,10 @@ let
   H5T_ALPHA_F32* = H5T_IEEE_F32LE
   H5T_ALPHA_F64* = H5T_IEEE_F64LE
 
-## 
+##
 ##  These types are for MIPS cpu's commonly used in SGI systems. They are big
 ##  endian with IEEE floating point.
-## 
+##
 
 let
   H5T_MIPS_I8* = H5T_STD_I8BE
@@ -483,9 +473,9 @@ let
   H5T_MIPS_F32* = H5T_IEEE_F32BE
   H5T_MIPS_F64* = H5T_IEEE_F64BE
 
-## 
+##
 ##  The VAX floating point types (i.e. in VAX byte order)
-## 
+##
 
 var H5T_VAX_F32_g* {.importc: "H5T_VAX_F32_g", dynlib: libname.}: hid_t
 
@@ -496,7 +486,7 @@ let
   H5T_VAX_F64* = H5T_VAX_F64_g
 
 
-## 
+##
 ##  The predefined native types. These are the types detected by H5detect and
 ##  they violate the naming scheme a little.  Instead of a class name,
 ##  precision and byte order as the last component, they have a C-like type
@@ -504,7 +494,7 @@ let
 ##  integer type; other integer types are signed.  The type LLONG corresponds
 ##  to C's `long long' and LDOUBLE is `long double' (these types might be the
 ##  same as `LONG' and `DOUBLE' respectively).
-## 
+##
 
 var H5T_NATIVE_SCHAR_g* {.importc: "H5T_NATIVE_SCHAR_g", dynlib: libname.}: hid_t
 
@@ -621,7 +611,7 @@ var H5T_NATIVE_INT_FAST16_g* {.importc: "H5T_NATIVE_INT_FAST16_g", dynlib: libna
 
 var H5T_NATIVE_UINT_FAST16_g* {.importc: "H5T_NATIVE_UINT_FAST16_g", dynlib: libname.}: hid_t
 
-let 
+let
   H5T_NATIVE_INT16* = H5T_NATIVE_INT16_g
   H5T_NATIVE_UINT16* = H5T_NATIVE_UINT16_g
   H5T_NATIVE_INT_LEAST16* = H5T_NATIVE_INT_LEAST16_g
@@ -642,7 +632,7 @@ var H5T_NATIVE_INT_FAST32_g* {.importc: "H5T_NATIVE_INT_FAST32_g", dynlib: libna
 
 var H5T_NATIVE_UINT_FAST32_g* {.importc: "H5T_NATIVE_UINT_FAST32_g", dynlib: libname.}: hid_t
 
-let 
+let
   H5T_NATIVE_INT32* = H5T_NATIVE_INT32_g
   H5T_NATIVE_UINT32* = H5T_NATIVE_UINT32_g
   H5T_NATIVE_INT_LEAST32* = H5T_NATIVE_INT_LEAST32_g
@@ -834,9 +824,9 @@ proc H5Tconvert*(src_id: hid_t; dst_id: hid_t; nelmts: csize; buf: pointer;
                 background: pointer; plist_id: hid_t): herr_t {.cdecl,
     importc: "H5Tconvert", dynlib: libname.}
 ##  Symbols defined for compatibility with previous versions of the HDF5 API.
-## 
+##
 ##  Use of these symbols is deprecated.
-## 
+##
 
 when not defined(H5_NO_DEPRECATED_SYMBOLS):
   ##  Macros

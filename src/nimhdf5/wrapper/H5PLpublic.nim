@@ -14,24 +14,14 @@
 
 ##  Programmer:  Raymond Lu <songyulu@hdfgroup.org>
 ##               13 February 2013
-## 
+##
 
 ##  Public headers needed by this file
 
 import
   H5public,
-  ../H5nimtypes
+  ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
 
 ##  Generic Functions
 ## *****************

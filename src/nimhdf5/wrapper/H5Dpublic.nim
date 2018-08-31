@@ -12,28 +12,18 @@
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
 {.deadCodeElim: on.}
-## 
+##
 ##  This file contains public declarations for the H5D module.
-## 
+##
 
 ##  System headers needed by this file
 ##  Public headers needed by this file
 
 import
-  H5public, H5Ipublic, ../H5nimtypes
+  H5public, H5Ipublic, ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
 
-  
+
 
 ## ***************
 ##  Public Macros
@@ -216,9 +206,9 @@ proc H5Dformat_convert*(dset_id: hid_t): herr_t {.cdecl,
 proc H5Dget_chunk_index_type*(did: hid_t; idx_type: ptr H5D_chunk_index_t): herr_t {.
     cdecl, importc: "H5Dget_chunk_index_type", dynlib: libname.}
 ##  Symbols defined for compatibility with previous versions of the HDF5 API.
-## 
+##
 ##  Use of these symbols is deprecated.
-## 
+##
 
 when not defined(H5_NO_DEPRECATED_SYMBOLS):
   ##  Macros

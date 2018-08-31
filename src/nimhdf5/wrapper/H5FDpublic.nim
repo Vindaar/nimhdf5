@@ -13,25 +13,15 @@
 
 {.deadCodeElim: on.}
 
-## 
+##
 ##  Programmer:  Robb Matzke <matzke@llnl.gov>
 ##               Monday, July 26, 1999
-## 
+##
 
 import
-  H5public, H5Fpublic, ../H5nimtypes
+  H5public, H5Fpublic, ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
-  
+
 
 const                         ## for H5F_close_degree_t
   H5_HAVE_VFL* = 1
@@ -46,18 +36,18 @@ type
 ##  Map "fractal heap" header blocks to 'ohdr' type file memory, since its
 ##  a fair amount of work to add a new kind of file memory and they are similar
 ##  enough to object headers and probably too minor to deserve their own type.
-## 
+##
 ##  Map "fractal heap" indirect blocks to 'ohdr' type file memory, since they
 ##  are similar to fractal heap header blocks.
-## 
+##
 ##  Map "fractal heap" direct blocks to 'lheap' type file memory, since they
 ##  will be replacing local heaps.
-## 
+##
 ##  Map "fractal heap" 'huge' objects to 'draw' type file memory, since they
 ##  represent large objects that are directly stored in the file.
-## 
+##
 ##       -QAK
-## 
+##
 
 const
   H5FD_MEM_FHEAP_HDR* = H5FD_MEM_OHDR
@@ -68,12 +58,12 @@ const
 ##  Map "free space" header blocks to 'ohdr' type file memory, since its
 ##  a fair amount of work to add a new kind of file memory and they are similar
 ##  enough to object headers and probably too minor to deserve their own type.
-## 
+##
 ##  Map "free space" serialized sections to 'lheap' type file memory, since they
 ##  are similar enough to local heap info.
-## 
+##
 ##       -QAK
-## 
+##
 
 const
   H5FD_MEM_FSPACE_HDR* = H5FD_MEM_OHDR
@@ -83,12 +73,12 @@ const
 ##  since its a fair amount of work to add a new kind of file memory and they are
 ##  similar enough to object headers and probably too minor to deserve their own
 ##  type.
-## 
+##
 ##  Map "shared object header message" indices to 'btree' type file memory,
 ##  since they are similar enough to B-tree nodes.
-## 
+##
 ##       -QAK
-## 
+##
 
 const
   H5FD_MEM_SOHM_TABLE* = H5FD_MEM_OHDR
@@ -97,18 +87,18 @@ const
 ##  Map "extensible array" header blocks to 'ohdr' type file memory, since its
 ##  a fair amount of work to add a new kind of file memory and they are similar
 ##  enough to object headers and probably too minor to deserve their own type.
-## 
+##
 ##  Map "extensible array" index blocks to 'ohdr' type file memory, since they
 ##  are similar to extensible array header blocks.
-## 
+##
 ##  Map "extensible array" super blocks to 'btree' type file memory, since they
 ##  are similar enough to B-tree nodes.
-## 
+##
 ##  Map "extensible array" data blocks & pages to 'lheap' type file memory, since
 ##  they are similar enough to local heap info.
-## 
+##
 ##       -QAK
-## 
+##
 
 const
   H5FD_MEM_EARRAY_HDR* = H5FD_MEM_OHDR
@@ -120,24 +110,24 @@ const
 ##  Map "fixed array" header blocks to 'ohdr' type file memory, since its
 ##  a fair amount of work to add a new kind of file memory and they are similar
 ##  enough to object headers and probably too minor to deserve their own type.
-## 
+##
 ##  Map "fixed array" data blocks & pages to 'lheap' type file memory, since
 ##  they are similar enough to local heap info.
-## 
-## 
+##
+##
 
 const
   H5FD_MEM_FARRAY_HDR* = H5FD_MEM_OHDR
   H5FD_MEM_FARRAY_DBLOCK* = H5FD_MEM_LHEAP
   H5FD_MEM_FARRAY_DBLK_PAGE* = H5FD_MEM_LHEAP
 
-## 
+##
 ##  A free-list map which maps all types of allocation requests to a single
 ##  free list.  This is useful for drivers that don't really care about
 ##  keeping different requests segregated in the underlying file and which
 ##  want to make most efficient reuse of freed memory.  The use of the
 ##  H5FD_MEM_SUPER free list is arbitrary.
-## 
+##
 ##  #define H5FD_FLMAP_SINGLE {						      \
 ##      H5FD_MEM_SUPER,			/\*default*\/			      \
 ##      H5FD_MEM_SUPER,			/\*super*\/			      \
@@ -175,27 +165,27 @@ const
 ##  }
 ##  Define VFL driver features that can be enabled on a per-driver basis
 ##  These are returned with the 'query' function pointer in H5FD_class_t
-## 
+##
 ##  Defining H5FD_FEAT_AGGREGATE_METADATA for a VFL driver means that
 ##  the library will attempt to allocate a larger block for metadata and
 ##  then sub-allocate each metadata request from that larger block.
-## 
+##
 
 const
   H5FD_FEAT_AGGREGATE_METADATA* = 0x00000001
 
-## 
+##
 ##  Defining H5FD_FEAT_ACCUMULATE_METADATA for a VFL driver means that
 ##  the library will attempt to cache metadata as it is written to the file
 ##  and build up a larger block of metadata to eventually pass to the VFL
 ##  'write' routine.
-## 
+##
 ##  Distinguish between updating the metadata accumulator on writes and
 ##  reads.  This is particularly (perhaps only, even) important for MPI-I/O
 ##  where we guarantee that writes are collective, but reads may not be.
 ##  If we were to allow the metadata accumulator to be written during a
 ##  read operation, the application would hang.
-## 
+##
 
 const
   H5FD_FEAT_ACCUMULATE_METADATA_WRITE* = 0x00000002
@@ -203,119 +193,119 @@ const
   H5FD_FEAT_ACCUMULATE_METADATA* = (
     H5FD_FEAT_ACCUMULATE_METADATA_WRITE or H5FD_FEAT_ACCUMULATE_METADATA_READ)
 
-## 
+##
 ##  Defining H5FD_FEAT_DATA_SIEVE for a VFL driver means that
 ##  the library will attempt to cache raw data as it is read from/written to
 ##  a file in a "data seive" buffer.  See Rajeev Thakur's papers:
 ##   http://www.mcs.anl.gov/~thakur/papers/romio-coll.ps.gz
 ##   http://www.mcs.anl.gov/~thakur/papers/mpio-high-perf.ps.gz
-## 
+##
 
 const
   H5FD_FEAT_DATA_SIEVE* = 0x00000008
 
-## 
+##
 ##  Defining H5FD_FEAT_AGGREGATE_SMALLDATA for a VFL driver means that
 ##  the library will attempt to allocate a larger block for "small" raw data
 ##  and then sub-allocate "small" raw data requests from that larger block.
-## 
+##
 
 const
   H5FD_FEAT_AGGREGATE_SMALLDATA* = 0x00000010
 
-## 
+##
 ##  Defining H5FD_FEAT_IGNORE_DRVRINFO for a VFL driver means that
 ##  the library will ignore the driver info that is encoded in the file
 ##  for the VFL driver.  (This will cause the driver info to be eliminated
 ##  from the file when it is flushed/closed, if the file is opened R/W).
-## 
+##
 
 const
   H5FD_FEAT_IGNORE_DRVRINFO* = 0x00000020
 
-## 
+##
 ##  Defining the H5FD_FEAT_DIRTY_DRVRINFO_LOAD for a VFL driver means that
 ##  the library will mark the driver info dirty when the file is opened
 ##  R/W.  This will cause the driver info to be re-encoded when the file
 ##  is flushed/closed.
-## 
+##
 
 const
   H5FD_FEAT_DIRTY_DRVRINFO_LOAD* = 0x00000040
 
-## 
+##
 ##  Defining H5FD_FEAT_POSIX_COMPAT_HANDLE for a VFL driver means that
 ##  the handle for the VFD (returned with the 'get_handle' callback) is
 ##  of type 'int' and is compatible with POSIX I/O calls.
-## 
+##
 
 const
   H5FD_FEAT_POSIX_COMPAT_HANDLE* = 0x00000080
 
-## 
+##
 ##  Defining H5FD_FEAT_HAS_MPI for a VFL driver means that
 ##  the driver makes use of MPI communication and code may retrieve
 ##  communicator/rank information from it
-## 
+##
 
 const
   H5FD_FEAT_HAS_MPI* = 0x00000100
 
-## 
+##
 ##  Defining the H5FD_FEAT_ALLOCATE_EARLY for a VFL driver will force
 ##  the library to use the H5D_ALLOC_TIME_EARLY on dataset create
 ##  instead of the default H5D_ALLOC_TIME_LATE
-## 
+##
 
 const
   H5FD_FEAT_ALLOCATE_EARLY* = 0x00000200
 
-##  
+##
 ##  Defining H5FD_FEAT_ALLOW_FILE_IMAGE for a VFL driver means that
 ##  the driver is able to use a file image in the fapl as the initial
 ##  contents of a file.
-## 
+##
 
 const
   H5FD_FEAT_ALLOW_FILE_IMAGE* = 0x00000400
 
-## 
+##
 ##  Defining H5FD_FEAT_CAN_USE_FILE_IMAGE_CALLBACKS for a VFL driver
 ##  means that the driver is able to use callbacks to make a copy of the
 ##  image to store in memory.
-## 
+##
 
 const
   H5FD_FEAT_CAN_USE_FILE_IMAGE_CALLBACKS* = 0x00000800
 
-## 
+##
 ##  Defining H5FD_FEAT_SUPPORTS_SWMR_IO for a VFL driver means that the
 ##  driver supports the single-writer/multiple-readers I/O pattern.
-## 
+##
 
 const
   H5FD_FEAT_SUPPORTS_SWMR_IO* = 0x00001000
 
-## 
+##
 ##  Defining H5FD_FEAT_USE_ALLOC_SIZE for a VFL driver
 ##  means that the library will just pass the allocation size to the
 ##  the driver's allocation callback which will eventually handle alignment.
 ##  This is specifically used for the multi/split driver.
-## 
+##
 
 const
   H5FD_FEAT_USE_ALLOC_SIZE* = 0x00002000
 
-## 
+##
 ##  Defining H5FD_FEAT_PAGED_AGGR for a VFL driver
 ##  means that the driver needs special file space mapping for paged aggregation.
 ##  This is specifically used for the multi/split driver.
-## 
+##
 
 const
   H5FD_FEAT_PAGED_AGGR* = 0x00004000
 
-## 
+##
 ##  The main datatype for each driver. Public fields common to all drivers
 ##  are declared here and the driver appends private fields in memory.
 ##

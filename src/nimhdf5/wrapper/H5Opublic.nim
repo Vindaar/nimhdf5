@@ -14,16 +14,16 @@
 {.deadCodeElim: on.}
 
 ## -------------------------------------------------------------------------
-## 
+##
 ##  Created:             H5Opublic.h
 ##                       Aug  5 1997
 ##                       Robb Matzke <matzke@llnl.gov>
-## 
+##
 ##  Purpose:             Public declarations for the H5O (object header)
 ##                       package.
-## 
+##
 ## -------------------------------------------------------------------------
-## 
+##
 
 ##  Public headers needed by this file
 
@@ -31,19 +31,9 @@ import
   H5public,                   ##  Generic Functions
   H5Ipublic,                  ##  IDs
   H5Lpublic,
-  ../H5nimtypes
+  ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
-  
+
 ##  Links
 ## ***************
 ##  Public Macros
@@ -66,7 +56,7 @@ const
 ##  (Developers: These flags correspond to object header message type IDs,
 ##  but we need to assign each kind of message to a different bit so that
 ##  one index can hold multiple types.)
-## 
+##
 
 const
   H5O_SHMESG_NONE_FLAG* = 0x00000000
@@ -92,7 +82,7 @@ const
 
 ##  Maximum shared message values.  Number of indexes is 8 to allow room to add
 ##  new types of messages.
-## 
+##
 
 const
   H5O_SHMESG_MAX_NINDEXES* = 8
@@ -120,11 +110,11 @@ type
     meta*: hsize_t             ##  Space within header for object header metadata information
     mesg*: hsize_t             ##  Space within header for actual message information
     free*: hsize_t             ##  Free space within object header
-  
+
   INNER_C_STRUCT_444884638* = object
     present*: uint64           ##  Flags to indicate presence of message type in header
     shared*: uint64            ##  Flags to indicate message type is shared in header
-  
+
   H5O_hdr_info_t* = object
     version*: cuint            ##  Version number of header format in file
     nmesgs*: cuint             ##  Number of object header messages
@@ -140,7 +130,7 @@ type
   INNER_C_STRUCT_1943491610* = object
     obj*: H5_ih_info_t         ##  v1/v2 B-tree & local/fractal heap for groups, B-tree for chunked datasets
     attr*: H5_ih_info_t        ##  v2 B-tree & heap for attributes
-  
+
   H5O_info_t* = object
     fileno*: culong            ##  File number that object is located in
     `addr`*: haddr_t           ##  Object address in file
@@ -239,9 +229,9 @@ proc H5Oenable_mdc_flushes*(object_id: hid_t): herr_t {.cdecl,
 proc H5Oare_mdc_flushes_disabled*(object_id: hid_t; are_disabled: ptr hbool_t): herr_t {.
     cdecl, importc: "H5Oare_mdc_flushes_disabled", dynlib: libname.}
 ##  Symbols defined for compatibility with previous versions of the HDF5 API.
-## 
+##
 ##  Use of these symbols is deprecated.
-## 
+##
 
 when not defined(H5_NO_DEPRECATED_SYMBOLS):
   ##  Macros
@@ -253,5 +243,5 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
       free*: hsize_t           ##  Free space within object header
       nmesgs*: cuint           ##  Number of object header messages
       nchunks*: cuint          ##  Number of object header chunks
-    
+
   ##  Function prototypes

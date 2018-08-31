@@ -13,24 +13,14 @@
 
 {.deadCodeElim: on.}
 
-import ../H5nimtypes
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
-  
-## 
+import ../H5nimtypes, ../h5libname
+
+##
 ##  Programmer:  Robb Matzke <matzke@llnl.gov>
 ##               Monday, August  2, 1999
-## 
+##
 ##  Purpose:	The public header file for the core driver.
-## 
+##
 
 proc H5FD_core_init*(): hid_t {.cdecl, importc: "H5FD_core_init", dynlib: libname.}
 proc H5Pset_fapl_core*(fapl_id: hid_t; increment: csize; backing_store: hbool_t): herr_t {.
@@ -42,4 +32,3 @@ proc H5Pget_fapl_core*(fapl_id: hid_t; increment: ptr csize; ## out
 
 let
   H5FD_CORE* = (H5FD_core_init())
-

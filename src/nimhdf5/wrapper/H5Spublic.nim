@@ -13,25 +13,15 @@
 
 {.deadCodeElim: on.}
 
-## 
+##
 ##  This file contains public declarations for the H5S module.
-## 
+##
 
 ##  Public headers needed by this file
 
 import
-  H5public, H5Ipublic, ../H5nimtypes
+  H5public, H5Ipublic, ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
 
 ##  Define atomic datatypes
 
@@ -68,31 +58,31 @@ type
                   ##  Original region:  AAAAAAAAAA
                   ##  New region:             BBBBBBBBBB
                   ##  A or B:           CCCCCCCCCCCCCCCC
-                  ## 
+                  ##
     H5S_SELECT_AND,           ##  Binary "and" operation for hyperslabs
                    ##  (only leave overlapped regions in selection)
                    ##  Original region:  AAAAAAAAAA
                    ##  New region:             BBBBBBBBBB
                    ##  A and B:                CCCC
-                   ## 
+                   ##
     H5S_SELECT_XOR,           ##  Binary "xor" operation for hyperslabs
                    ##  (only leave non-overlapped regions in selection)
                    ##  Original region:  AAAAAAAAAA
                    ##  New region:             BBBBBBBBBB
                    ##  A xor B:          CCCCCC    CCCCCC
-                   ## 
+                   ##
     H5S_SELECT_NOTB, ##  Binary "not" operation for hyperslabs
                     ##  (only leave non-overlapped regions in original selection)
                     ##  Original region:  AAAAAAAAAA
                     ##  New region:             BBBBBBBBBB
                     ##  A not B:          CCCCCC
-                    ## 
+                    ##
     H5S_SELECT_NOTA, ##  Binary "not" operation for hyperslabs
                     ##  (only leave non-overlapped regions in new selection)
                     ##  Original region:  AAAAAAAAAA
                     ##  New region:             BBBBBBBBBB
                     ##  B not A:                    CCCCCC
-                    ## 
+                    ##
     H5S_SELECT_APPEND,        ##  Append elements to end of point selection
     H5S_SELECT_PREPEND,       ##  Prepend elements to beginning of point selection
     H5S_SELECT_INVALID        ##  Invalid upper bound on selection operations

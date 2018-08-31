@@ -13,9 +13,9 @@
 
 {.deadCodeElim: on.}
 
-## 
+##
 ##  This file contains public declarations for the H5R module.
-## 
+##
 
 ##  Public headers needed by this file
 
@@ -23,22 +23,12 @@ import
   H5public,
   H5Gpublic,
   H5Ipublic,
-  ../H5nimtypes
+  ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
 
-## 
+##
 ##  Reference types allowed.
-## 
+##
 
 type
   H5R_type_t* {.size: sizeof(cint).} = enum
@@ -52,7 +42,7 @@ type
 ##  depend on the run-time values in the file.  Unfortunately, the arrays need
 ##  to be defined at compile-time, so we have to go with the worst case sizes for
 ##  them.  -QAK
-## 
+##
 
 const
   H5R_OBJ_REF_BUF_SIZE* = sizeof((haddr_t))
@@ -69,7 +59,7 @@ const
 
 ##  4 is used instead of sizeof(int) to permit portability between
 ##    the Crays and other machines (the heap ID is always encoded as an int32 anyway)
-## 
+##
 ##  Dataset Region reference structure for user's code
 
 type
@@ -95,9 +85,9 @@ proc H5Rget_name*(loc_id: hid_t; ref_type: H5R_type_t; `ref`: pointer; name: cst
                  size: csize): ssize_t {.cdecl, importc: "H5Rget_name",
                                       dynlib: libname.}
 ##  Symbols defined for compatibility with previous versions of the HDF5 API.
-## 
+##
 ##  Use of these symbols is deprecated.
-## 
+##
 
 when not defined(H5_NO_DEPRECATED_SYMBOLS):
   ##  Macros

@@ -16,26 +16,16 @@
 import
   H5public,
   H5FDpublic,
-  ../H5nimtypes
-  
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
+  ../H5nimtypes, ../h5libname
 
-  
-## 
+
+
+##
 ##  Programmer:  Robb Matzke <matzke@llnl.gov>
 ##               Monday, August  2, 1999
-## 
+##
 ##  Purpose:	The public header file for the "multi" driver.
-## 
+##
 
 
 proc H5FD_multi_init*(): hid_t {.cdecl, importc: "H5FD_multi_init", dynlib: libname.}

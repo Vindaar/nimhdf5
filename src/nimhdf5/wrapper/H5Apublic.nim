@@ -11,9 +11,9 @@
 ##  help@hdfgroup.org.                                                        *
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
-## 
+##
 ##  This file contains public declarations for the H5A module.
-## 
+##
 
 ##  Public headers needed by this file
 {.deadCodeElim: on.}
@@ -23,18 +23,8 @@ import
   H5Ipublic,                  ##  IDs
   H5Opublic,                  ##  Object Headers
   H5Tpublic,
-  ../H5nimtypes
+  ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
 
 ##  Datatypes
 ##  Information struct for attribute (for H5Aget_info/H5Aget_info_by_idx)
@@ -45,7 +35,7 @@ type
     corder*: H5O_msg_crt_idx_t ##  Creation order
     cset*: H5T_cset_t          ##  Character set of attribute name
     data_size*: hsize_t        ##  Size of raw data
-  
+
 
 ##  Typedef for H5Aiterate2() callbacks
 
@@ -127,9 +117,9 @@ proc H5Aexists_by_name*(obj_id: hid_t; obj_name: cstring; attr_name: cstring;
                        lapl_id: hid_t): htri_t {.cdecl,
     importc: "H5Aexists_by_name", dynlib: libname.}
 ##  Symbols defined for compatibility with previous versions of the HDF5 API.
-## 
+##
 ##  Use of these symbols is deprecated.
-## 
+##
 
 when not defined(H5_NO_DEPRECATED_SYMBOLS):
   ##  Macros

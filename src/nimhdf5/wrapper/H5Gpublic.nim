@@ -14,15 +14,15 @@
 {.deadCodeElim: on.}
 
 ## -------------------------------------------------------------------------
-## 
+##
 ##  Created:             H5Gpublic.h
 ##                       Jul 11 1997
 ##                       Robb Matzke <matzke@llnl.gov>
-## 
+##
 ##  Purpose:             Public declarations for the H5G package
-## 
+##
 ## -------------------------------------------------------------------------
-## 
+##
 
 ##  System headers needed by this file
 
@@ -33,19 +33,9 @@ import
   H5Lpublic,                  ##  Links
   H5Opublic,                  ##  Object headers
   H5Tpublic,
-  ../H5nimtypes
+  ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
-  
+
 
 ##  Datatypes
 ## ***************
@@ -74,7 +64,7 @@ type
     nlinks*: hsize_t           ##  Number of links in group
     max_corder*: clonglong     ##  Current max. creation order value for group
     mounted*: hbool_t          ##  Whether group has a file mounted on it
-  
+
 
 ## ******************
 ##  Public Variables
@@ -105,9 +95,9 @@ proc H5Gflush*(group_id: hid_t): herr_t {.cdecl, importc: "H5Gflush", dynlib: li
 proc H5Grefresh*(group_id: hid_t): herr_t {.cdecl, importc: "H5Grefresh",
                                         dynlib: libname.}
 ##  Symbols defined for compatibility with previous versions of the HDF5 API.
-## 
+##
 ##  Use of these symbols is deprecated.
-## 
+##
 
 when not defined(H5_NO_DEPRECATED_SYMBOLS):
   ##  Macros
@@ -130,13 +120,13 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
     (8 + (X))                   ##  User defined types
 
   ##  Typedefs
-  ## 
+  ##
   ##  An object has a certain type. The first few numbers are reserved for use
   ##  internally by HDF5. Users may add their own types with higher values.  The
   ##  values are never stored in the file -- they only exist while an
   ##  application is running.  An object may satisfy the `isa' function for more
   ##  than one type.
-  ## 
+  ##
   type
     H5G_obj_t* {.size: sizeof(cint).} = enum
       H5G_UNKNOWN = - 1,         ##  Unknown object type
@@ -162,7 +152,7 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
       mtime*: time_t           ## modification time
       linklen*: csize          ## symbolic link value length
       ohdr*: H5O_stat_t        ##  Object header information
-    
+
   ##  Function prototypes
   proc H5Gcreate1*(loc_id: hid_t; name: cstring; size_hint: csize): hid_t {.cdecl,
       importc: "H5Gcreate1", dynlib: libname.}
@@ -171,7 +161,7 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
 
   # for some reason these two functions are supposedly already defined?
   # NOTE: because of H5G_LINK in enum above, due to Nim ignoring capital letters
-  # and _ 
+  # and _
   proc H5Glink*(cur_loc_id: hid_t; `type`: H5G_link_t; cur_name: cstring; new_name: cstring):
               herr_t {.cdecl, importc: "H5Glink", dynlib: libname.}
   proc H5Glink2*(cur_loc_id: hid_t; cur_name: cstring; `type`: H5G_link_t; new_loc_id: hid_t; new_name: cstring):

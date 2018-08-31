@@ -12,35 +12,25 @@
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
 {.deadCodeElim: on.}
-## 
+##
 ##  This file contains function prototypes for each exported function in the
 ##  H5P module.
-## 
+##
 
 ##  System headers needed by this file
 ##  Public headers needed by this file
 
 import
   H5public, H5ACpublic, H5Dpublic, H5Fpublic, H5FDpublic, H5Ipublic, H5Lpublic,
-  H5Opublic, H5MMpublic, H5Tpublic, H5Zpublic, ../H5nimtypes
+  H5Opublic, H5MMpublic, H5Tpublic, H5Zpublic, ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
 
 # before we can import any of the variables, from the already shared library
 # we need to make sure that they are defined. The library needs to be
 # initialized. Thus we include
 include H5niminitialize
-    
-  
+
+
 ##  Common creation order flags (for links in groups and attributes on objects)
 
 const
@@ -91,17 +81,17 @@ type
 type ##  The default value, H5D_MPIO_NO_CHUNK_OPTIMIZATION, is used for all I/O
     ##  operations that do not use chunk optimizations, including non-collective
     ##  I/O and contiguous collective I/O.
-    ## 
+    ##
     ##  The following four values are conveniently defined as a bit field so that
     ##  we can switch from the default to indpendent or collective and then to
-    ##  mixed without having to check the original value. 
-    ##  
-    ##  NO_COLLECTIVE means that either collective I/O wasn't requested or that 
+    ##  mixed without having to check the original value.
+    ##
+    ##  NO_COLLECTIVE means that either collective I/O wasn't requested or that
     ##  no I/O took place.
-    ## 
+    ##
     ##  CHUNK_INDEPENDENT means that collective I/O was requested, but the
     ##  chunk optimization scheme chose independent I/O for each chunk.
-    ## 
+    ##
   H5D_mpio_actual_chunk_opt_mode_t* {.size: sizeof(cint).} = enum
     H5D_MPIO_NO_CHUNK_OPTIMIZATION = 0, H5D_MPIO_LINK_CHUNK, H5D_MPIO_MULTI_CHUNK
   H5D_mpio_actual_io_mode_t* {.size: sizeof(cint).} = enum
@@ -137,10 +127,10 @@ type
 ## lines. However, as the comment above mentions, these are
 ## not to be used. Instead the macros (in this library below,
 ## not above) are to be used. See the long comment further
-## down in the file regarding what is actually being used.    
+## down in the file regarding what is actually being used.
 
 #var H5P_CLS_ROOT_ID_g* {.importc: "H5P_CLS_ROOT_ID_g", dynlib: libname.}: hid_t
-#var H5P_CLS_ROOT_ID_g* {.importc: "H5P_CLS_ROOT_ID_g", dynlib: libname.}: hid_t    
+#var H5P_CLS_ROOT_ID_g* {.importc: "H5P_CLS_ROOT_ID_g", dynlib: libname.}: hid_t
 
 # var H5P_CLS_OBJECT_CREATE_ID_g* {.importc: "H5P_CLS_OBJECT_CREATE_ID_g",
 #                                   dynlib: libname.}: hid_t
@@ -193,7 +183,7 @@ type
 # var H5P_LST_FILE_CREATE_ID_g* {.importc: "H5P_LST_FILE_CREATE_ID_g", dynlib: libname.}: hid_t
 
 # var H5P_LST_FILE_ACCESS_ID_g* {.importc: "H5P_LST_FILE_ACCESS_ID_g", dynlib: libname.}: hid_t
- 
+
 # var H5P_LST_DATASET_CREATE_ID_g* {.importc: "H5P_LST_DATASET_CREATE_ID_g",
 #                                    dynlib: libname.}: hid_t
 
@@ -239,7 +229,7 @@ type
 # ##  #else   /\* _H5private_H *\/
 # ##  #define H5OPEN
 # ##  #endif  /\* _H5private_H *\/
-# ## 
+# ##
 # ##  The library's property list classes
 # ##
 
@@ -290,7 +280,7 @@ when defined(H5_LEGACY):
     H5P_FILE_CREATE* {.importc: "H5P_CLS_FILE_CREATE_g", dynlib: libname.}: hid_t
     H5P_FILE_ACCESS* {.importc: "H5P_CLS_FILE_ACCESS_g", dynlib: libname.}: hid_t
     H5P_DATASET_CREATE* {.importc: "H5P_CLS_DATASET_CREATE_g", dynlib: libname.}: hid_t
-    H5P_DATASET_ACCESS* {.importc: "H5P_CLS_DATASET_ACCESS_g", dynlib: libname.}: hid_t 
+    H5P_DATASET_ACCESS* {.importc: "H5P_CLS_DATASET_ACCESS_g", dynlib: libname.}: hid_t
     H5P_DATASET_XFER* {.importc: "H5P_CLS_DATASET_XFER_g", dynlib: libname.}: hid_t
     H5P_FILE_MOUNT* {.importc: "H5P_CLS_FILE_MOUNT_g", dynlib: libname.}: hid_t
     H5P_GROUP_CREATE* {.importc: "H5P_CLS_GROUP_CREATE_g", dynlib: libname.}: hid_t
@@ -325,7 +315,7 @@ when defined(H5_LEGACY):
     #H5P_ATTRIBUTE_ACCESS_DEFAULT* {.importc: "H5P_LST_ATTRIBUTE_ACCESS_g", dynlib: libname.}: hid_t
     H5P_OBJECT_COPY_DEFAULT* {.importc: "H5P_LST_OBJECT_COPY_g", dynlib: libname.}: hid_t
     H5P_LINK_CREATE_DEFAULT* {.importc: "H5P_LST_LINK_CREATE_g", dynlib: libname.}: hid_t
-    H5P_LINK_ACCESS_DEFAULT* {.importc: "H5P_LST_LINK_ACCESS_g", dynlib: libname.}: hid_t  
+    H5P_LINK_ACCESS_DEFAULT* {.importc: "H5P_LST_LINK_ACCESS_g", dynlib: libname.}: hid_t
 
 else:
   # else we've loaded an older HDF5 library than 1.10.1, in this case, set the
@@ -336,7 +326,7 @@ else:
     H5P_FILE_CREATE* {.importc: "H5P_CLS_FILE_CREATE_ID_g", dynlib: libname.}: hid_t
     H5P_FILE_ACCESS* {.importc: "H5P_CLS_FILE_ACCESS_ID_g", dynlib: libname.}: hid_t
     H5P_DATASET_CREATE* {.importc: "H5P_CLS_DATASET_CREATE_ID_g", dynlib: libname.}: hid_t
-    H5P_DATASET_ACCESS* {.importc: "H5P_CLS_DATASET_ACCESS_ID_g", dynlib: libname.}: hid_t 
+    H5P_DATASET_ACCESS* {.importc: "H5P_CLS_DATASET_ACCESS_ID_g", dynlib: libname.}: hid_t
     H5P_DATASET_XFER* {.importc: "H5P_CLS_DATASET_XFER_ID_g", dynlib: libname.}: hid_t
     H5P_FILE_MOUNT* {.importc: "H5P_CLS_FILE_MOUNT_ID_g", dynlib: libname.}: hid_t
     H5P_GROUP_CREATE* {.importc: "H5P_CLS_GROUP_CREATE_ID_g", dynlib: libname.}: hid_t
@@ -372,12 +362,12 @@ else:
     H5P_OBJECT_COPY_DEFAULT* {.importc: "H5P_LST_OBJECT_COPY_ID_g", dynlib: libname.}: hid_t
     H5P_LINK_CREATE_DEFAULT* {.importc: "H5P_LST_LINK_CREATE_ID_g", dynlib: libname.}: hid_t
     H5P_LINK_ACCESS_DEFAULT* {.importc: "H5P_LST_LINK_ACCESS_ID_g", dynlib: libname.}: hid_t
-  
 
 
-## 
+
+##
 ##  The library's default property lists
-## 
+##
 
 # TODO:
 # for some reason: on my laptop HDF5 version 1.8.11 the symbols are not found
@@ -944,9 +934,9 @@ proc H5Pget_mcdt_search_cb*(plist_id: hid_t; `func`: ptr H5O_mcdt_search_cb_t;
                            op_data: ptr pointer): herr_t {.cdecl,
     importc: "H5Pget_mcdt_search_cb", dynlib: libname.}
 ##  Symbols defined for compatibility with previous versions of the HDF5 API.
-## 
+##
 ##  Use of these symbols is deprecated.
-## 
+##
 
 when not defined(H5_NO_DEPRECATED_SYMBOLS):
   ##  Macros
@@ -989,4 +979,3 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
   proc H5Pget_file_space*(plist_id: hid_t; strategy: ptr H5F_file_space_type_t;
                          threshold: ptr hsize_t): herr_t {.cdecl,
       importc: "H5Pget_file_space", dynlib: libname.}
-

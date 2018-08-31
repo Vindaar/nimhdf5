@@ -13,25 +13,15 @@
 
 {.deadCodeElim: on.}
 
-import ../H5nimtypes
+import ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
 
-## 
+##
 ##  Programmer:  Robb Matzke <matzke@llnl.gov>
 ##               Monday, August  4, 1999
-## 
+##
 ##  Purpose:	The public header file for the family driver.
-## 
+##
 
 proc H5FD_family_init*(): hid_t {.cdecl, importc: "H5FD_family_init", dynlib: libname.}
 proc H5Pset_fapl_family*(fapl_id: hid_t; memb_size: hsize_t; memb_fapl_id: hid_t): herr_t {.
@@ -44,4 +34,3 @@ proc H5Pget_fapl_family*(fapl_id: hid_t; memb_size: ptr hsize_t; ## out
 
 let
   H5FD_FAMILY* = (H5FD_family_init())
-

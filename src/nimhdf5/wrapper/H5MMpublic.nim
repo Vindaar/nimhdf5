@@ -14,34 +14,23 @@
 {.deadCodeElim: on.}
 
 ## -------------------------------------------------------------------------
-## 
+##
 ##  Created:             H5MMproto.h
 ##                       Jul 10 1997
 ##                       Robb Matzke <matzke@llnl.gov>
-## 
+##
 ##  Purpose:             Public declarations for the H5MM (memory management)
 ##                       package.
-## 
+##
 ##  Modifications:
-## 
+##
 ## -------------------------------------------------------------------------
-## 
+##
 
 ##  Public headers needed by this file
 
 import
-  H5public
-
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
+  H5public, ../h5libname
 
 ##  These typedefs are currently used for VL datatype allocation/freeing
 

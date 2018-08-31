@@ -14,15 +14,15 @@
 {.deadCodeElim: on.}
 
 ## -------------------------------------------------------------------------
-## 
+##
 ##  Created:             H5Lpublic.h
 ##                       Dec 1 2005
 ##                       James Laird
-## 
+##
 ##  Purpose:             Public declarations for the H5L package (links)
-## 
+##
 ## -------------------------------------------------------------------------
-## 
+##
 
 ##  Public headers needed by this file
 
@@ -30,18 +30,8 @@ import
   H5public,                   ##  Generic Functions
   H5Ipublic,                  ##  IDs
   H5Tpublic,
-  ../H5nimtypes
+  ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
 
 ##  Datatypes
 ## ***************
@@ -73,9 +63,9 @@ const
 ##  Users who want to create new classes of links should contact the HDF5
 ##  development team at hdfhelp@ncsa.uiuc.edu .
 ##  These values can never change because they appear in HDF5 files.
-## 
+##
 
-type ##  NOTE S.Schmidt: originally the following line was written as 
+type ##  NOTE S.Schmidt: originally the following line was written as
     ##      H5L_TYPE_ERROR = (-1) instead. Causes c2nim to crash
   H5L_type_t* {.size: sizeof(cint).} = enum
     H5L_TYPE_ERROR = -1,      ##  Invalid link type id
@@ -95,7 +85,7 @@ type
   INNER_C_UNION_3734014316* = object {.union.}
     address*: haddr_t          ##  Address hard link points to
     val_size*: csize           ##  Size of a soft link or UD link value
-  
+
   H5L_info_t* = object
     `type`*: H5L_type_t        ##  Type of link
     corder_valid*: hbool_t     ##  Indicate if creation order is valid
@@ -107,7 +97,7 @@ type
 ##  The H5L_class_t struct can be used to override the behavior of a
 ##  "user-defined" link class. Users should populate the struct with callback
 ##  functions defined below.
-## 
+##
 ##  Callback prototypes for user-defined links
 ##  Link creation callback
 
@@ -159,7 +149,7 @@ type
     trav_func*: H5L_traverse_func_t ##  Callback during link traversal
     del_func*: H5L_delete_func_t ##  Callback for link deletion
     query_func*: H5L_query_func_t ##  Callback for queries
-  
+
 
 ##  Prototype for H5Literate/H5Literate_by_name() operator
 

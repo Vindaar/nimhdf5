@@ -14,34 +14,22 @@
 {.deadCodeElim: on.}
 
 ## -------------------------------------------------------------------------
-## 
+##
 ##  Created:	H5Cpublic.h
 ##               June 4, 2005
 ##               John Mainzer
-## 
+##
 ##  Purpose:     Public include file for cache functions.
-## 
+##
 ##  Modifications:
-## 
+##
 ## -------------------------------------------------------------------------
-## 
+##
 
 ##  Public headers needed by this file
 
 import
-  H5public
-
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
-  
+  H5public, ../h5libname
 
 type
   H5C_cache_incr_mode* {.size: sizeof(cint).} = enum
@@ -57,4 +45,3 @@ type
   H5C_cache_decr_mode* {.size: sizeof(cint).} = enum
     H5C_decr_off, H5C_decr_threshold, H5C_decr_age_out,
     H5C_decr_age_out_with_threshold
-

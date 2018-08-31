@@ -12,37 +12,27 @@
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
 {.deadCodeElim: on.}
-## 
+##
 ##  This file contains function prototypes for each exported function in
 ##  the H5I module.
-## 
+##
 
 ##  Public headers needed by this file
 
 import
-  H5public, ../H5nimtypes
+  H5public, ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
 
-## 
+##
 ##  Library type values.  Start with `1' instead of `0' because it makes the
 ##  tracing output look better when hid_t values are large numbers.  Change the
 ##  TYPE_BITS in H5I.c if the MAXID gets larger than 32 (an assertion will
 ##  fail otherwise).
-## 
+##
 ##  When adding types here, add a section to the 'misc19' test in test/tmisc.c
 ##  to verify that the H5I{inc|dec|get}_ref() routines work correctly with in.
-## 
-## 
+##
+##
 
 type
   H5I_type_t* {.size: sizeof(cint).} = enum
@@ -80,13 +70,13 @@ const
 const
   H5I_INVALID_HID* = (- 1)
 
-## 
+##
 ##  Function for freeing objects. This function will be called with an object
 ##  ID type number and a pointer to the object. The function should free the
 ##  object and return non-negative to indicate that the object
 ##  can be removed from the ID type. If the function returns negative
 ##  (failure) then the object will remain in the ID type.
-## 
+##
 
 type
   H5I_free_t* = proc (a2: pointer): herr_t {.cdecl.}

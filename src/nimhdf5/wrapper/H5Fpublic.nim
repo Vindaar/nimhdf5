@@ -13,26 +13,14 @@
 
 {.deadCodeElim: on.}
 
-## 
+##
 ##  This file contains public declarations for the H5F module.
-## 
+##
 
 ##  Public header files needed by this file
 
 import
-  H5public, H5ACpublic, H5Ipublic, ../H5nimtypes
-
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
-  
+  H5public, H5ACpublic, H5Ipublic, ../H5nimtypes, ../h5libname
 
 ##  When this header is included from a private header, don't make calls to H5check()
 
@@ -50,7 +38,7 @@ when not declared(libname):
 # else:
 #   const
 #     H5OPEN* = true
-## 
+##
 ##  These are the bits that can be passed to the `flags' argument of
 ##  H5Fcreate() and H5Fopen(). Use the bit-wise OR operator (|) to combine
 ##  them as needed.  As a side effect, they call H5check_version() to make sure
@@ -58,7 +46,7 @@ when not declared(libname):
 ##  which are compatible with the library to which the application is linked.
 ##  We're assuming that these constants are used rather early in the hdf5
 ##  session.
-## 
+##
 ## (H5check(), H5open(), 0x0000u)
 ##  #define H5F_ACC_RDONLY	(H5CHECK H5OPEN 0x0000u)	/\*absence of rdwr => rd-only *\/
 ##  #define H5F_ACC_RDWR	(H5CHECK H5OPEN 0x0001u)	/\*open for read and write    *\/
@@ -67,7 +55,7 @@ when not declared(libname):
 ##  /\* NOTE: 0x0008u was H5F_ACC_DEBUG, now deprecated *\/
 ##  #define H5F_ACC_CREAT	(H5CHECK H5OPEN 0x0010u)	/\*create non-existing files  *\/
 ##  #define H5F_ACC_SWMR_WRITE	(H5CHECK 0x0020u) /\*indicate that this file is
-const 
+const
   H5F_ACC_RDONLY*     = cuint(0x0000)
   H5F_ACC_RDWR*       = cuint(0x0001)
   H5F_ACC_TRUNC*      = cuint(0x0002)
@@ -111,12 +99,12 @@ const
 #   H5F_FAMILY_DEFAULT* = cast[hsize_t](0)
 
 when defined(H5_HAVE_PARALLEL):
-  ## 
+  ##
   ##  Use this constant string as the MPI_Info key to set H5Fmpio debug flags.
   ##  To turn on H5Fmpio debug flags, set the MPI_Info value with this key to
   ##  have the value of a string consisting of the characters that turn on the
   ##  desired flags.
-  ## 
+  ##
   const
     H5F_MPIO_DEBUG_KEY* = "H5F_mpio_debug_key"
 ##  The difference between a single file and a set of mounted files
@@ -139,7 +127,7 @@ const
 ## 		       close fails
 ##  H5F_CLOSE_STRONG  - if there are opened objects, close them first, then
 ## 		       close file
-## 
+##
 
 type
   H5F_close_degree_t* {.size: sizeof(cint).} = enum
@@ -153,42 +141,42 @@ type
     version*: cuint            ##  Superblock version #
     super_size*: hsize_t       ##  Superblock size
     super_ext_size*: hsize_t   ##  Superblock extension size
-  
+
   INNER_C_STRUCT_1750163597* = object
     version*: cuint            ##  Version # of file free space management
     meta_size*: hsize_t        ##  Free space manager metadata size
     tot_space*: hsize_t        ##  Amount of free space in the file
-  
+
   INNER_C_STRUCT_1791471122* = object
     version*: cuint            ##  Version # of shared object header info
     hdr_size*: hsize_t         ##  Shared object header message header size
     msgs_info*: H5_ih_info_t   ##  Shared object header message index & heap size
-  
+
   H5F_info2_t* = object
     super*: INNER_C_STRUCT_1010883923
     free*: INNER_C_STRUCT_1750163597
     sohm*: INNER_C_STRUCT_1791471122
 
 
-## 
+##
 ##  Types of allocation requests. The values larger than H5FD_MEM_DEFAULT
 ##  should not change other than adding new types to the end. These numbers
 ##  might appear in files.
-## 
+##
 ##  Note: please change the log VFD flavors array if you change this
 ##  enumeration.
-## 
+##
 
 type
   H5F_mem_t* {.size: sizeof(cint).} = enum
     H5FD_MEM_NOLIST = - 1,       ##  Data should not appear in the free list.
                        ##  Must be negative.
-                       ## 
+                       ##
     H5FD_MEM_DEFAULT = 0,       ##  Value not yet set.  Can also be the
                        ##  datatype set in a larger allocation
                        ##  that will be suballocated by the library.
                        ##  Must be zero.
-                       ## 
+                       ##
     H5FD_MEM_SUPER = 1,         ##  Superblock data
     H5FD_MEM_BTREE = 2,         ##  B-tree data
     H5FD_MEM_DRAW = 3,          ##  Raw data (content of datasets, etc.)
@@ -204,7 +192,7 @@ type
   H5F_sect_info_t* = object
     `addr`*: haddr_t           ##  Address of free space section
     size*: hsize_t             ##  Size of free space section
-  
+
 
 ##  Library's file format versions
 
@@ -347,9 +335,9 @@ when defined(H5_HAVE_PARALLEL):
   proc H5Fget_mpi_atomicity*(file_id: hid_t; flag: ptr hbool_t): herr_t {.cdecl,
       importc: "H5Fget_mpi_atomicity", dynlib: libname.}
 ##  Symbols defined for compatibility with previous versions of the HDF5 API.
-## 
+##
 ##  Use of these symbols is deprecated.
-## 
+##
 
 when not defined(H5_NO_DEPRECATED_SYMBOLS):
   ##  Macros
@@ -360,7 +348,7 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
     INNER_C_STRUCT_890420368* = object
       hdr_size*: hsize_t       ##  Shared object header message header size
       msgs_info*: H5_ih_info_t ##  Shared object header message index & heap size
-    
+
   type
     H5F_info1_t* = object
       super_ext_size*: hsize_t ##  Superblock extension size

@@ -12,32 +12,20 @@
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
 {.deadCodeElim: on.}
-## 
+##
 ##  This file contains public declarations for the H5E module.
-## 
+##
 
 ##  Public headers needed by this file
 
 import
-  H5public, H5Ipublic, ../H5nimtypes
-
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
-
+  H5public, H5Ipublic, ../H5nimtypes, ../h5libname
 
 # before we can import any of the variables, from the already shared library
 # we need to make sure that they are defined. The library needs to be
 # initialized. Thus we include
 include H5niminitialize
-  
+
 
 ##  Value for the default error stack
 
@@ -62,7 +50,7 @@ type
     func_name*: cstring        ## function in which error occurred
     file_name*: cstring        ## file in which error occurred
     desc*: cstring             ## optional supplied description
-  
+
 
 ##  When this header is included from a private header, don't make calls to H5open()
 
@@ -86,7 +74,7 @@ let
 # import
 #   H5Epubgen
 
-## 
+##
 ##  One often needs to temporarily disable automatic error reporting when
 ##  trying something that's likely or expected to fail.  The code to try can
 ##  be nested between calls to H5Eget_auto() and H5Eset_auto(), but it's
@@ -94,13 +82,13 @@ let
 ##  	H5E_BEGIN_TRY {
 ## 	    ...stuff here that's likely to fail...
 ##       } H5E_END_TRY;
-## 
+##
 ##  Warning: don't break, return, or longjmp() from the body of the loop or
 ## 	    the error reporting won't be properly restored!
-## 
+##
 ##  These two macros still use the old API functions for backward compatibility
 ##  purpose.
-## 
+##
 ##  #ifndef H5_NO_DEPRECATED_SYMBOLS
 ##  #define H5E_BEGIN_TRY {							      \
 ##      unsigned H5E_saved_is_v2;					              \
@@ -135,32 +123,32 @@ let
 ##      (void)H5Eset_auto(H5E_DEFAULT, saved_efunc, H5E_saved_edata);	      \
 ##  }
 ##  #endif /\* H5_NO_DEPRECATED_SYMBOLS *\/
-## 
+##
 ##  Public API Convenience Macros for Error reporting - Documented
-## 
+##
 ##  Use the Standard C __FILE__ & __LINE__ macros instead of typing them in
 
 template H5Epush_sim*(`func`, cls, maj, min, str: untyped): untyped =
   let (file, line) = instantiationInfo()
   H5Epush2(H5E_DEFAULT, file, `func`, line, cls, maj, min, str)
 
-## 
+##
 ##  Public API Convenience Macros for Error reporting - Undocumented
-## 
+##
 ##  Use the Standard C __FILE__ & __LINE__ macros instead of typing them in
 ##   And return after pushing error onto stack
 
 template H5Epush_ret*(`func`, cls, maj, min, str, ret: untyped): void =
-  let (file, line) = instantiationInfo()  
+  let (file, line) = instantiationInfo()
   H5Epush2(H5E_DEFAULT, file, `func`, line, cls, maj, min, str)
   return ret
 
 ##  Use the Standard C __FILE__ & __LINE__ macros instead of typing them in
 ##  And goto a label after pushing error onto stack.
-## 
+##
 
 template H5Epush_goto*(`func`, cls, maj, min, str, label: untyped): void =
-  let (file, line) = instantiationInfo()  
+  let (file, line) = instantiationInfo()
   H5Epush2(H5E_DEFAULT, file, `func`, line, cls, maj, min, str)
   break label
 
@@ -220,15 +208,15 @@ proc H5Eget_msg*(msg_id: hid_t; `type`: ptr H5E_type_t; msg: cstring; size: csiz
 proc H5Eget_num*(error_stack_id: hid_t): ssize_t {.cdecl, importc: "H5Eget_num",
     dynlib: libname.}
 ##  Symbols defined for compatibility with previous versions of the HDF5 API.
-## 
+##
 ##  Use of these symbols is deprecated.
-## 
+##
 
 when not defined(H5_NO_DEPRECATED_SYMBOLS):
   ##  Typedefs
   ##  Alias major & minor error types to hid_t's, for compatibility with new
   ##       error API in v1.8
-  ## 
+  ##
   type
     H5E_major_t* = hid_t
     H5E_minor_t* = hid_t
@@ -241,7 +229,7 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
       file_name*: cstring      ## file in which error occurred
       line*: cuint             ## line in file where error occurs
       desc*: cstring           ## optional supplied description
-    
+
   ##  Error stack traversal callback function pointers
   type
     H5E_walk1_t* = proc (n: cint; err_desc: ptr H5E_error1_t; client_data: pointer): herr_t {.

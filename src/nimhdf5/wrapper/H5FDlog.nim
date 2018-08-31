@@ -12,25 +12,15 @@
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
 {.deadCodeElim: on.}
-## 
+##
 ##  Programmer:  Quincey Koziol <koziol@ncsa.uiuc.edu>
 ##               Monday, April 17, 2000
-## 
+##
 ##  Purpose:	The public header file for the log driver.
 ##
 
-import ../H5nimtypes
+import ../H5nimtypes, ../h5libname
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
 
 
 ##  Flags for H5Pset_fapl_log()
@@ -100,4 +90,3 @@ proc H5Pset_fapl_log*(fapl_id: hid_t; logfile: cstring; flags: culonglong;
 
 let
   H5FD_LOG* = (H5FD_log_init())
-

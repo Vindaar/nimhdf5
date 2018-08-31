@@ -13,21 +13,13 @@
 
 {.deadCodeElim: on.}
 
-when not declared(libname):
-  when defined(Windows):
-    const
-      libname* = "hdf5.dll"
-  elif defined(MacOSX):
-    const
-      libname* = "libhdf5.dylib"
-  else:
-    const
-      libname* = "libhdf5.so"
+import ../h5libname
 
-## 
+
+##
 ##  Programmer:  Robb Matzke <matzke@llnl.gov>
 ##               Monday, August  2, 1999
-## 
+##
 ##  Purpose:	The public header file for the mpio driver.
 ##
 
