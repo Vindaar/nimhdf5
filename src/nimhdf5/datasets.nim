@@ -69,7 +69,7 @@ proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
   else:
     result = some(h5f.datasets[dset_name][])
 
-proc isDataset*(h5f: var H5FileObj, name: string): bool =
+proc isDataset*(h5f: H5FileObj, name: string): bool =
   ## checks for existence of object in file. If it exists checks whether
   ## object is a dataset or not
   let target = formatName name
@@ -130,7 +130,7 @@ proc readMaxShape(dspace_id: hid_t): seq[int] =
   let (shape, maxshape) = readShape(dspace_id)
   result = maxshape
 
-proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
+proc get(h5f: H5FileObj, dset_in: dset_str): H5DataSet {.gcsafe.} =
   ## convenience proc to return the dataset with name dset_name
   ## if it does not exist, KeyError is thrown
   ## inputs:
@@ -359,7 +359,7 @@ proc create_dataset_in_file(h5file_id: hid_t, dset: H5DataSet): hid_t =
                          H5P_DEFAULT, dset.dcpl_id, H5P_DEFAULT)
 
 proc create_dataset*[T: (tuple | int | seq)](
-    h5f: var H5FileObj,
+    h5f: H5FileObj,
     dset_raw: string,
     shape_raw: T,
     dtype: (typedesc | hid_t),
@@ -523,7 +523,7 @@ proc create_dataset*[T: (tuple | int | seq)](
   result = dset
 
 proc create_dataset*[T: (tuple | int | seq)](
-    h5f: var H5FileObj,
+    h5f: H5FileObj,
     dset_raw: string,
     shape_raw: T,
     dtype: (typedesc | hid_t),

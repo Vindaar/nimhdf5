@@ -14,7 +14,7 @@ import dataspaces
 # files -> groups -> files
 # so that proc is already known when we encounter the
 # from files import visit_files statement in groups.nim
-proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t)
+proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t)
 
 from datasets import `[]`
 import attributes
@@ -218,7 +218,7 @@ proc getOpenObjectIds(h5f: H5FileObj, kind: ObjectKind): seq[hid_t] =
   let objsOpen = H5Fget_obj_ids(h5f.file_id, h5Kind.cuint, 1000, addr objList[0])
   result = objList.filterIt(it > 0)
 
-proc flush*(h5f: var H5FileObj, flushKind: FlushKind = fkGlobal) =
+proc flush*(h5f: H5FileObj, flushKind: FlushKind = fkGlobal) =
   ## wrapper around H5Fflush for convenience
   var err: herr_t
   case flushKind
@@ -343,7 +343,7 @@ template withH5*(h5file, rw_type: string, actions: untyped) =
   if err != 0:
     echo "Closing of H5 file unsuccessful. Returned code ", err
 
-proc getObjectIdByName(h5file: var H5FileObj, name: string): hid_t =
+proc getObjectIdByName(h5file: H5FileObj, name: string): hid_t =
   ## proc to retrieve the location ID of a H5 object based its relative path
   ## to the given id
   let h5type = getObjectTypeByName(h5file.file_id, name)
@@ -366,7 +366,7 @@ proc getObjectIdByName(h5file: var H5FileObj, name: string): hid_t =
 
 
 # TODO: should this remain in files.nim?
-proc create_hardlink*(h5file: var H5FileObj, target: string, link_name: string) =
+proc create_hardlink*(h5file: H5FileObj, target: string, link_name: string) =
   ## proc to create hardlinks between pointing to an object `target`. Can be either a group
   ## or a dataset, defined by its name (full path!)
   ## the target has to exist, while the link_name must be free
@@ -414,7 +414,7 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
   ## this proc is only called in the case where the start from the root group
 
   # cast the H5FileObj pointer back
-  var h5f = cast[var H5FileObj](h5f_p)
+  var h5f = cast[H5FileObj](h5f_p)
   if name_c == ".":
     # in case the location is `.`, we are simply at our starting point (currently
     # means root group), we don't want to do anything here, so continue
@@ -434,7 +434,7 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
       # see, I'm going to where the HDF5 library is in the first place...
       discard h5f[name.dset_str]
 
-proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) =
+proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t) =
   ## this proc iterates over the whole file and reads the complete content
   ## optionally only visits all elements below hid_t
   ## H5Ovisit recursively visits any object (group or dataset + a couple specific
@@ -443,7 +443,7 @@ proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) =
   ## returns the value of the callback (proc returns value > 0), stops early
   ## and returns error (proc returns value < 0)
   ## inputs:
-  ##   h5f: var H5FileObj = mutable file object, which will be visited. The
+  ##   h5f: H5FileObj = mutable file object, which will be visited. The
   ##     object's group information will be updated.
   ##   name: string = name of the starting location from which to visit the file
   ##   h5id: hid_t = optional identifier id, from which to start visiting the
@@ -456,17 +456,17 @@ proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) =
   if h5id != 0:
     err = H5Ovisit(h5id, H5_INDEX_NAME, H5_ITER_NATIVE,
                    cast[H5O_iterate_t](addH5Object),
-                   cast[pointer](addr(h5f)))
+                   cast[pointer](unsafeAddr(h5f)))
   else:
     err = H5Ovisit(h5f.file_id, H5_INDEX_NAME, H5_ITER_NATIVE,
                    cast[H5O_iterate_t](addH5ObjectFromRoot),
-                   cast[pointer](addr(h5f)))
+                   cast[pointer](unsafeAddr(h5f)))
 
   # now set visited flag
   h5f.visited = true
 
 
-iterator items*(h5f: var H5FileObj, start_path = "/", depth = 0): H5Group =
+iterator items*(h5f: H5FileObj, start_path = "/", depth = 0): H5Group =
   ## iterator, which returns a non mutable group objects starting from `start_path` in the
   ## H5 file
   ## Note: many procs working on groups need a mutable object!
@@ -526,7 +526,7 @@ proc contains*[T: (H5FileObj | H5Group)](h5f: var T, name: string): bool =
   ## Note: we first check for the existence of a group of this name,
   ## and only if no group of `name` is found, do we check the dataset names
   ## inputs:
-  ##   h5f: var H5FileObj = H5 file to check
+  ##   h5f: H5FileObj = H5 file to check
   ##   name: string = the name of the dataset / group to check
   ## outputs:
   ##   bool = true if contained, false else

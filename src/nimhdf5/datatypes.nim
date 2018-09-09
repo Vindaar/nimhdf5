@@ -118,7 +118,7 @@ type
     # reference to the file object, in which group resides. Important to perform checks
     # in procs, which should not depend explicitly on H5FileObj, but necessarily depend
     # implicitly on it, e.g. create_group, iterator items etc.
-    file_ref*: ref H5FileObj
+    file_ref*: H5FileObj
     # the id of the HDF5 group (its location id)
     group_id*: hid_t
     # TODO: think, should H5Group contain a table about its dataspaces? Or should
@@ -140,7 +140,7 @@ type
 
 
 
-  H5FileObj* = object #of H5Object
+  H5FileObj* = ref object #of H5Object
     name*: string
     # the file_id is the unique identifier of the opened file. Each
     # low level C call uses this file_id to idenfity the file to work
