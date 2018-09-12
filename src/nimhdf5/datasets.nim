@@ -1149,6 +1149,20 @@ template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
   ## a simple wrapper around get for datasets
   h5f.get(name)
 
+proc `[]`*[T](h5f: var H5FileObj, name: string, dtype: typedesc[T]): seq[T] =
+  ## reads data from the H5file without an intermediate return of a `H5DataSet`
+  let dset = h5f.get(name.dset_str)
+  result = dset[dtype]
+
+proc `[]`*[T](h5f: var H5FileObj, name: string, t: hid_t, dtype: typedesc[T]):
+                seq[seq[T]] =
+  ## reads variable length data from the H5file without an intermediate return
+  ## of a `H5DataSet`
+  ## `t` is a variable length `special_type` created with the proc of the same
+  ## name
+  let dset = h5f.get(name.dset_str)
+  result = dset[t, dtype]
+
 proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
   ## proc to resize the dataset to the new size given by `shape`
   ## inputs:
