@@ -99,8 +99,8 @@ proc readShape(dspace_id: hid_t): tuple[shape, maxshape: seq[int]] =
     doAssert(sdims == ndims)
   else:
     raise newException(HDF5LibraryError,
-                       "Call to HDF5 library failed in `readShape`" &
-                       "after a call to `H5Sget_simple_extent_dims` with return code" &
+                       "Call to HDF5 library failed in `readShape` " &
+                       "after a call to `H5Sget_simple_extent_dims` with return code " &
                        "$#" % $sdims)
   result = (mapIt(shape, int(it)), mapIt(maxshape, int(it)))
 
