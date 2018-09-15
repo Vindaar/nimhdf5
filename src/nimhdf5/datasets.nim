@@ -11,6 +11,7 @@ import tables
 import strutils
 import sequtils
 import seqmath
+import macros
 
 import hdf5_wrapper
 import H5nimtypes
@@ -538,6 +539,12 @@ proc create_dataset*[T: (tuple | int | seq)](
                               chunksize,
                               maxshape,
                               filter)
+
+proc write_dataset*[TT](h5f: var H5FileObj, name: string, data: TT): H5DataSet =
+  ## convenience proc to create a dataset and write data it immediately
+  type T = getInnerType(TT)
+  result = h5f.create_dataset(name, data.shape, T)
+  result[result.all] = data
 
 # proc create_dataset*[T: (tuple | int)](h5f: var H5Group, dset_raw: string, shape_raw: T, dtype: typedesc): H5DataSet =
   # convenience wrapper around create_dataset to create a dataset within a group with a
