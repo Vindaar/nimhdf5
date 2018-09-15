@@ -12,6 +12,7 @@
 import strutils
 import algorithm
 import sequtils
+import macros
 
 template withDebug*(actions: untyped) =
   ## a debugging template, which can be used to e.g. output
@@ -28,3 +29,25 @@ proc formatName*(name: string): string =
   # do this by trying to strip any leading and trailing / from name (plus newline,
   # whitespace, if any) and then prepending a leading /
   result = "/" & strip(name, chars = ({'/'} + Whitespace + NewLines))
+
+proc traverseTree(input: NimNode): NimNode =
+  # iterate children
+  for i in 0 ..< input.len:
+    case input[i].kind
+    of nnkSym:
+      # if we found a symbol, take it
+      result = input[i]
+    of nnkBracketExpr:
+      # has more children, traverse
+      result = traverseTree(input[i])
+    else:
+      error("Unsupported type: " & $input.kind)
+
+macro getInnerType*(TT: typed): untyped =
+  ## macro to get the subtype of a nested type by iterating
+  ## the AST
+  # traverse the AST
+  let res = traverseTree(TT.getTypeInst)
+  # assign symbol to result
+  result = quote do:
+    `res`
