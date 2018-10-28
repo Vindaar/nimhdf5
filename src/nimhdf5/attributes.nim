@@ -317,7 +317,7 @@ proc readStringAttribute(attr: ref H5Attr): string =
     let err = H5Aread(attr.attr_id, nativeType, addr buf_string[0])
     result = buf_string
 
-proc read_attribute*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[T]): T =
+proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
   ## now implement reading of attributes
   ## finally still need a read_all attribute. This function only reads a single one, if
   ## it exists.
@@ -379,7 +379,7 @@ proc read_attribute*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[
   else:
     raise newException(KeyError, "No key `$#` exists in group `$#`" % [name, h5attr.parent_name])
 
-template `[]`*[T](h5attr: var H5Attributes, name: string, dtype: typedesc[T]): T =
+template `[]`*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
   # convenience access to read_attribute
   h5attr.read_attribute(name, dtype)
 
