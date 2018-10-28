@@ -287,6 +287,32 @@ template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
 
 # for H5Groups first implement relative create_group
 
+iterator groups*(group: var H5Group, start_path = ".", depth = 1): H5Group =
+  ## iterator to return groups below the given group. By default we do not
+  ## return groups in subgroups of the given ``group``
+  ## NOTE: make sure the file is visited via `files.visit_file` before calling
+  ## this iterator!
+  var mstart_path = start_path
+  # now make sure the start_path is properly formatted
+  if start_path != ".":
+    mstart_path = formatName start_path
+  else:
+    # else take this groups name as the starting path, since the table storing the
+    # datasets uses full paths as keys!
+    mstart_path = group.name
+  # number of `/` in start path, needed to calculate at which
+  # depth we are from start path
+  let n_start = mstart_path.count('/')
+  # now loop over all groups, checking for start_path in each group name
+  for grp in keys(group.groups):
+    if grp.startsWith(mstart_path) == true and grp != mstart_path:
+      if depth != 0:
+        let n_current = grp.count('/')
+        if n_current - n_start > depth:
+          # in this case continue without yielding
+          continue
+      yield group.groups[grp][]
+
 iterator items*(group: var H5Group, start_path = "."): H5DataSet =
   ## iterator, which returns a non mutable dataset object starting from `start_path` in the
   ## H5 group
