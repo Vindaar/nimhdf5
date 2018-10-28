@@ -923,7 +923,7 @@ proc `[]`*[T](dset: H5DataSet, t: typedesc[T]): seq[T] =
   # let basetype = h5ToNimType(t)
   # if basetype != dset.dtypeAnyKind:
 
-  if $t != dset.dtype:
+  if not typeMatches(t, dset.dtype):
     raise newException(ValueError, "Wrong datatype as arg to `[]`. " &
       "Given `$#`, dset is `$#`" % [$t, $dset.dtype])
 
@@ -1415,7 +1415,7 @@ proc read_hyperslab*[T](dset: H5DataSet, dtype: typedesc[T],
   ##    HDF5LibraryError = if a call to the H5 library fails
   var err: herr_t
 
-  if $dtype != dset.dtype:
+  if not typeMatches(dtype, dset.dtype):
     raise newException(ValueError,
                        "Wrong datatype as arg to `read_hyperslab`. Given " &
                        "`$#`, dset is `$#`" % [$dtype, $dset.dtype])

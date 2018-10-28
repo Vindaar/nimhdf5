@@ -195,6 +195,49 @@ const
 # add an invalid rw code to handle wrong inputs in parseH5rw_type
 const H5F_INVALID_RW*    = cuint(0x00FF)
 
+proc getTypeNoSize(x: AnyKind): AnyKind =
+  ## returns the datatype without size information
+  case x
+  of akNone .. akCString:
+    result = x
+  of akInt .. akInt64:
+    result = akInt
+  of akFloat .. akFloat128:
+    result = akFloat
+  of akUint .. akUint64:
+    result = akUint
+  else:
+    # for other cases (which ones?!) return akNone
+    result = akNone
+
+proc typeMatches*(dtype: typedesc, dstr: string): bool =
+  ## returns true, if the given ``typedesc`` matches the descriptor in
+  ## string
+  ## ``dstr`` should always contain the number in bytes of the type!
+  ## (if it is of int | float | uint that is)
+  ## This is the case for datatypes stored as strings in the datasets within
+  ## a H5 file
+  ## We construct an `Any` object, get its kind and compare that to the
+  ## ``AnyKind`` we parse from the string
+  ## This is reasonable, because we create the `dstr` from ``AnyKind`` by stripping
+  ## the "ak" prefix in the first place!
+  var tmp: dtype
+  # create an ``AnyKind`` from given dtype and remove potential size information
+  let dAnyKind = toAny(tmp).kind.getTypeNoSize
+  # get the string datatypes `AnyKind` without size information
+  let dstrAnyKind = parseEnum[AnyKind]("ak" & dstr, akNone).getTypeNoSize
+  # and the size in bytes of it
+  case dstrAnyKind
+  of akInt .. akUint64:
+    let expectedSize = dstr.strip(chars = Letters).parseInt div 8
+    result = if expectedSize == sizeof(dtype) and
+                dAnyKind == dstrAnyKind:
+               true
+             else:
+               false
+  else:
+    # no size check necessary
+    result = if dAnyKind == dstrAnyKind: true else: false
 
 
 proc h5ToNimType*(dtype_id: hid_t): AnyKind =
