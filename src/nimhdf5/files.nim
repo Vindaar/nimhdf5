@@ -145,7 +145,7 @@ proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
       result.file_id = H5Fopen(name, rw, H5P_DEFAULT)
     else:
       # cannot open a non existing file with read only properties
-      raise newException(IOError, getH5read_non_exist_file())
+      raise newException(IOError, getH5read_non_exist_file(name))
   elif rw == H5F_ACC_RDWR:
     # check whether file exists already
     # then use open call

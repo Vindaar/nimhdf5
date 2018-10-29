@@ -1,6 +1,7 @@
 import typeinfo
 import strutils
 import tables
+import strformat
 
 import hdf5_wrapper
 import H5nimtypes
@@ -408,16 +409,14 @@ proc parseH5rw_type*(rw_type: string, exists: bool): cuint =
 
 template getH5rw_invalid_error*(): string =
   """
-  The given r/w type is invalid. Make sure to use one of the following:\n
-  - {'r', 'read'} = read access\n
+  The given r/w type is invalid. Make sure to use one of the following:
+  - {'r', 'read'} = read access
   - {'w', 'write', 'rw'} =  read/write access
   """
 
-template getH5read_non_exist_file*(): string =
-  """
-  Cannot open a non-existing file with read only access. Write access would\n
-  create the file for you.
-  """
+proc getH5read_non_exist_file*(filename: string): string =
+  result = &"Cannot open a non-existing file {filename} with read only access. Write " &
+    "access will create the file for you."
 
 template toH5vlen*[T](data: var seq[T]): untyped =
   when T is seq:
