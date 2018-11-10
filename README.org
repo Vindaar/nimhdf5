@@ -52,7 +52,10 @@ this version currently is available under the
 #+BEGIN_SRC
 -d:H5_FUTURE
 #+END_SRC
-flag. Soon this will become the default version!
+flag. Soon this will become the default version! The
+=H5Oget/visit_...2= procedures are wrapped under a name without a =2=
+suffix. These however add a =fields= argument. Therefore an overload
+is available, which maps the =fields= to =H5O_INFO_ALL=.
 
 Currently no checks are done, which compare the library this wrapper
 is built upon with the library linking against using some of the

@@ -145,6 +145,19 @@ type
                        ##  Extra metadata storage for obj & attributes
     meta_size*: INNER_C_STRUCT_1943491610
 
+when defined(H5_FUTURE):
+  const
+    H5O_INFO_BASIC*      = 0x0001.cuint         # Fill in the fileno, addr, type, and rc fields
+    H5O_INFO_TIME*       = 0x0002.cuint         # Fill in the atime, mtime, ctime, and btime fields
+    H5O_INFO_NUM_ATTRS*  = 0x0004.cuint         # Fill in the num_attrs field
+    H5O_INFO_HDR*        = 0x0008.cuint         # Fill in the hdr field
+    H5O_INFO_META_SIZE*  = 0x0010.cuint         # Fill in the meta_size field
+    H5O_INFO_ALL*        = (H5O_INFO_BASIC or
+                            H5O_INFO_TIME or
+                            H5O_INFO_NUM_ATTRS or
+                            H5O_INFO_HDR or
+                            H5O_INFO_META_SIZE)
+
 
 ##  Typedef for message creation indexes
 
@@ -186,15 +199,27 @@ proc H5Oexists_by_name*(loc_id: hid_t; name: cstring; lapl_id: hid_t): htri_t {.
     importc: "H5Oexists_by_name", dynlib: libname.}
 
 when defined(H5_FUTURE):
-  proc H5Oget_info*(loc_id: hid_t; oinfo: ptr H5O_info_t): herr_t {.cdecl,
-      importc: "H5Oget_info2", dynlib: libname.}
+  proc H5Oget_info*(loc_id: hid_t; oinfo: ptr H5O_info_t, `fields`: cuint):
+                  herr_t {.cdecl, importc: "H5Oget_info2", dynlib: libname.}
   proc H5Oget_info_by_name*(loc_id: hid_t; name: cstring; oinfo: ptr H5O_info_t;
-                           lapl_id: hid_t): herr_t {.cdecl,
-      importc: "H5Oget_info_by_name2", dynlib: libname.}
+    `fields`: cuint, lapl_id: hid_t): herr_t
+    {.cdecl, importc: "H5Oget_info_by_name2", dynlib: libname.}
   proc H5Oget_info_by_idx*(loc_id: hid_t; group_name: cstring; idx_type: H5_index_t;
-                          order: H5_iter_order_t; n: hsize_t; oinfo: ptr H5O_info_t;
-                          lapl_id: hid_t): herr_t {.cdecl,
+                           order: H5_iter_order_t; n: hsize_t; oinfo: ptr H5O_info_t;
+                           `fields`: cuint, lapl_id: hid_t): herr_t {.cdecl,
       importc: "H5Oget_info_by_idx2", dynlib: libname.}
+
+  # Overloads for the above with a default `fields` argument
+  proc H5Oget_info*(loc_id: hid_t; oinfo: ptr H5O_info_t): herr_t {.inline.} =
+    H5Oget_info(loc_id, oinfo, H5O_INFO_ALL)
+  proc H5Oget_info_by_name*(loc_id: hid_t; name: cstring; oinfo: ptr H5O_info_t;
+                            lapl_id: hid_t): herr_t {.inline.} =
+    H5Oget_info_by_name(loc_id, name, oinfo, H5O_INFO_ALL, lapl_id)
+  proc H5Oget_info_by_idx*(loc_id: hid_t; group_name: cstring; idx_type: H5_index_t;
+                           order: H5_iter_order_t; n: hsize_t; oinfo: ptr H5O_info_t;
+                           lapl_id: hid_t): herr_t {.inline.} =
+    H5Oget_info_by_idx(loc_id, group_name, idx_type, order, n, oinfo,
+                       H5O_INFO_ALL, lapl_id)
 else:
   proc H5Oget_info*(loc_id: hid_t; oinfo: ptr H5O_info_t): herr_t {.cdecl,
       importc: "H5Oget_info", dynlib: libname.}
@@ -226,12 +251,24 @@ proc H5Oget_comment_by_name*(loc_id: hid_t; name: cstring; comment: cstring;
     importc: "H5Oget_comment_by_name", dynlib: libname.}
 when defined(H5_FUTURE):
   proc H5Ovisit*(obj_id: hid_t; idx_type: H5_index_t; order: H5_iter_order_t;
-                 op: H5O_iterate_t; op_data: pointer): herr_t {.cdecl,
-      importc: "H5Ovisit2", dynlib: libname.}
+                 op: H5O_iterate_t; op_data: pointer, `fields`: cuint): herr_t
+    {.cdecl, importc: "H5Ovisit2", dynlib: libname.}
   proc H5Ovisit_by_name*(loc_id: hid_t; obj_name: cstring; idx_type: H5_index_t;
-                        order: H5_iter_order_t; op: H5O_iterate_t; op_data: pointer;
-                        lapl_id: hid_t): herr_t {.cdecl, importc: "H5Ovisit_by_name2",
-      dynlib: libname.}
+                         order: H5_iter_order_t; op: H5O_iterate_t;
+                         op_data: pointer; `fields`: cuint, lapl_id: hid_t):
+                             herr_t {.cdecl, importc: "H5Ovisit_by_name2",
+                                      dynlib: libname.}
+
+  # Overloads for the above with a default `fields` argument
+  proc H5Ovisit*(obj_id: hid_t; idx_type: H5_index_t; order: H5_iter_order_t;
+                 op: H5O_iterate_t; op_data: pointer): herr_t {.inline.} =
+    H5Ovisit(obj_id, idx_type, order, op, op_data, H5O_INFO_ALL)
+  proc H5Ovisit_by_name*(loc_id: hid_t; obj_name: cstring; idx_type: H5_index_t;
+                         order: H5_iter_order_t; op: H5O_iterate_t;
+                         op_data: pointer; lapl_id: hid_t):
+                             herr_t =
+    H5Ovisit_by_name(loc_id, obj_name, idx_type, order, op, op_data,
+                    H5O_INFO_ALL, lapl_id)
 else:
   proc H5Ovisit*(obj_id: hid_t; idx_type: H5_index_t; order: H5_iter_order_t;
                  op: H5O_iterate_t; op_data: pointer): herr_t {.cdecl,
