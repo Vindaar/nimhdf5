@@ -47,6 +47,13 @@ well, but requires to use an additional compiler flag for now:
 #+BEGIN_SRC sh
 -d:H5_LEGACY
 #+END_SRC
+With the recent release of version =1.10.3= / =1.10.4=, support for
+this version currently is available under the
+#+BEGIN_SRC
+-d:H5_FUTURE
+#+END_SRC
+flag. Soon this will become the default version!
+
 Currently no checks are done, which compare the library this wrapper
 is built upon with the library linking against using some of the
 provided HDF5 macros (e.g. H5check, H5get_libversion etc.). The main

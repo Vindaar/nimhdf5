@@ -184,15 +184,27 @@ proc H5Oopen_by_idx*(loc_id: hid_t; group_name: cstring; idx_type: H5_index_t;
     importc: "H5Oopen_by_idx", dynlib: libname.}
 proc H5Oexists_by_name*(loc_id: hid_t; name: cstring; lapl_id: hid_t): htri_t {.cdecl,
     importc: "H5Oexists_by_name", dynlib: libname.}
-proc H5Oget_info*(loc_id: hid_t; oinfo: ptr H5O_info_t): herr_t {.cdecl,
-    importc: "H5Oget_info", dynlib: libname.}
-proc H5Oget_info_by_name*(loc_id: hid_t; name: cstring; oinfo: ptr H5O_info_t;
-                         lapl_id: hid_t): herr_t {.cdecl,
-    importc: "H5Oget_info_by_name", dynlib: libname.}
-proc H5Oget_info_by_idx*(loc_id: hid_t; group_name: cstring; idx_type: H5_index_t;
-                        order: H5_iter_order_t; n: hsize_t; oinfo: ptr H5O_info_t;
-                        lapl_id: hid_t): herr_t {.cdecl,
-    importc: "H5Oget_info_by_idx", dynlib: libname.}
+
+when defined(H5_FUTURE):
+  proc H5Oget_info*(loc_id: hid_t; oinfo: ptr H5O_info_t): herr_t {.cdecl,
+      importc: "H5Oget_info2", dynlib: libname.}
+  proc H5Oget_info_by_name*(loc_id: hid_t; name: cstring; oinfo: ptr H5O_info_t;
+                           lapl_id: hid_t): herr_t {.cdecl,
+      importc: "H5Oget_info_by_name2", dynlib: libname.}
+  proc H5Oget_info_by_idx*(loc_id: hid_t; group_name: cstring; idx_type: H5_index_t;
+                          order: H5_iter_order_t; n: hsize_t; oinfo: ptr H5O_info_t;
+                          lapl_id: hid_t): herr_t {.cdecl,
+      importc: "H5Oget_info_by_idx2", dynlib: libname.}
+else:
+  proc H5Oget_info*(loc_id: hid_t; oinfo: ptr H5O_info_t): herr_t {.cdecl,
+      importc: "H5Oget_info", dynlib: libname.}
+  proc H5Oget_info_by_name*(loc_id: hid_t; name: cstring; oinfo: ptr H5O_info_t;
+                           lapl_id: hid_t): herr_t {.cdecl,
+      importc: "H5Oget_info_by_name", dynlib: libname.}
+  proc H5Oget_info_by_idx*(loc_id: hid_t; group_name: cstring; idx_type: H5_index_t;
+                          order: H5_iter_order_t; n: hsize_t; oinfo: ptr H5O_info_t;
+                          lapl_id: hid_t): herr_t {.cdecl,
+      importc: "H5Oget_info_by_idx", dynlib: libname.}
 proc H5Olink*(obj_id: hid_t; new_loc_id: hid_t; new_name: cstring; lcpl_id: hid_t;
              lapl_id: hid_t): herr_t {.cdecl, importc: "H5Olink", dynlib: libname.}
 proc H5Oincr_refcount*(object_id: hid_t): herr_t {.cdecl,
@@ -212,13 +224,23 @@ proc H5Oget_comment*(obj_id: hid_t; comment: cstring; bufsize: csize): ssize_t {
 proc H5Oget_comment_by_name*(loc_id: hid_t; name: cstring; comment: cstring;
                             bufsize: csize; lapl_id: hid_t): ssize_t {.cdecl,
     importc: "H5Oget_comment_by_name", dynlib: libname.}
-proc H5Ovisit*(obj_id: hid_t; idx_type: H5_index_t; order: H5_iter_order_t;
-              op: H5O_iterate_t; op_data: pointer): herr_t {.cdecl,
-    importc: "H5Ovisit", dynlib: libname.}
-proc H5Ovisit_by_name*(loc_id: hid_t; obj_name: cstring; idx_type: H5_index_t;
-                      order: H5_iter_order_t; op: H5O_iterate_t; op_data: pointer;
-                      lapl_id: hid_t): herr_t {.cdecl, importc: "H5Ovisit_by_name",
-    dynlib: libname.}
+when defined(H5_FUTURE):
+  proc H5Ovisit*(obj_id: hid_t; idx_type: H5_index_t; order: H5_iter_order_t;
+                 op: H5O_iterate_t; op_data: pointer): herr_t {.cdecl,
+      importc: "H5Ovisit2", dynlib: libname.}
+  proc H5Ovisit_by_name*(loc_id: hid_t; obj_name: cstring; idx_type: H5_index_t;
+                        order: H5_iter_order_t; op: H5O_iterate_t; op_data: pointer;
+                        lapl_id: hid_t): herr_t {.cdecl, importc: "H5Ovisit_by_name2",
+      dynlib: libname.}
+else:
+  proc H5Ovisit*(obj_id: hid_t; idx_type: H5_index_t; order: H5_iter_order_t;
+                 op: H5O_iterate_t; op_data: pointer): herr_t {.cdecl,
+      importc: "H5Ovisit", dynlib: libname.}
+  proc H5Ovisit_by_name*(loc_id: hid_t; obj_name: cstring; idx_type: H5_index_t;
+                        order: H5_iter_order_t; op: H5O_iterate_t; op_data: pointer;
+                        lapl_id: hid_t): herr_t {.cdecl, importc: "H5Ovisit_by_name",
+      dynlib: libname.}
+
 proc H5Oclose*(object_id: hid_t): herr_t {.cdecl, importc: "H5Oclose", dynlib: libname.}
 proc H5Oflush*(obj_id: hid_t): herr_t {.cdecl, importc: "H5Oflush", dynlib: libname.}
 proc H5Orefresh*(oid: hid_t): herr_t {.cdecl, importc: "H5Orefresh", dynlib: libname.}
