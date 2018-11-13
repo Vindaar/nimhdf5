@@ -366,7 +366,8 @@ proc create_dataset*[T: (tuple | int | seq)](
     dtype: (typedesc | hid_t),
     chunksize: seq[int],
     maxshape: seq[int],
-    filter: H5Filter): H5DataSet =
+    filter: H5Filter,
+    overwrite = false): H5DataSet =
   ## procedure to create a dataset given a H5file object. The shape of
   ## that type is given as a tuple, the datatype as a typedescription
   ## inputs:
@@ -455,7 +456,7 @@ proc create_dataset*[T: (tuple | int | seq)](
       # check whether there already exists a dataset with the given name
       # first in H5FileObj:
       var exists = hasKey(h5f.datasets, dset_name)
-      if exists == false:
+      if exists == false or overwrite:
         # then check the actual file for a dataset with the given name
         # TODO: FOR NOW the location id given to H5Dopen2 is only the file id
         # once we have the parent properly determined, we can also check for
@@ -464,20 +465,22 @@ proc create_dataset*[T: (tuple | int | seq)](
         withDebug:
           echo "Checking if dataset exists via H5Lexists ", dset.name
           echo "Does exists ? ", in_file
-        if in_file > 0:
+        if overwrite or in_file == 0:
+          # does not exist in file, so create
+          withDebug:
+            echo "Does not exist, so create dataset via H5create2 ", dset.name
+            echo "with shape ", dset.shape
+          if in_file != 0:
+            # delete the element in the group
+            discard group.delete(dset.name)
+          dset.dataset_id = create_dataset_in_file(h5f.file_id, dset)
+        elif in_file > 0:
           # in this case successful, dataset exists already
           exists = true
           # in this case open the dataset to read
           dset.dataset_id   = H5Dopen2(h5f.file_id, dset.name, H5P_DEFAULT)
           # TODO: include a check about whether the opened dataset actually conforms
           # to what we wanted to create (e.g. same shape etc.)
-
-        elif in_file == 0:
-          # does not exist in file, so create
-          withDebug:
-            echo "Does not exist, so create dataset via H5create2 ", dset.name
-            echo "with shape ", dset.shape
-          dset.dataset_id = create_dataset_in_file(h5f.file_id, dset)
         else:
           raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
             "in `existsInFile` from `create_dataset`")
@@ -529,7 +532,8 @@ proc create_dataset*[T: (tuple | int | seq)](
     shape_raw: T,
     dtype: (typedesc | hid_t),
     chunksize: seq[int] = @[],
-    maxshape: seq[int] = @[]): H5DataSet {.inline.} =
+    maxshape: seq[int] = @[],
+    overwrite = false): H5DataSet {.inline.} =
   ## Wrapper around full `create_dataset` proc if no filter is being used.
   ## In this case chunksize and maxshape are optional
   let filter = H5Filter(kind: fkNone)
@@ -538,7 +542,8 @@ proc create_dataset*[T: (tuple | int | seq)](
                               dtype,
                               chunksize,
                               maxshape,
-                              filter)
+                              filter,
+                              overwrite = overwrite)
 
 proc write_dataset*[TT](h5f: var H5FileObj, name: string, data: TT): H5DataSet =
   ## convenience proc to create a dataset and write data it immediately
