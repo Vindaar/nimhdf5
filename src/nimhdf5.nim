@@ -53,6 +53,7 @@ import nimhdf5/util
 # need to export util for shape and flatten
 export util
 import nimhdf5/h5util
+export h5util
 import nimhdf5/files
 export files
 import nimhdf5/attributes
