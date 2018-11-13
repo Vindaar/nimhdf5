@@ -125,3 +125,12 @@ proc contains*(h5f: var H5FileObj, name: string): bool =
   # format the given name
   let target = formatName name
   result = if existsInFile(h5f.file_id, target) > 0: true else: false
+
+proc delete*[T](h5o: T, name: string): bool =
+  ## deletes the object with `name` from the H5 file
+  ## If `h5o` is the parent of the object (e.g. `name` is dset in `group`)
+  ## a relative name is valid. Else if `h5o` is the file itself, `name` needs
+  ## to be the full path. Returns `true` if deletion successful
+  let h5id = getH5Id(h5o)
+
+  result = if H5Ldelete(h5id, name, H5P_DEFAULT) >= 0: true else: false
