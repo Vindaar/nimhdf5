@@ -24,6 +24,7 @@ task test, "Runs all tests":
   exec "nim c -r tests/tutil.nim"
   exec "nim c -r tests/tnested.nim"
   exec "nim c -r tests/tfilter.nim"
+  exec "nim c -r tests/toverwrite.nim"
   # regression tests
   exec "nim c -r tests/tint64_dset.nim"
   exec "nim c -r tests/t17.nim"
