@@ -1501,7 +1501,7 @@ proc read_hyperslab*[T](dset: H5DataSet, dtype: typedesc[T],
   ## throws:
   ##    HDF5LibraryError = if a call to the H5 library fails
   var err: herr_t
-  if not typeMatches(dtype, dset.dtypeBaseKind.anyTypeToString):
+  if not typeMatches(dtype, dset.dtype):
     raise newException(ValueError,
                        "Wrong datatype as arg to `read_hyperslab`. Given " &
                        "`$#`, dset is `$#`" % [$dtype, $dset.dtype])
