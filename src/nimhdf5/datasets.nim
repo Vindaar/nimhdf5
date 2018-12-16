@@ -941,13 +941,13 @@ proc `[]`*[T](dset: H5DataSet, t: typedesc[T]): seq[T] =
 
   result = data
 
-proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
+proc read*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   ## procedure to read the data of an existing dataset based on variable length data
   ## inputs:
   ##    dset: var H5DataSet = the dataset which contains the necessary information
   ##         about dataset shape, dtype etc. to read from
-  ##    ind: DsetReadWrite = indicator telling us to read whole dataset,
-  ##         used to differentiate from the case in which we only read a hyperslab
+  ##    t: hid_t = special type of variable length data type.
+  ##    dtype: typedesc[T] = Nim datatype
   ## outputs:
   ##    seq[dtype]: a flattened sequence of the data in the (potentially) multidimensional
   ##         dataset
@@ -966,14 +966,17 @@ proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   if basetype != dset.dtypeAnyKind:
     raise newException(ValueError, "Wrong datatype as arg to `[]`. Given " &
                        "`$#`, dset is `$#`" % [$t, $dset.dtype])
-  let
-    shape = dset.shape
-    n_elements = foldl(shape, a * b)
+
+  let n_elements = dset.shape[0]
   # create a flat sequence of the size of the dataset in the H5 file, then read data
   # cannot use the result sequence, since we need to hand the address of the sequence to
   # the H5 library
   var data = newSeq[hvl_t](n_elements)
-  err = H5Dread(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+  err = H5Dread(dset.dataset_id,
+                dset.dtype_c,
+                H5S_ALL,
+                H5S_ALL,
+                H5P_DEFAULT,
                 addr(data[0]))
 
   result = vlenToSeq[dtype](data)
@@ -981,6 +984,56 @@ proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   # reclaim the memory, which it alloc'd
   let dspace_id = H5Dget_space(dset.dataset_id)
   err = H5Dvlen_reclaim(dset.dtype_c, dspace_id, H5P_DEFAULT, addr(data[0]))
+  if err < 0:
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+        "calling `H5Dread` in full VLEN `read`")
+
+proc read*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T], idx: int): seq[T] =
+  ## procedure to read a single element form a variable length dataset.
+  ## NOTE: this uses hyperslab reading!
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##         about dataset shape, dtype etc. to read from
+  ##    idx: int = the single element to read
+  ## outputs:
+  ##    seq[T]: a single variable length element of `dset`
+  ## throws:
+  ##     ValueError: in case the given typedesc t is different than
+  ##         the datatype of the dataset
+  let dsetLen = dset.shape[0]
+  if idx > dsetLen:
+    raise newException(IndexError, "Coordinate shape mismatch. Index " &
+      "is $#, dataset is dimension $#!" % [$idx, $dsetLen])
+  result = dset.read_hyperslab_vlen(dtype, @[idx, 0], @[1, 1])[0]
+
+proc read*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T], indices: seq[int]): seq[seq[T]] =
+  ## procedure to read a single element form a variable length dataset.
+  ## NOTE: each element is read via a single call to read hyperslab!
+  ## For consecutive elements, read manually via read hyperslab!
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##         about dataset shape, dtype etc. to read from
+  ##    indices: seq[int] = the variable length elements to read
+  ## outputs:
+  ##    seq[T]: a single variable length element of `dset`
+  ## throws:
+  ##     ValueError: in case the given typedesc t is different than
+  ##         the datatype of the dataset
+  result = newSeqOfCap[seq[dtype]](indices.len)
+  for idx in indices:
+    result.add dset.read(t, dtype, idx)
+
+proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T], indices: seq[int]): seq[seq[T]] =
+  ## reads a single or several elements from a variable length dataset
+  result = read(dset, t, dtype, indices)
+
+proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T], idx: int): seq[T] =
+  ## reads a single or several elements from a variable length dataset
+  result = read(dset, t, dtype, idx)
+
+proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
+  ## reads a whole variable length dataset, wrapper around `read`
+  result = read(dset, t, dtype)
 
 proc write_vlen*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
   ## check whether we have data for each coordinate
@@ -1381,6 +1434,51 @@ proc sizeOfHyperslab(offset, count, stride, blk: seq[hsize_t]): int =
     mblk   = mapIt(blk, if it < 0: hsize_t(0) else: it)
   result = int(foldl(mcount, a * b) * foldl(mblk, a * b))
 
+proc hyperslab(dset: H5DataSet,
+               offset, count, stride, blk: seq[int],
+               full_output: bool): (hid_t, hid_t, int) =
+  ## performs the hyperslab selection on `dset`, potentially respecting
+  ## `full_output` (meaning output has shape of `dset`, even if fewer elements
+  ## are read, unselected is zeroed).
+  ## Returns the memory space id, the hyperslab ib for the selection and the
+  ## number of selected elements.
+  ## Basically combines `parseHyperslabSelection`, `select_hyperslab` and the
+  ## calculation of the number of elements given `full_output`.
+# parse the input hyperslab selections
+  var (moffset, mcount, mstride, mblk) = parseHyperslabSelection(offset,
+                                                                 count,
+                                                                 stride,
+                                                                 blk)
+
+  # get a memory space for the size of the whole dataset, on which we will perform the
+  # selection of the hyperslab we wish to read
+  var memspace_id: hid_t
+  if full_output == true:
+    memspace_id = simple_dataspace(dset.shape)
+    # in this case need to perform selection of the hyperslab on memspace
+    # as well as dataspace
+    let err = h5SelectHyperslab(memspace_id, moffset, mcount, mstride, mblk)
+    if err < 0:
+      raise newException(HDF5LibraryError,
+                         "Call to HDF5 library failed while calling " &
+                           "`h5SelectHyperslab` in `read_hyperslab`")
+  else:
+    # combine count and blk to get the size of the data we read as a sequence
+    let shape = mapIt(zip(mcount, mblk), it[0] * it[1])
+    memspace_id = simple_dataspace(shape)
+
+  # perform hyperslab selection on dataspace
+  let hyperslab_id = dset.select_hyperslab(offset, count, stride, blk)
+
+  # calc lenght of needed output sequence
+  var n_elements: int
+  if full_output == false:
+    n_elements = sizeOfHyperslab(moffset, mcount, mstride, mblk)
+  else:
+    n_elements = foldl(dset.shape, a * b)
+
+  result = (memspace_id, hyperslab_id, n_elements)
+
 proc read_hyperslab*[T](dset: H5DataSet, dtype: typedesc[T],
                         offset, count: seq[int], stride, blk: seq[int] = @[],
                         full_output = false): seq[T] =
@@ -1403,61 +1501,62 @@ proc read_hyperslab*[T](dset: H5DataSet, dtype: typedesc[T],
   ## throws:
   ##    HDF5LibraryError = if a call to the H5 library fails
   var err: herr_t
-
-  if not typeMatches(dtype, dset.dtype):
+  if not typeMatches(dtype, dset.dtypeBaseKind.anyTypeToString):
     raise newException(ValueError,
                        "Wrong datatype as arg to `read_hyperslab`. Given " &
                        "`$#`, dset is `$#`" % [$dtype, $dset.dtype])
 
-  # parse the input hyperslab selections
-  var (moffset, mcount, mstride, mblk) = parseHyperslabSelection(offset,
-                                                                 count,
-                                                                 stride,
-                                                                 blk)
-  # get a memory space for the size of the whole dataset, on which we will perform the
-  # selection of the hyperslab we wish to read
-  var memspace_id: hid_t
-  if full_output == true:
-    memspace_id = simple_dataspace(dset.shape)
-    # in this case need to perform selection of the hyperslab on memspace
-    # as well as dataspace
-    err = h5SelectHyperslab(memspace_id, moffset, mcount, mstride, mblk)
-  else:
-    # combine count and blk to get the size of the data we read as a sequence
-    let shape = mapIt(zip(mcount, mblk), it[0] * it[1])
-    memspace_id = simple_dataspace(shape)
-
-  # perform hyperslab selection on dataspace
-  let hyperslab_id = dset.select_hyperslab(offset, count, stride, blk)
-  if err < 0:
-    raise newException(HDF5LibraryError,
-                       "Call to HDF5 library failed while calling " &
-                       "`h5SelectHyperslab` in `read_hyperslab`")
-
-  # now create the necessary array to store the data in
-  # given the hyperslab parameters, calculate the length of the neeeded
-  # dataset
-  var n_elements: int
-  if full_output == false:
-    n_elements = sizeOfHyperslab(moffset, mcount, mstride, mblk)
-  else:
-    n_elements = foldl(dset.shape, a * b)
-  var mdata = newSeq[T](n_elements)
-
-
+  let (memspace_id,
+       hyperslab_id,
+       n_elements) = dset.hyperslab(offset,
+                                    count,
+                                    stride,
+                                    blk,
+                                    full_output)
+  var mdata = newSeq[dtype](n_elements)
   err = H5Dread(dset.dataset_id,
                 dset.dtype_c,
                 memspace_id,
                 hyperslab_id,
                 H5P_DEFAULT,
                 addr(mdata[0]))
+  result = mdata
   if err < 0:
-    withDebug:
-      echo "Trying to write mdata with shape ", mdata.shape
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
       "calling `H5Dread` in `read_hyperslab`")
 
-  result = mdata
+proc read_hyperslab_vlen*[T](dset: H5DataSet, dtype: typedesc[T],
+                             offset, count: seq[int], stride, blk: seq[int] = @[],
+                             full_output = false): seq[seq[T]] =
+  ## proc to read an arbitrary hyperslab from a variable length dataset.
+  ## See `read_hyperslab` for documentation
+  var err: herr_t
+  if not typeMatches(dtype, dset.dtypeBaseKind.anyTypeToString):
+    raise newException(ValueError,
+                       "Wrong datatype as arg to `read_hyperslab`. Given " &
+                       "`$#`, dset is `$#`" % [$dtype, $dset.dtype])
+
+  let (memspace_id,
+       hyperslab_id,
+       n_elements) = dset.hyperslab(offset,
+                                    count,
+                                    stride,
+                                    blk,
+                                    full_output)
+
+  doAssert dset.dtype_class == H5T_VLEN
+  var mdata = newSeq[hvl_t](n_elements)
+  err = H5Dread(dset.dataset_id,
+                dset.dtype_c,
+                memspace_id,
+                hyperslab_id,
+                H5P_DEFAULT,
+                addr(mdata[0]))
+  result = vlenToSeq[T](mdata)
+
+  if err < 0:
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+      "calling `H5Dread` in `read_hyperslab`")
 
 proc high*(dset: H5DataSet, axis = 0): int =
   ## convenience proc to return the highest possible index of
