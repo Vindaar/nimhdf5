@@ -976,21 +976,7 @@ proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   err = H5Dread(dset.dataset_id, dset.dtype_c, H5S_ALL, H5S_ALL, H5P_DEFAULT,
                 addr(data[0]))
 
-  # converting the raw data from the C library to a Nim sequence is sort of ugly, but
-  # here it goes...
-  # number of elements we read
-  result = newSeq[seq[dtype]](n_elements)
-  # iterate over every element of the pointer we have with data
-  for i in 0 ..< n_elements:
-    let elem_len = data[i].len
-    # create corresponding sequence for the size of this element
-    result[i] = newSeq[dtype](elem_len)
-    # now we need to cast the data, which is a pointer, to a ptr of an unchecked
-    # array of our datatype
-    let data_seq = cast[ptr UncheckedArray[dtype]](data[i].p)
-    # now assign each element of the unckecked array to our sequence
-    for j in 0 ..< elem_len:
-      result[i][j] = data_seq[j]
+  result = vlenToSeq[dtype](data)
   # since we have in effect copied the whole array, we can now safely let the H5 library
   # reclaim the memory, which it alloc'd
   let dspace_id = H5Dget_space(dset.dataset_id)

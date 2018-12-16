@@ -431,3 +431,20 @@ template toH5vlen*[T](data: var seq[T]): untyped =
       warning("T is " & T.name)
       warning("Cannot be converted to VLEN data!")
     #mapIt(toSeq(0 .. data.high), hvl_t(`len`: csize(data[it]), p: addr(data[it][0])))
+
+proc vlenToSeq*[T](data: seq[hvl_t]): seq[seq[T]] =
+  # converting the raw data from the C library to a Nim sequence is sort of ugly, but
+  # here it goes...
+  # number of elements we read
+  result = newSeq[seq[T]](data.len)
+  # iterate over every element of the pointer we have with data
+  for i in 0 ..< data.len:
+    let elem_len = data[i].len
+    # create corresponding sequence for the size of this element
+    result[i] = newSeq[T](elem_len)
+    # now we need to cast the data, which is a pointer, to a ptr of an unchecked
+    # array of our datatype
+    let data_seq = cast[ptr UncheckedArray[T]](data[i].p)
+    # now assign each element of the unckecked array to our sequence
+    for j in 0 ..< elem_len:
+      result[i][j] = data_seq[j]
