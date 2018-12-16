@@ -580,7 +580,7 @@ proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) =
   ## does not store the data
   ## inputs:
   ##    dset: var H5DataSet = the dataset which contains the necessary information
-  ##         about dataset shape, dtype etc. to write to
+  ##          about dataset shape, dtype etc. to write to
   ##    ind: DsetReadWrite = indicator telling us to write whole dataset,
   ##         used to differentiate from the case in which we only write a hyperslab
   ##    data: openArray[T] = any array type containing the data to be written
@@ -891,7 +891,6 @@ proc `[]`*[T](dset: H5DataSet, ind: int, t: typedesc[T]): T =
   # return element of bufer
   result = buf[0]
 
-
 proc read*[T](dset: H5DataSet, buf: var seq[T]) =
   ## read whole dataset
   if buf.len == foldl(dset.shape, a * b, 1):
@@ -913,8 +912,7 @@ proc `[]`*[T](dset: H5DataSet, t: typedesc[T]): seq[T] =
   ## inputs:
   ##    dset: var H5DataSet = the dataset which contains the necessary information
   ##         about dataset shape, dtype etc. to read from
-  ##    ind: DsetReadWrite = indicator telling us to read whole dataset,
-  ##         used to differentiate from the case in which we only read a hyperslab
+  ##    t: typedesc[T] = the Nim datatype of the dataset to be read
   ## outputs:
   ##    seq[T]: a flattened sequence of the data in the (potentially) multidimensional
   ##         dataset
