@@ -813,15 +813,26 @@ proc convertType*(h5dset: H5DataSet, dt: typedesc):
     echo "it's of type ", h5dset.dtypeAnyKind
     result = proc(d: H5DataSet): seq[dt] = discard
 
-proc select_elements[T](dset: H5DataSet, coord: seq[T]) {.inline.} =
+proc select_elements[T](dset: H5DataSet, coord: seq[T]): hid_t {.inline, discardable.} =
   ## convenience proc to select specific coordinates in the dataspace of
   ## the given dataset
+  ## NOTE: By using the `dataspace_id` proc on a `H5DataSet` to get a dataspace
+  ## id, we cannot select elements, since each call gives us a new (!) dataspace id!
+  ## A specific dataset id hence does *NOT* have a single dataspace id attached to
+  ## it! This is why reading from selected coordinates failed!
+  ## TODO: check whether reading specific coordinates also fails!
+  ## Do we have a test for that?
   # first flatten coord tuples
   var flat_coord = mapIt(coord.flatten, hsize_t(it))
-  discard H5Sselect_elements(dset.dataspace_id,
-                             H5S_SELECT_SET,
-                             csize(coord.len),
-                             addr(flat_coord[0]))
+  result = dset.dataspace_id
+  let res = H5Sselect_elements(result,
+                               H5S_SELECT_SET,
+                               csize(coord.len),
+                               addr(flat_coord[0]))
+  if res < 0:
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed in `select_elements` " &
+      "after a call to `H5Sselect_elements` with return code " & $res)
+
 
 proc read*[T: seq, U](dset: H5DataSet, coord: seq[T], buf: var seq[U]) =
   ## proc to read specific coordinates (or single values) from a dataset
@@ -841,14 +852,15 @@ proc read*[T: seq, U](dset: H5DataSet, coord: seq[T], buf: var seq[U]) =
       "dimension $#, dataset is dimension $#!" % [$coord[0].len, $dset.shape.len])
 
   # select all elements from the coordinate seq
-  dset.select_elements(coord)
+  let dspace = dset.select_elements(coord)
   let memspace_id = create_simple_memspace_1d(coord)
+
   # now read the elements
   if buf.len == coord.len:
     discard H5Dread(dset.dataset_id,
                     dset.dtype_c,
                     memspace_id,
-                    dset.dataspace_id,
+                    dspace,
                     H5P_DEFAULT,
                     addr(buf[0]))
 
@@ -890,6 +902,32 @@ proc `[]`*[T](dset: H5DataSet, ind: int, t: typedesc[T]): T =
   dset.read(coord, buf)
   # return element of bufer
   result = buf[0]
+
+proc `[]`*[T](dset: H5DataSet, indices: seq[int], t: typedesc[T]): seq[T] =
+  ## Same as above proc, but reads several indices at once
+  ## inputs:
+  ##   dset: var H5DataSet = the dataset from which to read an element
+  ##   indices: seq[int] = the indices from which to read
+  ##   t: typedesc[T] = the datatype of the dataset. Needs to be given
+  ##     to define the return value of the proc
+  ## outputs:
+  ##   T = scalar read from position `ind`
+  ## throws:
+  ##   HDF5LibraryError = in case a call to the H5 library fails
+  let shape = dset.shape
+  # broadcast coord to all dimensions. Needs to be packed into a sequence
+  # since read() expects seq[seq[T]]
+  # Done by checking for each dimension whether the given index still "fits"
+  # into the dimension. If yes, `ind` is taken, else we use the last element
+  # in that dimension (-> diagonal if
+  var coords: seq[seq[int]]
+  for idx in indices:
+    coords.add @[mapIt(toSeq(0 .. shape.high), if idx < shape[it]: idx else: shape[it] - 1)]
+  # create buffer seq of size 1 to read data into
+  var buf = newSeq[t](indices.len)
+  dset.read(coords, buf)
+  # return element of bufer
+  result = buf
 
 proc read*[T](dset: H5DataSet, buf: var seq[T]) =
   ## read whole dataset
@@ -1046,6 +1084,7 @@ proc write_vlen*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
   let valid_data = if coord.len == mdata.len: true else: false
   if valid_data == true:
     let memspace_id = create_simple_memspace_1d(coord)
+    # TODO: !!! check if selection of `coord` actually works correctly!!
     dset.select_elements(coord)
     var data_hvl = mdata.toH5vlen
 
@@ -1101,6 +1140,7 @@ proc write_norm*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
     valid_data = if coord.len == mdata.len: true else: false
   if valid_coords == true and valid_data == true:
     let memspace_id = create_simple_memspace_1d(coord)
+    # TODO: !!! check if selection of `coord` actually works correctly!!
     dset.select_elements(coord)
     err = H5Dwrite(dset.dataset_id,
                    dset.dtype_c,
