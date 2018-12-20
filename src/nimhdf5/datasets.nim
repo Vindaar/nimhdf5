@@ -929,6 +929,26 @@ proc `[]`*[T](dset: H5DataSet, indices: seq[int], t: typedesc[T]): seq[T] =
   # return element of bufer
   result = buf
 
+proc readConvert*[T: SomeNumber](dset: H5DataSet, indices: seq[int], dtype: typedesc[T]):
+                seq[dtype] =
+  ## read some indices and returns the data converted to `dtype`
+  case dset.dtypeAnyKind
+  of akFloat32: result = dset[indices, float32].mapIt(dtype(it))
+  of akFloat64: result = dset[indices, float64].mapIt(dtype(it))
+  of akInt8:    result = dset[indices, int8].mapIt(dtype(it))
+  of akInt16:   result = dset[indices, int16].mapIt(dtype(it))
+  of akInt32:   result = dset[indices, int32].mapIt(dtype(it))
+  of akInt64:   result = dset[indices, int64].mapIt(dtype(it))
+  of akUint8:   result = dset[indices, uint8].mapIt(dtype(it))
+  of akUint16:  result = dset[indices, uint16].mapIt(dtype(it))
+  of akUint32:  result = dset[indices, uint32].mapIt(dtype(it))
+  of akUint64:  result = dset[indices, uint64].mapIt(dtype(it))
+  else:
+    echo "Unsupported datatype for H5DataSet to convert to some number!"
+    echo "Dset dtype: " & $dset.dtypeAnyKind & "; requested target: " &
+      name(dtype)
+    result = @[]
+
 proc read*[T](dset: H5DataSet, buf: var seq[T]) =
   ## read whole dataset
   if buf.len == foldl(dset.shape, a * b, 1):
