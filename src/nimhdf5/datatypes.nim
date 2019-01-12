@@ -29,7 +29,7 @@ type
   # object which stores information about the attributes of a H5 object
   # each dataset, group etc. has a field .attr, which contains a H5Attributes
   # object
-  H5Attributes* = object
+  H5Attributes* = ref object
     # attr_tab is a table containing names and corresponding
     # H5 info
     attr_tab*: ref Table[string, ref H5Attr]
@@ -40,6 +40,7 @@ type
 
   # a tuple which stores information about a single attribute
   H5Attr* = tuple[
+    opened: bool, # flag which indicates whether attribute is opened
     attr_id: hid_t,
     dtype_c: hid_t,
     dtypeAnyKind: AnyKind,

@@ -17,7 +17,8 @@ import h5util
 import util
 
 # forward declare procs, which we need to read the attributes from file
-proc read_all_attributes*(h5attr: var H5Attributes)
+proc read_all_attributes*(h5attr: H5Attributes)
+proc getNumAttrs(h5attr: H5Attributes): int
 
 proc `$`*(h5attr: ref H5Attr): string =
   ## proc to define echo of ref H5Attr by echoing its contained object
@@ -38,10 +39,11 @@ proc initH5Attributes*(p_name: string = "", p_id: hid_t = -1.hid_t, p_type: stri
                             parent_name: p_name,
                             parent_id: p_id,
                             parent_type: p_type)
-  read_all_attributes(h5attr)
+  h5attr.num_attrs = h5attr.getNumAttrs
+  # read_all_attributes(h5attr)
   result = h5attr
 
-proc openAttrByIdx(h5attr: var H5Attributes, idx: int): hid_t =
+proc openAttrByIdx(h5attr: H5Attributes, idx: int): hid_t =
   ## proc to open an attribute by its id in the H5 file and returns
   ## attribute id if succesful
   ## need to hand H5Aopen_by_idx the location relative to the location_id,
@@ -55,6 +57,21 @@ proc openAttrByIdx(h5attr: var H5Attributes, idx: int): hid_t =
                           hsize_t(idx),
                           H5P_DEFAULT,
                           H5P_DEFAULT)
+
+proc openAttribute(h5attr: H5Attributes, key: string): hid_t =
+  ## proc to open an attribute by its name.
+  ## NOTE: This assumes the caller already checked the attribute exists!
+  # we read by creation order, increasing from 0
+  result = H5Aopen(h5attr.parent_id, key.cstring, H5P_DEFAULT)
+
+proc close*(attr: ref H5Attr): herr_t =
+  ## closes the attribute and the corresponding dataspace
+  if attr.opened:
+    result = H5Aclose(attr.attr_id)
+    withDebug:
+      echo "Closed attribute with status ", result
+    result = H5Sclose(attr.attr_dspace_id)
+    attr.opened = false
 
 proc getAttrName(attr_id: hid_t, buf_space = 20): string =
   ## proc to get the attribute name of the attribute with the given id
@@ -105,34 +122,49 @@ proc setAttrAnyKind(attr: var H5Attr) =
   else:
     attr.dtypeAnyKind = h5ToNimType(attr.dtype_c)
 
-proc read_all_attributes*(h5attr: var H5Attributes) =
+proc attr_dspace_id(attr: H5Attr): hid_t =
+  ## returns a valid dataspace for the given attribute
+  result = H5Aget_space(attr.attr_id)
+
+proc readAttributeInfo(h5attr: H5Attributes,
+                       attr: ref H5Attr,
+                       name: string) =
+  withDebug:
+    debugEcho "Found? ", attr.attr_id, " with name ", name
+  # get dtypes and dataspace id
+  attr.dtype_c = H5Aget_type(attr.attr_id)
+
+  # TODO: remove debug
+  withDebug:
+    debugEcho "attr ", name, " is vlen string ", H5Tis_variable_str(attr.dtype_c)
+  #attr.dtype_c = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
+  #echo "Encoding is native ", H5Tget_cset(attr.dtype_c)
+  attr.attr_dspace_id = H5Aget_space(attr.attr_id)
+  # now set the attribute any kind fields (checks whether attr is a sequence)
+  attr[].setAttrAnyKind
+  # add to this attribute object
+  h5attr.attr_tab[name] = attr
+
+proc readAttributeInfo(h5attr: H5Attributes, key: string) =
+  ## reads all information about the attribute `key` from the H5 file
+  ## NOTE: this does ``not`` read the value of that attribute!
+  var attr = new H5Attr
+  attr.attr_id = openAttribute(h5attr, key)
+  attr.opened = true
+  readAttributeInfo(h5attr, attr, key)
+
+proc read_all_attributes*(h5attr: H5Attributes) =
   ## proc to read all attributes of the parent from file and store the names
   ## and attribute ids in `h5attr`
-
   # first get how many objects there are
   h5attr.num_attrs = h5attr.getNumAttrs
   for i in 0..<h5attr.num_attrs:
     var attr = new H5Attr
     attr.attr_id = openAttrByIdx(h5attr, i)
     let name = getAttrName(attr.attr_id)
-    withDebug:
-      debugEcho "Found? ", attr.attr_id, " with name ", name
-    # get dtypes and dataspace id
-    attr.dtype_c = H5Aget_type(attr.attr_id)
-
-    # TODO: remove debug
-    withDebug:
-      debugEcho "attr ", name, " is vlen string ", H5Tis_variable_str(attr.dtype_c)
-    #attr.dtype_c = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
-    #echo "Encoding is native ", H5Tget_cset(attr.dtype_c)
-    attr.attr_dspace_id = H5Aget_space(attr.attr_id)
-    # now set the attribute any kind fields (checks whether attr is a sequence)
-    attr[].setAttrAnyKind
-    # add to this attribute object
-    h5attr.attr_tab[name] = attr
+    readAttributeInfo(h5attr, attr, name)
 
 proc existsAttribute*(h5id: hid_t, name: string): bool =
-  ## proc to check whether a given
   ## simply check if the given attribute name corresponds to an attribute
   ## of the given object
   ## throws:
@@ -170,7 +202,7 @@ proc deleteAttribute*[T: (H5FileObj | H5Group | H5DataSet)](h5o: var T, name: st
   # if successful also lower the number of attributes
   h5o.attrs.num_attrs = h5o.attrs.getNumAttrs
 
-proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_check = false) =
+proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check = false) =
   ## writes the attribute `name` of value `val` to the object `h5o`
   ## NOTE: by defalt this function overwrites an attribute, if an attribute
   ## of the same name already exists!
@@ -186,7 +218,7 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
   # the attribute does not exist. This should normally not be done by a user,
   # but only in case we have previously succesfully deleted the attribute
   if skip_check == false:
-    attr_exists = existsAttribute(h5attr.parent_id, name)
+    attr_exists = name in h5attr
     withDebug:
       debugEcho "Attribute $# exists $#" % [name, $attr_exists]
   if attr_exists == false:
@@ -270,7 +302,7 @@ proc write_attribute*[T](h5attr: var H5Attributes, name: string, val: T, skip_ch
   # independent of previous attribute, refresh the number of attributes
   h5attr.num_attrs = h5attr.getNumAttrs
 
-template `[]=`*[T](h5attr: var H5Attributes, name: string, val: T) =
+template `[]=`*[T](h5attr: H5Attributes, name: string, val: T) =
   ## convenience access to write_attribue
   h5attr.write_attribute(name, val)
 
@@ -325,8 +357,7 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
   ## (attr as small, so the performance overhead should be minimal), we can just access
   ## the attribute table to check for existence
   ## inputs:
-  ##   h5attr: var H5Attributes = mutable H5Attributes from which to read specific attribute
-  ##     Note: does not need to be mutable?!
+  ##   h5attr: H5Attributes = H5Attributes from which to read specific attribute
   ##   name: string = name of the attribute to be read
   ##   dtype: typedesc[T] = datatype of the attribute to be read. Needed to define return
   ##     value.
@@ -335,11 +366,12 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
 
   # TODO: check err values!
 
-  let attr_exists = hasKey(h5attr.attr_tab, name)
+  let attr_exists = name in h5attr
   var err: herr_t
 
   if attr_exists:
     # in case of existence, read the data and return
+    h5attr.readAttributeInfo(name)
     let attr = h5attr.attr_tab[name]
     when T is SomeNumber or T is char:
       var at_val: T
@@ -376,8 +408,12 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
     elif T is string:
       # case of single string attribute
       result = readStringAttribute attr
+    # close attribute again after reading
+    if h5attr.attr_tab[name].close() < 0:
+      raise newException(HDF5LibraryError, "Error closing attribute " & $name &
+                         " after reading")
   else:
-    raise newException(KeyError, "No key `$#` exists in group `$#`" % [name, h5attr.parent_name])
+    raise newException(KeyError, "No attribute `$#` exists in object `$#`" % [name, h5attr.parent_name])
 
 template `[]`*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
   # convenience access to read_attribute
@@ -391,9 +427,9 @@ template `[]`*(h5attr: H5Attributes, name: string): AnyKind =
 proc contains*(attr: H5Attributes, key: string): bool =
   ## proc to check whether a given attribute with name `key` exists in the attribute
   ## field of a group or dataset
-  result = if key in attr.attr_tab: true else: false
+  result = attr.parent_id.existsAttribute(key)
 
-template withAttr*(h5attr: var H5Attributes, name: string, actions: untyped) =
+template withAttr*(h5attr: H5Attributes, name: string, actions: untyped) =
   ## convenience template to read and work with an attribute from the file and perform actions
   ## with that attribute, without having to manually check the data type of the attribute
 
@@ -481,7 +517,7 @@ template withAttr*(h5attr: var H5Attributes, name: string, actions: untyped) =
     echo "Attribute of dtype ", h5attr.attr_tab[name].dtypeAnyKind, " not supported"
     discard
 
-proc copy_attributes*[T: H5Group | H5DataSet](h5o: var T, attrs: var H5Attributes) =
+proc copy_attributes*[T: H5Group | H5DataSet](h5o: var T, attrs: H5Attributes) =
   ## copies the attributes contained in `attrs` given to the function to the `h5o` attributes
   ## this can be used to copy attributes also between different files
   # simply walk over all key value pairs in the given attributes and
