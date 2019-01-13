@@ -5,18 +5,24 @@ template canImport(x: untyped): untyped =
     import x
 
 import macros
-when canImport(blosc):
-  import blosc
-  export blosc
+when not defined(noBlosc):
+  # need to have these nested, because otherwise we cannot seemingly combine
+  # the two
+  when canImport(blosc):
+    import blosc
+    export blosc
 
-  const HasBloscSupport* = true
-  static:
-    hint("Compiling with blosc support")
+    const HasBloscSupport* = true
+    static:
+      warning("Compiling with blosc support")
+  else:
+    const HasBloscSupport* = true
+    static:
+      warning("Compiling without blosc support")
 else:
   const HasBloscSupport* = false
   static:
     warning("Compiling without Blosc support!")
-
 
 when HasBloscSupport:
   import ../nimhdf5/H5nimtypes
