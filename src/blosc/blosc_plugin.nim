@@ -16,7 +16,7 @@ when not defined(noBlosc):
     static:
       warning("Compiling with blosc support")
   else:
-    const HasBloscSupport* = true
+    const HasBloscSupport* = false
     static:
       warning("Compiling without blosc support")
 else:
