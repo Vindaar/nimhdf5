@@ -8,4 +8,4 @@ when not declared(libname):
       libname* = "libhdf5.dylib"
   else:
     const
-      libname* = "libhdf5.so"
+      libname* = "(libhdf5|libhdf5_serial).so"
