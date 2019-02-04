@@ -386,7 +386,7 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
 
       # given number of elements in seq attribute, check what user desired
       # basetype is
-      const TT = type(buf_seq[0])
+      type TT = type(buf_seq[0])
 
       # in case it's a string, do things differently..
       when TT is string:
