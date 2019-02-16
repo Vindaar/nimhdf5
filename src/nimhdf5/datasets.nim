@@ -178,10 +178,10 @@ proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       # get the dataset access property list
       result.dapl_id = H5Dget_access_plist(result.dataset_id)
       # get the dataset create property list
-      result.dapl_id = H5Dget_create_plist(result.dataset_id)
+      result.dcpl_id = H5Dget_create_plist(result.dataset_id)
       withDebug:
         echo "ACCESS PROPERTY LIST IS ", result.dapl_id
-        echo "CREATE PROPERTY LIST IS ", result.dapl_id
+        echo "CREATE PROPERTY LIST IS ", result.dcpl_id
         echo H5Tget_class(datatype_id)
 
       (result.shape, result.maxshape) = readShape(dataspace_id)
