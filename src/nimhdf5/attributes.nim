@@ -224,7 +224,7 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
     attr_exists = name in h5attr
     withDebug:
       debugEcho "Attribute $# exists $#" % [name, $attr_exists]
-  if attr_exists == false:
+  if not attr_exists:
     # create a H5Attr, which we add to the table attr_tab of the given
     # h5attr object once we wrote it to file
     var attr = new H5Attr
@@ -235,7 +235,8 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
         # create dataspace for single element attribute
         attr_dspace_id = simple_dataspace(1)
         # create the attribute
-        attribute_id = H5Acreate2(h5attr.parent_id, name, dtype, attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT)
+        attribute_id = H5Acreate2(h5attr.parent_id, name, dtype,
+                                  attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT)
         # mutable copy for address
       var mval = val
       # write the value
