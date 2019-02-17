@@ -73,7 +73,7 @@ proc close*(attr: ref H5Attr): herr_t =
     result = H5Sclose(attr.attr_dspace_id)
     attr.opened = false
 
-proc getAttrName(attr_id: hid_t, buf_space = 20): string =
+proc getAttrName*(attr_id: hid_t, buf_space = 20): string =
   ## proc to get the attribute name of the attribute with the given id
   ## reserves space for the name to be written to
   withDebug:
@@ -153,9 +153,11 @@ proc readAttributeInfo(h5attr: H5Attributes, key: string) =
   attr.opened = true
   readAttributeInfo(h5attr, attr, key)
 
-proc read_all_attributes*(h5attr: H5Attributes) =
+proc read_all_attributes*(h5attr: H5Attributes) {.deprecated: "Read all " &
+  "attributes is deprecated, because it is unsafe and not very useful.".} =
   ## proc to read all attributes of the parent from file and store the names
   ## and attribute ids in `h5attr`
+  ## NOTE: when using this proc, make sure to close all attributes again!
   # first get how many objects there are
   h5attr.num_attrs = h5attr.getNumAttrs
   for i in 0..<h5attr.num_attrs:
