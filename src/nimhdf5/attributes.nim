@@ -163,6 +163,7 @@ proc read_all_attributes*(h5attr: H5Attributes) {.deprecated: "Read all " &
   for i in 0..<h5attr.num_attrs:
     var attr = new H5Attr
     attr.attr_id = openAttrByIdx(h5attr, i)
+    attr.opened = true
     let name = getAttrName(attr.attr_id)
     readAttributeInfo(h5attr, attr, name)
 
@@ -241,6 +242,7 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
       discard H5Awrite(attribute_id, dtype, addr(mval))
       # write information to H5Attr tuple
       attr.attr_id = attribute_id
+      attr.opened = true
       attr.dtype_c = dtype
       attr.attr_dspace_id = attr_dspace_id
       # set any kind fields (check whether is sequence)
@@ -276,6 +278,7 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
 
       # write information to H5Attr tuple
       attr.attr_id = attribute_id
+      attr.opened = true
       attr.dtype_c = dtype
       attr.attr_dspace_id = attr_dspace_id
       # set any kind fields (check whether is sequence)
