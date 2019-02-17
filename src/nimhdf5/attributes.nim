@@ -240,7 +240,10 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
         # mutable copy for address
       var mval = val
       # write the value
-      discard H5Awrite(attribute_id, dtype, addr(mval))
+      let err = H5Awrite(attribute_id, dtype, addr(mval))
+      if err < 0:
+        raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+          "calling `H5Awrite` in `write_attribute` to write " & $name)
       # write information to H5Attr tuple
       attr.attr_id = attribute_id
       attr.opened = true
@@ -295,6 +298,10 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
 
     # add H5Attr tuple to H5Attributes table
     h5attr.attr_tab[name] = attr
+
+    if h5attr.attr_tab[name].close() < 0:
+      raise newException(HDF5LibraryError, "Error closing attribute " & $name &
+                         " after writing")
   else:
     # if it does exist, we delete the attribute and call this function again, with
     # exists = true, i.e. without checking again whether element exists. Saves us
