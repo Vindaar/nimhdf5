@@ -177,7 +177,7 @@ proc printOpenObjects*(h5f: H5FileObj) =
   echo "\t\t attrs open: ", attrsOpen
 
 type
-  ObjectKind = enum
+  ObjectKind* = enum
     okFile, okDset, okGroup, okType, okAttr, okAll
 
 proc parseH5toObjectKind(h5Kind: int): ObjectKind =
@@ -209,7 +209,7 @@ proc parseObjectKindToH5(kind: ObjectKind): int =
   of okAll:
     result = H5F_OBJ_ALL
 
-proc getOpenObjectIds(h5f: H5FileObj, kind: ObjectKind): seq[hid_t] =
+proc getOpenObjectIds*(h5f: H5FileObj, kind: ObjectKind): seq[hid_t] =
   let h5Kind = parseObjectKindToH5(kind)
   # create buffer size of 1000. Should be plenty for open ids
   # if not, something is wrong anyways (I'd assume?)
@@ -230,7 +230,7 @@ proc flush*(h5f: var H5FileObj, flushKind: FlushKind = fkGlobal) =
     raise newException(HDF5LibraryError, "Trying to flush file " & h5f.name &
       " as " & $flushKind & " failed!")
 
-proc close(id: hid_t, kind: ObjectKind): herr_t =
+proc close*(id: hid_t, kind: ObjectKind): herr_t =
   ## calls the correct H5 `close` function for the given object kind
   case kind
   of okFile:
