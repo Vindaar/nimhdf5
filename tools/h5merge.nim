@@ -24,23 +24,30 @@ Options:
 """
 const doc = docTmpl % [currentDate]
 
-proc copyFileIntoOut(h5f, h5out: var H5FileObj): bool =
+proc copyIntoOut(h5f, h5out: var H5FileObj,
+                 start = "/"): bool =
   # first copy all groups in the root group
-  for group in items(h5f, depth = 1):
-    echo group
-    result = h5f.copy(group, h5out = some(h5out))
+  for group in items(h5f, start, depth = 1):
+    # before copying check whether this group exists in
+    # target. If so, recurse on group
+    if group.name in h5out:
+      echo "Exists, copying from group instead"
+      result = copyIntoOut(h5f, h5out, group.name)
+    else:
+      result = h5f.copy(group, h5out = some(h5out))
     doAssert result
 
   # then copy all datasets in the root group
-  var root = h5f["/".grp_str]
+  var root = h5f[start.grp_str]
   for obj in root:
-    echo obj
-    result = h5f.copy(obj, h5out = some(h5out))
-    doAssert result
+    if obj.name notin h5out:
+      result = h5f.copy(obj, h5out = some(h5out))
+      doAssert result
+    else:
+      echo "Skipping dataset: ", obj.name, " already exists in file!"
 
 proc main =
   let args = docopt(doc)
-  echo args
 
   var outfile = "merged.h5"
   if $args["--out"] != "nil":
@@ -55,9 +62,9 @@ proc main =
     h5in2 = H5file($args["<file2>"], "r")
     h5out = H5file(outfile, "rw")
 
-  var success = copyFileIntoOut(h5in1, h5out)
+  var success = copyIntoOut(h5in1, h5out)
   doAssert success
-  success = copyFileIntoOut(h5in2, h5out)
+  success = copyIntoOut(h5in2, h5out)
   doAssert success
 
   var err = h5in1.close()
