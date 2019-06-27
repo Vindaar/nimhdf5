@@ -478,7 +478,7 @@ proc create_dataset*[T: (tuple | int | seq)](
           # in this case successful, dataset exists already
           exists = true
           # in this case open the dataset to read
-          dset.dataset_id   = H5Dopen2(h5f.file_id, dset.name, H5P_DEFAULT)
+          dset.dataset_id = H5Dopen2(h5f.file_id, dset.name, H5P_DEFAULT)
           # TODO: include a check about whether the opened dataset actually conforms
           # to what we wanted to create (e.g. same shape etc.)
         else:
