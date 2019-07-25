@@ -801,6 +801,7 @@ proc convertType*(h5dset: H5DataSet, dt: typedesc):
   case h5dset.dtypeAnyKind
   of akFloat32: result = proc(d: H5DataSet): seq[dt] = d.fromTo(float32, dt)
   of akFloat64: result = proc(d: H5DataSet): seq[dt] = d.fromTo(float64, dt)
+  of akInt: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int, dt)
   of akInt8: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int8, dt)
   of akInt16: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int16, dt)
   of akInt32: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int32, dt)
@@ -929,12 +930,13 @@ proc `[]`*[T](dset: H5DataSet, indices: seq[int], t: typedesc[T]): seq[T] =
   # return element of bufer
   result = buf
 
-proc readConvert*[T: SomeNumber](dset: H5DataSet, indices: seq[int], dtype: typedesc[T]):
+proc readAs*[T: SomeNumber](dset: H5DataSet, indices: seq[int], dtype: typedesc[T]):
                 seq[dtype] =
   ## read some indices and returns the data converted to `dtype`
   case dset.dtypeAnyKind
   of akFloat32: result = dset[indices, float32].mapIt(dtype(it))
   of akFloat64: result = dset[indices, float64].mapIt(dtype(it))
+  of akInt:     result = dset[indices, int].mapIt(dtype(it))
   of akInt8:    result = dset[indices, int8].mapIt(dtype(it))
   of akInt16:   result = dset[indices, int16].mapIt(dtype(it))
   of akInt32:   result = dset[indices, int32].mapIt(dtype(it))
@@ -948,6 +950,36 @@ proc readConvert*[T: SomeNumber](dset: H5DataSet, indices: seq[int], dtype: type
     echo "Dset dtype: " & $dset.dtypeAnyKind & "; requested target: " &
       name(dtype)
     result = @[]
+
+proc readConvert*[T: SomeNumber](dset: H5DataSet, indices: seq[int], dtype: typedesc[T]):
+                seq[dtype] =
+  {.deprecated: "This proc is deprecated in favor of `readAs`!".}
+  readAs(dset, indices, dtype)
+
+proc readAs*[T: SomeNumber](dset: H5DataSet, dtype: typedesc[T]): seq[dtype] =
+  ## read some indices and returns the data converted to `dtype`
+  case dset.dtypeAnyKind
+  of akFloat32: result = dset[float32].mapIt(dtype(it))
+  of akFloat64: result = dset[float64].mapIt(dtype(it))
+  of akInt:     result = dset[int].mapIt(dtype(it))
+  of akInt8:    result = dset[int8].mapIt(dtype(it))
+  of akInt16:   result = dset[int16].mapIt(dtype(it))
+  of akInt32:   result = dset[int32].mapIt(dtype(it))
+  of akInt64:   result = dset[int64].mapIt(dtype(it))
+  of akUint8:   result = dset[uint8].mapIt(dtype(it))
+  of akUint16:  result = dset[uint16].mapIt(dtype(it))
+  of akUint32:  result = dset[uint32].mapIt(dtype(it))
+  of akUint64:  result = dset[uint64].mapIt(dtype(it))
+  else:
+    echo "Unsupported datatype for H5DataSet to convert to some number!"
+    echo "Dset dtype: " & $dset.dtypeAnyKind & "; requested target: " &
+      name(dtype)
+    result = @[]
+
+proc readAs*[T: SomeNumber](h5f: var H5FileObj, dset: string, dtype: typedesc[T]): seq[dtype] =
+  ## reads data from the H5file without an intermediate return of a `H5DataSet`
+  let dset = h5f.get(dset.dset_str)
+  result = dset.readAs(dtype)
 
 proc read*[T](dset: H5DataSet, buf: var seq[T]) =
   ## read whole dataset

@@ -132,7 +132,6 @@ proc delete*[T](h5o: T, name: string): bool =
   ## a relative name is valid. Else if `h5o` is the file itself, `name` needs
   ## to be the full path. Returns `true` if deletion successful
   let h5id = getH5Id(h5o)
-
   result = if H5Ldelete(h5id, name, H5P_DEFAULT) >= 0: true else: false
 
 proc copy*[T](h5in: var H5FileObj, h5o: T,
