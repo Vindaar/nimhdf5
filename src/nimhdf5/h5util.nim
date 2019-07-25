@@ -44,8 +44,9 @@ proc existsInFile*(h5id: hid_t, name: string): hid_t =
   # "/group/nested/dset"
   # is invalid if `nested` does not exist!
   # https://support.hdfgroup.org/HDF5/doc/RM/RM_H5L.html#Link-Exists
+  let target = formatName name
   var toCheck: string
-  for part in split(name, '/'):
+  for part in split(target, '/'):
     if part.len > 0:
       toCheck = toCheck / part
     else:
@@ -141,8 +142,8 @@ proc contains*(h5f: var H5FileObj, name: string): bool =
   ## `H5Lexists` using `existsInFile`. Does not require us to
   ## traverse our tables
   # format the given name
-  let target = formatName name
-  result = if existsInFile(h5f.file_id, target) > 0: true else: false
+  # existsInFile will properly format the name
+  result = if existsInFile(h5f.file_id, name) > 0: true else: false
 
 proc delete*[T](h5o: T, name: string): bool =
   ## Deletes the object with `name` from the H5 file
