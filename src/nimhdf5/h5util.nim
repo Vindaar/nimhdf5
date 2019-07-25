@@ -38,6 +38,9 @@ proc isInH5Root*(name: string): bool =
 proc existsInFile*(h5id: hid_t, name: string): hid_t =
   ## convenience function to check whether a given object `name` exists
   ## in another H5 object given by the id `h5id`
+  if name == "/":
+    # the root group always exists, hence return early
+    return 1.hid_t
   # NOTE: we have to make sure to only check for existence up to one level
   # below what exists, i.e. we have to check iteratively for existence of
   # `name`. E.g. checking for
