@@ -137,45 +137,20 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   ##    group_name: string = the name of the group to be created
   ## outputs:
   ##    H5Group = returns a group object with the basic properties set
-
   result = newH5Group(group_name)[]
-
   # the location id (id of group or the root) at which to create the group
-  var location_id: hid_t
-  var exists: hid_t = 0.hid_t
-  # default for parent is root, might be changed if group_name lies outside
-  # of root
-  var p_str: string = "/"
-  if isInH5Root(group_name) == false:
-    withDebug:
-      debugEcho "isInH5Root(" & group_name & ") is false"
-
-    # the location id is the id of the parent of group_name
-    # i.e. the group is created in the parent group
-    p_str = getParent(group_name)
-    let parent = h5f.groups[p_str][]
-    location_id = getH5Id(parent)
-    # check if non root group exists
-    exists = location_id.existsInFile(result.name)
-  else:
-    withDebug:
-      debugEcho "isInH5Root(" & group_name & ") is true"
-    # the group will be created in the root of the file
-    location_id = h5f.file_id
-    # if in root group, check whether this IS the root group
-    if group_name == "/":
-      # the root group always exists
-      exists = 1.hid_t
-    else:
-      # else check for its existence as well
-      exists = location_id.existsInFile(result.name)
+  let location_id = h5f.file_id
+  let exists = location_id.existsInFile(result.name)
 
   # set the parent name
-  result.parent = p_str
+  result.parent = getParent(result.name)
 
   if exists > 0:
     # group exists, open it
     result.group_id = H5Gopen2(location_id, result.name, H5P_DEFAULT)
+    if result.group_id < 0:
+      raise newException(HDF5LibraryError, "call to H5 library failed in " &
+        "`createGroupFromParent` trying to open group via `H5Gopen2`!")
     withDebug:
       debugEcho "Group exists H5Gopen2() returned id ", result.group_id
   elif exists == 0:
@@ -183,6 +158,9 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
       debugEcho "Group non existant, creating group ", result.name
     # group non existant, create
     result.group_id = H5Gcreate2(location_id, result.name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
+    if result.group_id < 0:
+      raise newException(HDF5LibraryError, "call to H5 library failed in " &
+        "`createGroupFromParent` trying to create group via `H5Gcreate2`!")
   else:
     raise newException(HDF5LibraryError, "call to H5 library failed in " &
       "`createGroupFromParent` trying to create group: " & group_name &
