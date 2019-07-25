@@ -38,9 +38,27 @@ proc isInH5Root*(name: string): bool =
 proc existsInFile*(h5id: hid_t, name: string): hid_t =
   ## convenience function to check whether a given object `name` exists
   ## in another H5 object given by the id `h5id`
-  # need to convert result of H5Lexists to hid_t, because return type is
-  # `htri_t` from the H5 wrapper
-  result = H5Lexists(h5id, name, H5P_DEFAULT).hid_t
+  # NOTE: we have to make sure to only check for existence up to one level
+  # below what exists, i.e. we have to check iteratively for existence of
+  # `name`. E.g. checking for
+  # "/group/nested/dset"
+  # is invalid if `nested` does not exist!
+  # https://support.hdfgroup.org/HDF5/doc/RM/RM_H5L.html#Link-Exists
+  var toCheck: string
+  for part in split(name, '/'):
+    if part.len > 0:
+      toCheck = toCheck / part
+    else:
+      continue
+    # need to convert result of H5Lexists to hid_t, because return type is
+    # `htri_t` from the H5 wrapper
+    result = H5Lexists(h5id, toCheck, H5P_DEFAULT).hid_t
+    if result == 0:
+      # does not exist, so break, even if we're not at the deepest level
+      break
+    elif result < 0:
+      raise newException(HDF5LibraryError, "Call to `H5Lexists` failed " &
+        "in `existsFile`!")
 
 template getH5Id*(h5o: typed): hid_t =
   ## this template returns the correct location id of either
