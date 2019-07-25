@@ -104,8 +104,6 @@ proc getNumAttrs(h5attr: H5Attributes): int =
     # successful
     withDebug:
       debugEcho "getNumAttrs(): ", h5attr
-    var status: hid_t
-    var loc = cstring(".")
     result = int(h5info.num_attrs)
   else:
     withDebug:
