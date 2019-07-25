@@ -32,8 +32,9 @@ proc newH5Attributes*(): H5Attributes =
                         parent_id: -1.hid_t,
                         parent_type: "")
 
-proc initH5Attributes*(p_name: string = "", p_id: hid_t = -1.hid_t, p_type: string = ""): H5Attributes =
+proc initH5Attributes*(p_id: hid_t, p_name: string = "", p_type: string = ""): H5Attributes =
   let attr = newTable[string, ref H5Attr]()
+  doAssert p_id > 0, "parent id must exist!"
   var h5attr = H5Attributes(attr_tab: attr,
                             num_attrs: -1,
                             parent_name: p_name,

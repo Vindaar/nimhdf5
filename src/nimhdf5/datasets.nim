@@ -192,7 +192,7 @@ proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       result.file = h5f.name
 
       # create attributes field
-      result.attrs = initH5Attributes(result.name, result.dataset_id, "H5DataSet")
+      result.attrs = initH5Attributes(result.dataset_id, result.name, "H5DataSet")
 
       # need to close the datatype again, otherwise cause resource leak
       status = H5Tclose(datatype_id)
@@ -517,7 +517,7 @@ proc create_dataset*[T: (tuple | int | seq)](
     dset.dtypeBaseKind = h5ToNimType(H5Tget_super(H5Dget_type(dset.dataset_id)))
 
   # now create attributes field
-  dset.attrs = initH5Attributes(dset.name, dset.dataset_id, "H5DataSet")
+  dset.attrs = initH5Attributes(dset.dataset_id, dset.name, "H5DataSet")
   var dset_ref = new H5DataSet
   dset_ref[] = dset
   h5f.datasets[dset_name] = dset_ref

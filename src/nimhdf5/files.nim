@@ -159,7 +159,7 @@ proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
     result.file_id = H5Fcreate(name, rw, H5P_DEFAULT, H5P_DEFAULT)
   # after having opened / created the given file, we get the datasets etc.
   # which are stored in the file
-  result.attrs = initH5Attributes("/", result.file_id, "H5FileObj")
+  result.attrs = initH5Attributes(result.file_id, "/", "H5FileObj")
 
 proc printOpenObjects*(h5f: H5FileObj) =
   let

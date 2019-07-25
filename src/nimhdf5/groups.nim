@@ -200,7 +200,7 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   result.file_id = h5f.file_id
 
   # create attributes field
-  result.attrs = initH5Attributes(result.name, result.group_id, "H5Group")
+  result.attrs = initH5Attributes(result.group_id, result.name, "H5Group")
 
   # finally add reference to H5FileObj to group
   when h5f is H5FileObj:
