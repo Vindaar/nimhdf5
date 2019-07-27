@@ -1283,6 +1283,10 @@ proc `[]`*[T](h5f: var H5FileObj, name: string, t: hid_t, dtype: typedesc[T]):
   let dset = h5f.get(name.dset_str)
   result = dset[t, dtype]
 
+func isChunked*(dset: H5DataSet): bool =
+  ## returns `true` if the dataset is using chunked storage
+  result = H5Pget_layout(dset.dcpl_id) == H5D_CHUNKED
+
 proc resize*[T: tuple | seq](dset: var H5DataSet, shape: T) =
   ## proc to resize the dataset to the new size given by `shape`
   ## inputs:
@@ -1296,9 +1300,8 @@ proc resize*[T: tuple | seq](dset: var H5DataSet, shape: T) =
   ##   HDF5LibraryError: if a call to the HDF5 library fails
   ##   ImmutableDatasetError: if the given dataset is contiguous memory instead
   ##     of chunked storage, i.e. cannot be resized
-
   # check if dataset is chunked storage
-  if H5Pget_layout(dset.dcpl_id) == H5D_CHUNKED:
+  if dset.isChunked:
     when T is tuple:
       var newshape = mapIt(parseShapeTuple(shape), hsize_t(it))
     elif T is seq:
