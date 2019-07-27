@@ -1304,11 +1304,11 @@ proc `[]`*[T](h5f: var H5FileObj, name: string, t: hid_t, dtype: typedesc[T]):
   let dset = h5f.get(name.dset_str)
   result = dset[t, dtype]
 
-proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
+proc resize*[T: tuple | seq](dset: var H5DataSet, shape: T) =
   ## proc to resize the dataset to the new size given by `shape`
   ## inputs:
   ##     dset: var H5DataSet = dataset to be resized
-  ##     shape: T = tuple describing the new size of the dataset
+  ##     shape: T = tuple or seq describing the new size of the dataset
   ## Keep in mind:
   ##   - resizing only possible for datasets using chunked storage
   ##     (created with chunksize / maxshape != @[])
@@ -1320,7 +1320,10 @@ proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
 
   # check if dataset is chunked storage
   if H5Pget_layout(dset.dcpl_id) == H5D_CHUNKED:
-    var newshape = mapIt(parseShapeTuple(shape), hsize_t(it))
+    when T is tuple:
+      var newshape = mapIt(parseShapeTuple(shape), hsize_t(it))
+    elif T is seq:
+      var newshape = shape.mapIt(hsize_t(it))
     # before we resize the dataspace, we get a copy of the
     # dataspace, since this internally refreshes the dataset. Important
     # since the dataset might be opened for reading when this
