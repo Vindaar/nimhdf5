@@ -245,29 +245,8 @@ proc parseShapeTuple[T: tuple](dims: T): seq[int] =
   ##    seq[int] = seq of int of length len(dims), containing
   ##            the size of each dimension of dset
   ##            Note: H5File needs to be aware of that size!
-  # NOTE: previously we returned a seq[hsize_t], but we now perform the
-  # conversion from int to hsize_t in simple_dataspace() (which is the
-  # only place we use the result of this proc!)
-  # TODO: move the when T is int: branch from create_dataset to here
-  # to clean up create_dataset!
-
-  var n_dims: int
-  # count the number of fields in the array, since that is number
-  # of dimensions we have
-  for field in dims.fields:
-    inc n_dims
-
-  result = newSeq[int](n_dims)
-  # now set the elements of result to the values in the tuple
-  var count: int = 0
   for el in dims.fields:
-    # now set the value of each dimension
-    # enter the shape in reverse order, since H5 expects data in other notation
-    # as we do in Nim
-    #result[^(count + 1)] = hsize_t(el)
-    result[count] = int(el)
-    inc count
-
+    result.add int(el)
 
 proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int]): hid_t =
   ## proc to parse the chunk size and maxhshape arguments handed to the create_dataset()
@@ -1304,11 +1283,15 @@ proc `[]`*[T](h5f: var H5FileObj, name: string, t: hid_t, dtype: typedesc[T]):
   let dset = h5f.get(name.dset_str)
   result = dset[t, dtype]
 
-proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
+func isChunked*(dset: H5DataSet): bool =
+  ## returns `true` if the dataset is using chunked storage
+  result = H5Pget_layout(dset.dcpl_id) == H5D_CHUNKED
+
+proc resize*[T: tuple | seq](dset: var H5DataSet, shape: T) =
   ## proc to resize the dataset to the new size given by `shape`
   ## inputs:
   ##     dset: var H5DataSet = dataset to be resized
-  ##     shape: T = tuple describing the new size of the dataset
+  ##     shape: T = tuple or seq describing the new size of the dataset
   ## Keep in mind:
   ##   - resizing only possible for datasets using chunked storage
   ##     (created with chunksize / maxshape != @[])
@@ -1317,10 +1300,12 @@ proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
   ##   HDF5LibraryError: if a call to the HDF5 library fails
   ##   ImmutableDatasetError: if the given dataset is contiguous memory instead
   ##     of chunked storage, i.e. cannot be resized
-
   # check if dataset is chunked storage
-  if H5Pget_layout(dset.dcpl_id) == H5D_CHUNKED:
-    var newshape = mapIt(parseShapeTuple(shape), hsize_t(it))
+  if dset.isChunked:
+    when T is tuple:
+      var newshape = mapIt(parseShapeTuple(shape), hsize_t(it))
+    elif T is seq:
+      var newshape = shape.mapIt(hsize_t(it))
     # before we resize the dataspace, we get a copy of the
     # dataspace, since this internally refreshes the dataset. Important
     # since the dataset might be opened for reading when this
@@ -1340,6 +1325,39 @@ proc resize*[T: tuple](dset: var H5DataSet, shape: T) =
   else:
     raise newException(ImmutableDatasetError, "Cannot resize a non-chunked " &
                        " (i.e. contiguous) dataset!")
+
+proc add*[T](dset: var H5DataSet, data: T, axis = 0, rewriteAsChunked = false) =
+  ## Adds the `data` to the `dset` thereby resizing the dataset to fit
+  ## the additional data. For this `data` must be compatible with the
+  ## existing dataset.
+  ## The data is added along `axis`.
+  ## If the rewriteAsChunked flag is set to true, the existing dataset
+  ## will be read to memory, removed from file, recreated as chunked and
+  ## written back to file.
+  if dset.isChunked:
+    # simply resize and write the hyperslab
+    let oldShape = dset.shape
+    var newShape = oldShape
+    newShape[axis] = oldShape[axis] + data.shape[axis]
+    # before resizing, check that newShape <= maxShape
+    if zip(newShape, dset.maxShape).anyIt(it[0] > it[1].int):
+      raise newException(ImmutableDatasetError, "The new required shape to " &
+        "add data along axis " & $axis & "exceeds the maximum allowed shape!" &
+        "\nnewShape: " & $newShape & "\nmaxShape: " & $dset.maxShape)
+    dset.resize(newShape)
+    var offset = newSeq[int](oldShape.len)
+    offset[axis] = oldShape[axis]
+    var count = oldShape
+    count[axis] = data.shape[axis]
+    dset.write_hyperslab(data,
+                         offset = offset,
+                         count = count)
+  elif rewriteAsChunked:
+    raise newException(NotImplementedError, "Rewriting as chunked storage " &
+      "not yet implemented.")
+  else:
+    raise newException(ImmutableDatasetError, "Cannot add data to a non-chunked " &
+      "dataset, unless the `rewriteAsChunked` option is set to true!")
 
 proc h5SelectHyperslab(dspace_id: hid_t, offset, count, stride, blk: var seq[hsize_t]): herr_t {.inline.} =
   ## wrapper for the H5 C hyperslab selection function
