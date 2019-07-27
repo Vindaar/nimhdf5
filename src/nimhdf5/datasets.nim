@@ -245,29 +245,8 @@ proc parseShapeTuple[T: tuple](dims: T): seq[int] =
   ##    seq[int] = seq of int of length len(dims), containing
   ##            the size of each dimension of dset
   ##            Note: H5File needs to be aware of that size!
-  # NOTE: previously we returned a seq[hsize_t], but we now perform the
-  # conversion from int to hsize_t in simple_dataspace() (which is the
-  # only place we use the result of this proc!)
-  # TODO: move the when T is int: branch from create_dataset to here
-  # to clean up create_dataset!
-
-  var n_dims: int
-  # count the number of fields in the array, since that is number
-  # of dimensions we have
-  for field in dims.fields:
-    inc n_dims
-
-  result = newSeq[int](n_dims)
-  # now set the elements of result to the values in the tuple
-  var count: int = 0
   for el in dims.fields:
-    # now set the value of each dimension
-    # enter the shape in reverse order, since H5 expects data in other notation
-    # as we do in Nim
-    #result[^(count + 1)] = hsize_t(el)
-    result[count] = int(el)
-    inc count
-
+    result.add int(el)
 
 proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int]): hid_t =
   ## proc to parse the chunk size and maxhshape arguments handed to the create_dataset()
