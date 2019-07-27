@@ -1326,6 +1326,39 @@ proc resize*[T: tuple | seq](dset: var H5DataSet, shape: T) =
     raise newException(ImmutableDatasetError, "Cannot resize a non-chunked " &
                        " (i.e. contiguous) dataset!")
 
+proc add*[T](dset: var H5DataSet, data: T, axis = 0, rewriteAsChunked = false) =
+  ## Adds the `data` to the `dset` thereby resizing the dataset to fit
+  ## the additional data. For this `data` must be compatible with the
+  ## existing dataset.
+  ## The data is added along `axis`.
+  ## If the rewriteAsChunked flag is set to true, the existing dataset
+  ## will be read to memory, removed from file, recreated as chunked and
+  ## written back to file.
+  if dset.isChunked:
+    # simply resize and write the hyperslab
+    let oldShape = dset.shape
+    var newShape = oldShape
+    newShape[axis] = oldShape[axis] + data.shape[axis]
+    # before resizing, check that newShape <= maxShape
+    if zip(newShape, dset.maxShape).anyIt(it[0] > it[1].int):
+      raise newException(ImmutableDatasetError, "The new required shape to " &
+        "add data along axis " & $axis & "exceeds the maximum allowed shape!" &
+        "\nnewShape: " & $newShape & "\nmaxShape: " & $dset.maxShape)
+    dset.resize(newShape)
+    var offset = newSeq[int](oldShape.len)
+    offset[axis] = oldShape[axis]
+    var count = oldShape
+    count[axis] = data.shape[axis]
+    dset.write_hyperslab(data,
+                         offset = offset,
+                         count = count)
+  elif rewriteAsChunked:
+    raise newException(NotImplementedError, "Rewriting as chunked storage " &
+      "not yet implemented.")
+  else:
+    raise newException(ImmutableDatasetError, "Cannot add data to a non-chunked " &
+      "dataset, unless the `rewriteAsChunked` option is set to true!")
+
 proc h5SelectHyperslab(dspace_id: hid_t, offset, count, stride, blk: var seq[hsize_t]): herr_t {.inline.} =
   ## wrapper for the H5 C hyperslab selection function
   ## inputs:

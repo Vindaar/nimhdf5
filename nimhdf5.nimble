@@ -28,6 +28,7 @@ task test, "Runs all tests":
   exec "nim c -r tests/toverwrite.nim"
   exec "nim c -r tests/tconvert.nim"
   exec "nim c -r tests/tdelete.nim"
+  exec "nim c -r tests/tresize_by_add.nim"
   # regression tests
   exec "nim c -r tests/tint64_dset.nim"
   exec "nim c -r tests/t17.nim"
