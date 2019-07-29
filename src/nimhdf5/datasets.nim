@@ -1342,7 +1342,7 @@ proc add*[T](dset: var H5DataSet, data: T, axis = 0, rewriteAsChunked = false) =
     # before resizing, check that newShape <= maxShape
     if zip(newShape, dset.maxShape).anyIt(it[0] > it[1].int):
       raise newException(ImmutableDatasetError, "The new required shape to " &
-        "add data along axis " & $axis & "exceeds the maximum allowed shape!" &
+        "add data along axis " & $axis & " exceeds the maximum allowed shape!" &
         "\nnewShape: " & $newShape & "\nmaxShape: " & $dset.maxShape)
     dset.resize(newShape)
     var offset = newSeq[int](oldShape.len)
