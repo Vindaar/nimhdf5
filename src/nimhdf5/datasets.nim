@@ -374,6 +374,10 @@ proc create_dataset*[T: (tuple | int | seq)](
   ##    ... some dataset object, part of the file?!
   ## throws:
   ##    ... some H5 C related errors ?!
+  if h5f.rw_type notin {H5F_ACC_EXCL, H5F_ACC_RDWR}:
+    raise newException(ReadOnlyError, "Cannot create a dataset in " & $h5f.name &
+      ", because the file is opened with read-only access!")
+
   var status: hid_t = hid_t(0)
   when T is int:
     # in case we hand an int as the shape argument, it means we wish to write
@@ -1241,7 +1245,6 @@ template write*[T: (seq | SomeNumber | bool | char | string)](dset: var H5DataSe
   ##    ValueError: in case data does not fit to whole row or column, if we want to write
   ##                whole row or column by giving index and broadcasting the indices to
   ##                cover whole row
-
   when T is seq:
     # if this is the case we either want to write a whole row (2D array) or
     # a single value in VLEN data
