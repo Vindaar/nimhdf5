@@ -96,6 +96,12 @@ proc readShape(dspace_id: hid_t): tuple[shape, maxshape: seq[int]] =
     shape = newSeq[hsize_t](ndims)
     maxshape = newSeq[hsize_t](ndims)
   let sdims = H5Sget_simple_extent_dims(dspace_id, addr(shape[0]), addr(maxshape[0]))
+  # now replace max shape values == `H5S_UNLIMITED` by `int.high`
+  maxshape = maxshape.mapIt(
+    if it == H5S_UNLIMITED: # == -1
+      hsize_t(int.high)
+    else:
+      hsize_t(it))
   if sdims >= 0:
     doAssert(sdims == ndims)
   else:
