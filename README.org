@@ -58,6 +58,27 @@ flag. Soon this will become the default version! The
 suffix. These however add a =fields= argument. Therefore an overload
 is available, which maps the =fields= to =H5O_INFO_ALL=.
 
+*** Troubleshooting
+If you compile a nim program using =nimhdf5= without any of those
+flags and try to run it on a system with a HDF5 shared library of
+version =1.10.3= or newer, you will be greeted by:
+#+BEGIN_SRC sh
+could not import: H5Oget_info
+#+END_SRC
+In that case, add the =-d:H5_FUTURE= flag to the compilation command
+(or probably add it to your =nim.cfg= or =config.nims= of the
+project).
+
+On the other hand if you try to run such a compiled binary on a system
+with a HDF5 library of version =1.8=, you will probably see:
+#+BEGIN_SRC sh
+could not import: H5P_LST_FILE_CREATE_g
+#+END_SRC
+add the =-d:H5_LEGACY= flag.
+
+In case neither of these work, please open an issue!
+
+*** Version checks in the wrapper
 Currently no checks are done, which compare the library this wrapper
 is built upon with the library linking against using some of the
 provided HDF5 macros (e.g. H5check, H5get_libversion etc.). The main
