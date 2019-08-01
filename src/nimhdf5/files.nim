@@ -428,7 +428,7 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
       # see, I'm going to where the HDF5 library is in the first place...
       discard h5f[name.dset_str]
 
-proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) =
+proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) {.raises: [IOError].} =
   ## this proc iterates over the whole file and reads the complete content
   ## optionally only visits all elements below hid_t
   ## H5Ovisit recursively visits any object (group or dataset + a couple specific
@@ -442,6 +442,9 @@ proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) =
   ##   name: string = name of the starting location from which to visit the file
   ##   h5id: hid_t = optional identifier id, from which to start visiting the
   ##     file
+  ## throws:
+  ##   IOError: in case the object visit fails. This is most likely due to
+  ##     a corrupted H5 file.
 
   # TODO: add version which uses `name` as a starting location?
 
@@ -455,6 +458,9 @@ proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) =
     err = H5Ovisit(h5f.file_id, H5_INDEX_NAME, H5_ITER_NATIVE,
                    cast[H5O_iterate_t](addH5ObjectFromRoot),
                    cast[pointer](addr(h5f)))
+  if err < 0:
+    raise newException(IOError, "Visiting the H5 file failed with an error." &
+      "File is possibly corrupted. See the H5 stacktrace.")
 
   # now set visited flag
   h5f.visited = true
