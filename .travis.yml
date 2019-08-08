@@ -28,6 +28,9 @@ addons:
         packages:
                 - libhdf5-10
                 - libhdf5-dev
+                - libgfortran3
+                - libsz2
+                - libaec-dev
 
 install:
   - curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
