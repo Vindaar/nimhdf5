@@ -249,6 +249,10 @@ const
 const H5_SIZEOF_UINT32_T = sizeof(cuint)
 const H5_SIZEOF_SHORT = sizeof(cshort)
 when H5_SIZEOF_UINT32_T >= 4:
+  # this is empty in the original H5 code.
+  type
+    uint32_t* = cuint # since cuint maps to uint32
+elif H5_SIZEOF_SHORT >= 4:
   type
     uint32_t* = cshort
 elif H5_SIZEOF_INT >= 4:
@@ -257,6 +261,8 @@ elif H5_SIZEOF_INT >= 4:
 elif H5_SIZEOF_LONG >= 4:
   type
     uint32_t* = culong
+else:
+  {.error: "No matching type for uint32_t".}
 # else:
 # ##  int64_t type is used for creation order field for links.  It may be
 # ##  defined in Posix.1g, otherwise it is defined here.

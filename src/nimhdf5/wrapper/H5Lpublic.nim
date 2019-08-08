@@ -41,6 +41,8 @@ import
 ##  (encoded in a 32-bit unsigned integer)
 
 const
+  # this cast will fail on v0.20.2 on a system in which a definition of
+  # `uint32_t` in `H5public.nim` ends up being different than 4 byte
   H5L_MAX_LINK_NAME_LEN* = cast[uint32_t](-1'i32) ##  (4GB - 1)
 
 ##  Macro to indicate operation occurs on same location
