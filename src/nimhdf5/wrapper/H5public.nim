@@ -205,7 +205,7 @@ when H5_SIZEOF_INT >= 8:
   type
     haddr_t* = cuint
   const
-    HADDR_UNDEF* = ((haddr_t)(- 1))
+    HADDR_UNDEF* = cast[haddr_t](-1.cint)
     H5_SIZEOF_HADDR_T* = H5_SIZEOF_INT
   when defined(H5_HAVE_PARALLEL):
     const
@@ -214,7 +214,7 @@ elif H5_SIZEOF_LONG >= 8:
   type
     haddr_t* = culong
   const
-    HADDR_UNDEF* = (-1).clong.haddr_t
+    HADDR_UNDEF* = cast[haddr_t](-1.clong)
     H5_SIZEOF_HADDR_T* = H5_SIZEOF_LONG
   when defined(H5_HAVE_PARALLEL):
     const
@@ -223,7 +223,7 @@ elif H5_SIZEOF_LONG_LONG >= 8:
   type
     haddr_t* = culonglong
   const
-    HADDR_UNDEF* = (-1).clonglong.haddr_t
+    HADDR_UNDEF* = cast[haddr_t](-1.clonglong)
     H5_SIZEOF_HADDR_T* = H5_SIZEOF_LONG_LONG
   when defined(H5_HAVE_PARALLEL):
     const

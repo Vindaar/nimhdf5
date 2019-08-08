@@ -118,7 +118,7 @@ type
 ##  Unlimited file size for H5Pset_external()
 
 const
-  H5F_UNLIMITED* = ((hsize_t)(- 1))
+  H5F_UNLIMITED* = cast[hsize_t](-1.clonglong)
 
 ##  How does file close behave?
 ##  H5F_CLOSE_DEFAULT - Use the degree pre-defined by underlining VFL

@@ -41,7 +41,7 @@ import
 ##  (encoded in a 32-bit unsigned integer)
 
 const
-  H5L_MAX_LINK_NAME_LEN* = ((uint32_t)(- 1)) ##  (4GB - 1)
+  H5L_MAX_LINK_NAME_LEN* = cast[uint32_t](-1'i32) ##  (4GB - 1)
 
 ##  Macro to indicate operation occurs on same location
 

@@ -28,7 +28,7 @@ import
 const
   # define HSIZE_UNDEF similar to C code as:
   # #define HSIZE_UNDEF             ((hsize_t)(hssize_t)(-1))
-  HSIZE_UNDEF = hsize_t(-1)
+  HSIZE_UNDEF = cast[hsize_t](-1.clonglong)
   H5S_ALL* = hid_t(0)
   H5S_UNLIMITED* = HSIZE_UNDEF
 
