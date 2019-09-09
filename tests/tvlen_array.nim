@@ -50,11 +50,11 @@ proc doAssert_data(dset: var H5DataSet) =
 
   # read single value and compare
   for i in 0 ..< dset.shape[0]:
-    let d = dset[vlen_type, float, i]
+    let d = dset[i, vlen_type, float]
     doAssert(d == d_vlen[i])
 
   # read several values and compare
-  let d03 = dset[vlen_type, float, @[0, 3]]
+  let d03 = dset[@[0, 3], vlen_type, float]
   doAssert d03[0] == d_vlen[0]
   doAssert d03[1] == d_vlen[3]
 

@@ -1102,11 +1102,21 @@ proc read*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T], indices: seq[int]):
   for idx in indices:
     result.add dset.read(t, dtype, idx)
 
-proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T], indices: seq[int]): seq[seq[T]] =
+proc `[]`*[T](dset: H5DataSet, indices: seq[int], t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   ## reads a single or several elements from a variable length dataset
   result = read(dset, t, dtype, indices)
 
-proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T], idx: int): seq[T] =
+proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T], indices: seq[int]): seq[seq[T]]
+  {.deprecated: "This proc is deprecated! Use the version with `indices` as the second argument!".} =
+  ## reads a single or several elements from a variable length dataset
+  result = read(dset, t, dtype, indices)
+
+proc `[]`*[T](dset: H5DataSet, idx: int, t: hid_t, dtype: typedesc[T]): seq[T] =
+  ## reads a single or several elements from a variable length dataset
+  result = read(dset, t, dtype, idx)
+
+proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T], idx: int): seq[T]
+  {.deprecated: "This proc is deprecated! Use the version with `idx` as the second argument!".} =
   ## reads a single or several elements from a variable length dataset
   result = read(dset, t, dtype, idx)
 
