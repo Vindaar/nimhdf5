@@ -74,18 +74,18 @@ proc close*(attr: ref H5Attr): herr_t =
     result = H5Sclose(attr.attr_dspace_id)
     attr.opened = false
 
-proc getAttrName*(attr_id: hid_t, buf_space = 20): string =
+proc getAttrName*[T: SomeInteger](attr_id: hid_t, buf_space: T = 20): string =
   ## proc to get the attribute name of the attribute with the given id
   ## reserves space for the name to be written to
   withDebug:
     debugEcho "Call to getAttrName! with size $#" % $buf_space
   var name = newString(buf_space)
   # read the name
-  let length = attr_id.H5Aget_name(len(name), name)
+  let length = attr_id.H5Aget_name(len(name).csize, name)
   # H5Aget_name returns the length of the name. In case the name
   # is longer than the given buffer, we call this function again with
   # a buffer with the correct length
-  if length <= name.len:
+  if length <= name.len.csize:
     result = name.strip
     # now set the length of the resulting string to the size
     # it actually occupies

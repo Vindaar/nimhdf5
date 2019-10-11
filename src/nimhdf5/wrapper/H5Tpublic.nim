@@ -233,7 +233,7 @@ type
 ##  Variable Length String information
 
 const
-  H5T_VARIABLE* = ((csize)(- 1)) ##  Indicate that a string is variable length (null-terminated in C, instead of fixed length)
+  H5T_VARIABLE* = csize.high ##  Indicate that a string is variable length (null-terminated in C, instead of fixed length)
 
 ##  Opaque information
 
