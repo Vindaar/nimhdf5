@@ -31,8 +31,8 @@ import
 ##  Macros used to "unset" chunk cache configuration parameters
 
 const
-  H5D_CHUNK_CACHE_NSLOTS_DEFAULT* = (-1.csize)
-  H5D_CHUNK_CACHE_NBYTES_DEFAULT* = (-1.csize)
+  H5D_CHUNK_CACHE_NSLOTS_DEFAULT* = csize.high
+  H5D_CHUNK_CACHE_NBYTES_DEFAULT* = csize.high
   H5D_CHUNK_CACHE_W0_DEFAULT* = (- 1.0)
 
 ##  Bit flags for the H5Pset_chunk_opts() and H5Pget_chunk_opts()

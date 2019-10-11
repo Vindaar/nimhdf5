@@ -83,7 +83,7 @@ proc setFilters*(dset: H5DataSet, filter: H5Filter) =
       filterVals[6] = filter.compressor.cuint
       # set the filter
       status = H5Pset_filter(dset.dcpl_id, FILTER_BLOSC, H5Z_FLAG_OPTIONAL,
-                             filterVals.len, addr filterVals[0])
+                             filterVals.len.csize, addr filterVals[0])
     else:
       raise newException(NotImplementedError, "Blosc support not available, due " &
         "to missing `nblosc` library!")

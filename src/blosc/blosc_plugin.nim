@@ -188,7 +188,7 @@ when HasBloscSupport:
       # as optional, so HDF5 marks the chunk as uncompressed and
       # proceeds.
 
-      outbuf_size = buf_size[]
+      outbuf_size = buf_size[].csize
 
       when defined(BLOSC_DEBUG):
         debugEcho "Blosc: Compress ", nbytes, " chunk w/buffer ", outbuf_size
@@ -245,7 +245,7 @@ when HasBloscSupport:
       free buf[]
       buf[] = outbuf
       buf_size[] = outbuf_size.cint
-      return status  # Size of compressed/decompressed data
+      return status.csize  # Size of compressed/decompressed data
 
     result = 0
 
