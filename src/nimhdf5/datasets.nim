@@ -345,7 +345,7 @@ proc create_dataset_in_file(h5file_id: hid_t, dset: H5DataSet): hid_t =
                          H5P_DEFAULT, dset.dcpl_id, H5P_DEFAULT)
 
 proc create_dataset*[T: (tuple | int | seq)](
-    h5f: var H5FileObj,
+    h5f: H5FileObj,
     dset_raw: string,
     shape_raw: T,
     dtype: (typedesc | hid_t),
@@ -516,7 +516,7 @@ proc create_dataset*[T: (tuple | int | seq)](
   result = dset
 
 proc create_dataset*[T: (tuple | int | seq)](
-    h5f: var H5FileObj,
+    h5f: H5FileObj,
     dset_raw: string,
     shape_raw: T,
     dtype: (typedesc | hid_t),
