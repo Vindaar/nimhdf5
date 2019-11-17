@@ -6,7 +6,7 @@
 # it is not (yet) warranted to have an individual file for, e.g.
 # procs related to general H5 objects.
 
-import strutils
+import strutils, strformat
 import ospaths
 import options
 import tables
@@ -17,11 +17,112 @@ import H5nimtypes
 import util
 import datatypes
 
-proc `$`*(dset: ref H5DataSet): string =
-  ## implementation of to string conversion of a `ref H5DataSet` such
-  ## that we can e.g. echo it. Restricts the string to the name of the
-  ## object
-  result = dset.name
+
+proc pretty*(dset: H5DataSet, indent = 0, full = false): string =
+  result = repeat(' ', indent) & "{\n"
+  let fieldInd = repeat(' ', indent + 2)
+  result.add fieldInd & &"name: {dset.name},\n"
+  result.add fieldInd & &"file: {dset.file},\n"
+  result.add fieldInd & &"parent: {dset.parent},\n"
+  result.add fieldInd & &"shape: {dset.shape},\n"
+  result.add fieldInd & &"dtype: {dset.dtype},\n"
+  if full:
+    result.add fieldInd & &"maxshape: {dset.maxshape},\n"
+    result.add fieldInd & &"parent_id: {dset.parent_id},\n"
+    result.add fieldInd & &"chunksize: {dset.chunksize},\n"
+    result.add fieldInd & &"dtypeAnyKind: {dset.dtypeAnyKind},\n"
+    result.add fieldInd & &"dtypeBaseKind: {dset.dtypeBaseKind},\n"
+    result.add fieldInd & &"dtype_c: {dset.dtype_c},\n"
+    result.add fieldInd & &"dtype_class: {dset.dtype_class},\n"
+    result.add fieldInd & &"dataset_id: {dset.dataset_id},\n"
+    result.add fieldInd & &"num_attrs: {dset.attrs.num_attrs},\n"
+    result.add fieldInd & &"dapl_id: {dset.dapl_id},\n"
+    result.add fieldInd & &"dcpl_id: {dset.dcpl_id},\n"
+  result.add repeat(' ', indent) & "\n}"
+
+proc `$`*(dset: H5DataSet): string =
+  ## to string conversion for a `H5DataSet` for pretty printing
+  result = pretty(dset, full = false)
+
+proc pretty*(grp: H5Group, indent = 2, full = false): string =
+  result = repeat(' ', indent) & "{\n"
+  let fieldInd = repeat(' ', indent + 2)
+  result.add fieldInd & &"name: {grp.name},\n"
+  result.add fieldInd & &"file: {grp.file},\n"
+  result.add fieldInd & &"parent: {grp.parent},\n"
+  if full:
+    result.add fieldInd & &"file_id: {grp.file_id},\n"
+    result.add fieldInd & &"group_id: {grp.group_id},\n"
+    result.add fieldInd & &"parent_id: {grp.parent_id},\n"
+    result.add fieldInd & &"gapl_id: {grp.gapl_id},\n"
+    result.add fieldInd & &"gcpl_id: {grp.gcpl_id},\n"
+  if grp.datasets.len > 0:
+    result.add fieldInd & "datasets: {"
+  for name, dset in grp.datasets:
+    result.add fieldInd & name & ": " & dset.pretty(indent = indent + 4)
+  if grp.datasets.len > 0:
+    result.add fieldInd & "}"
+  if grp.groups.len > 0:
+    result.add fieldInd & "groups: {"
+  for name, subgrp in grp.groups:
+    result.add fieldInd & name & ",\n"
+  if grp.groups.len > 0:
+    result.add fieldInd & "}"
+  result.add repeat(' ', indent) & "\n}"
+
+proc `$`*(grp: H5Group): string =
+  ## to string conversion for a `H5Group` for pretty printing
+  result = pretty(grp, full = false)
+
+proc pretty*(attrs: H5Attributes, indent = 2, full = false): string =
+  ## For now this just prints the H5Attributes all as JSON
+  result = repeat(' ', indent) & "{\n"
+  let fieldInd = repeat(' ', indent + 2)
+  result.add fieldInd & &"num_attrs: {attrs.num_attrs},\n"
+  result.add fieldInd & &"parent_name: {attrs.parent_name},\n"
+  result.add fieldInd & &"parent_type: {attrs.parent_type},\n"
+  if full:
+    result.add fieldInd & &"parent_id: {attrs.parent_id},\n"
+  if attrs.num_attrs > 0:
+    result.add fieldInd & "attributes: {"
+  for name, attr in attrs.attrsJson:
+    result.add fieldInd & name & &": {attr} ,\n"
+  if attrs.num_attrs > 0:
+    result.add fieldInd & "}"
+  result.add repeat(' ', indent) & "\n}"
+
+proc `$`*(attrs: H5Attributes): string =
+  ## to string conversion for a `H5Attributes` for pretty printing
+  result = pretty(attrs, full = false)
+
+proc pretty*(h5f: H5FileObj, indent = 2, full = false): string =
+  result = repeat(' ', indent) & "{\n"
+  let fieldInd = repeat(' ', indent + 2)
+  result.add fieldInd & &"name: {h5f.name},\n"
+  result.add fieldInd & &"rw_type: {h5f.rw_type},\n"
+  result.add fieldInd & &"visited: {h5f.visited},\n"
+  if full:
+    result.add fieldInd & &"file_id: {h5f.file_id},\n"
+    result.add fieldInd & &"err: {h5f.err},\n"
+    result.add fieldInd & &"status: {h5f.status},\n"
+  if h5f.datasets.len > 0:
+    result.add fieldInd & "datasets: {"
+  for name, dset in h5f.datasets:
+    result.add fieldInd & name & ": " & dset.pretty(indent = indent + 4)
+  if h5f.datasets.len > 0:
+    result.add fieldInd & "}"
+  if h5f.groups.len > 0:
+    result.add fieldInd & "groups: {"
+  for name, subGrp in h5f.groups:
+    result.add fieldInd & name & ": " & subGrp.pretty(indent = indent + 4)
+  if h5f.groups.len > 0:
+    result.add fieldInd & "}"
+  result.add fieldInd & &"attrs: {h5f.attrs}"
+  result.add repeat(' ', indent) & "\n}"
+
+proc `$`*(grp: H5FileObj): string =
+  ## to string conversion for a `H5FileObj` for pretty printing
+  result = pretty(grp, full = false)
 
 proc isInH5Root*(name: string): bool =
   ## this procedure returns whether the given group or dataset is in a group
@@ -63,21 +164,6 @@ proc existsInFile*(h5id: hid_t, name: string): hid_t =
     elif result < 0:
       raise newException(HDF5LibraryError, "Call to `H5Lexists` failed " &
         "in `existsFile`!")
-
-template getH5Id*(h5o: typed): hid_t =
-  ## this template returns the correct location id of either
-  ## - a H5FileObj
-  ## - a H5DataSet
-  ## - a H5Group
-  ## given as `h5o`
-  # var result: hid_t = -1
-  when h5o is H5FileObj:
-    let result = h5o.file_id
-  elif h5o is H5DataSet:
-    let result = h5o.dataset_id
-  elif h5o is H5Group:
-    let result = h5o.group_id
-  result
 
 template getParent*(dset_name: string): string =
   ## given a `dset_name` after formating (!), return the parent name,
