@@ -7,6 +7,7 @@ import typeinfo
 const
   File = "tests/dset.h5"
   DsetName = "/group1/dset"
+  Dset2Name = "/group2/dset_writeDset"
 var d_ar = @[ @[ @[1'f64, 2, 3, 4, 5],
                  @[6'f64, 7, 8, 9, 10] ],
               @[ @[1'f64, 2, 3, 4, 5],
@@ -17,7 +18,7 @@ proc create_dset(h5f: var H5FileObj): H5DataSet =
   result = h5f.create_dataset("/group1/dset", (2, 2, 5), float64)
   result[result.all] = d_ar
 
-proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet) =
+proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet, parent = DsetName) =
   assert(dset.shape == @[2, 2, 5])
 
   # non resizable dataset means maxshape same as current shape
@@ -34,7 +35,7 @@ proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet) =
   let anyKindCheck = if dset.dtypeAnyKind == akFloat or dset.dtypeAnyKind == akFloat64: true else: false
   assert(anyKindCheck)#dset.dtypeAnyKind == akFloat)
 
-  assert(dset.parent == parentDir(DsetName))
+  assert(dset.parent == parentDir(parent))
 
   assert(dset.file == File)
 
@@ -57,8 +58,10 @@ when isMainModule:
   var
     h5f = H5File(File, "rw")
     dset = h5f.create_dset()
+    dset2 = h5f.write_dataset(Dset2Name, d_ar)
   # perform 1st checks on still open file
   h5f.assert_fields(dset)
+  h5f.assert_fields(dset2, parent = Dset2Name)
   # close and reopen
   var err = h5f.close()
   assert(err >= 0)
@@ -66,11 +69,14 @@ when isMainModule:
     h5f_read = H5File(File, "r")
   # get same dset from before
   dset = h5f_read[DsetName.dset_str]
+  dset2 = h5f_read[Dset2Name.dset_str]
   # check if assertions still hold true (did we read correctly?)
   h5f_read.assert_fields(dset)
+  h5f_read.assert_fields(dset2, parent = Dset2Name)
 
   # now read actual data and compare with what we wrote to file
   dset.assert_data()
+  dset2.assert_data()
 
   err = h5f_read.close()
   assert(err >= 0)
