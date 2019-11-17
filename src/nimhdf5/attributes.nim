@@ -20,12 +20,12 @@ import util
 proc read_all_attributes*(h5attr: H5Attributes)
 proc getNumAttrs(h5attr: H5Attributes): int
 
-proc `$`*(h5attr: ref H5Attr): string =
-  ## proc to define echo of ref H5Attr by echoing its contained object
-  result = $(h5attr[])
+proc `$`*(h5attr: H5Attr): string =
+  ## proc to define echo of H5Attr by echoing its contained object
+  result = $(h5attr)
 
 proc newH5Attributes*(): H5Attributes =
-  let attr = newTable[string, ref H5Attr]()
+  let attr = newTable[string, H5Attr]()
   result = H5Attributes(attr_tab: attr,
                         num_attrs: -1,
                         parent_name: "",
@@ -33,7 +33,7 @@ proc newH5Attributes*(): H5Attributes =
                         parent_type: "")
 
 proc initH5Attributes*(p_id: hid_t, p_name: string = "", p_type: string = ""): H5Attributes =
-  let attr = newTable[string, ref H5Attr]()
+  let attr = newTable[string, H5Attr]()
   doAssert p_id > 0, "parent id must exist!"
   var h5attr = H5Attributes(attr_tab: attr,
                             num_attrs: -1,
@@ -65,7 +65,7 @@ proc openAttribute(h5attr: H5Attributes, key: string): hid_t =
   # we read by creation order, increasing from 0
   result = H5Aopen(h5attr.parent_id, key.cstring, H5P_DEFAULT)
 
-proc close*(attr: ref H5Attr): herr_t =
+proc close*(attr: H5Attr): herr_t =
   ## closes the attribute and the corresponding dataspace
   if attr.opened:
     result = H5Aclose(attr.attr_id)
@@ -111,7 +111,7 @@ proc getNumAttrs(h5attr: H5Attributes): int =
       debugEcho "getNumAttrs(): ", h5attr
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getNumAttr` when reading $#" % $h5attr.parent_name)
 
-proc setAttrAnyKind(attr: var H5Attr) =
+proc setAttrAnyKind(attr: H5Attr) =
   ## proc which sets the AnyKind fields of a H5Attr
   let npoints = H5Sget_simple_extent_npoints(attr.attr_dspace_id)
   if npoints > 1:
@@ -126,7 +126,7 @@ proc attr_dspace_id(attr: H5Attr): hid_t =
   result = H5Aget_space(attr.attr_id)
 
 proc readAttributeInfo(h5attr: H5Attributes,
-                       attr: ref H5Attr,
+                       attr: H5Attr,
                        name: string) =
   withDebug:
     debugEcho "Found? ", attr.attr_id, " with name ", name
@@ -140,7 +140,7 @@ proc readAttributeInfo(h5attr: H5Attributes,
   #echo "Encoding is native ", H5Tget_cset(attr.dtype_c)
   attr.attr_dspace_id = H5Aget_space(attr.attr_id)
   # now set the attribute any kind fields (checks whether attr is a sequence)
-  attr[].setAttrAnyKind
+  attr.setAttrAnyKind
   # add to this attribute object
   h5attr.attr_tab[name] = attr
 
@@ -199,7 +199,7 @@ proc deleteAttribute*(h5id: hid_t, name: string): bool =
   else:
     result = true
 
-proc deleteAttribute*[T: (H5FileObj | H5Group | H5DataSet)](h5o: var T, name: string): bool =
+proc deleteAttribute*[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: string): bool =
   result = deleteAttribute(getH5Id(h5o), name)
   # if successful also lower the number of attributes
   h5o.attrs.num_attrs = h5o.attrs.getNumAttrs
@@ -249,7 +249,7 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
       attr.dtype_c = dtype
       attr.attr_dspace_id = attr_dspace_id
       # set any kind fields (check whether is sequence)
-      attr[].setAttrAnyKind
+      attr.setAttrAnyKind
 
     elif T is seq or T is string:
       # NOTE:
@@ -285,7 +285,7 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
       attr.dtype_c = dtype
       attr.attr_dspace_id = attr_dspace_id
       # set any kind fields (check whether is sequence)
-      attr[].setAttrAnyKind
+      attr.setAttrAnyKind
     elif T is bool:
       # NOTE: in order to support booleans, we need to use HDF5 enums, since HDF5 does not support
       # a native boolean type. H5 enums not supported yet though...
@@ -326,7 +326,7 @@ proc parseString(buffer: ptr UncheckedArray[char]): string =
     result.add buffer[i]
     inc i
 
-proc readStringAttribute(attr: ref H5Attr): string =
+proc readStringAttribute(attr: H5Attr): string =
   ## proc to read a string attribute from a H5 file, for an existing
   ## `H5Attr`. This proc is only used in the `read_attribute` proc
   ## for users after checking of attribute is done.
@@ -529,7 +529,7 @@ template withAttr*(h5attr: H5Attributes, name: string, actions: untyped) =
     echo "Attribute of dtype ", h5attr.attr_tab[name].dtypeAnyKind, " not supported"
     discard
 
-proc copy_attributes*[T: H5Group | H5DataSet](h5o: var T, attrs: H5Attributes) =
+proc copy_attributes*[T: H5Group | H5DataSet](h5o: T, attrs: H5Attributes) =
   ## copies the attributes contained in `attrs` given to the function to the `h5o` attributes
   ## this can be used to copy attributes also between different files
   # simply walk over all key value pairs in the given attributes and

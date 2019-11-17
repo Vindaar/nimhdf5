@@ -24,9 +24,9 @@ import util
 
 proc newH5File*(): H5FileObj =
   ## default constructor for a H5File object, for internal use
-  let dset = newTable[string, ref H5DataSet]()
+  let dset = newTable[string, H5DataSet]()
   let dspace = initTable[string, hid_t]()
-  let groups = newTable[string, ref H5Group]()
+  let groups = newTable[string, H5Group]()
   let attrs = newH5Attributes()
   result = H5FileObj(name: "",
                      file_id: H5_NOFILE,
@@ -218,7 +218,7 @@ proc getOpenObjectIds*(h5f: H5FileObj, kind: ObjectKind): seq[hid_t] =
   let objsOpen = H5Fget_obj_ids(h5f.file_id, h5Kind.cuint, 1000, addr objList[0])
   result = objList.filterIt(it > 0)
 
-proc flush*(h5f: var H5FileObj, flushKind: FlushKind = fkGlobal) =
+proc flush*(h5f: H5FileObj, flushKind: FlushKind = fkGlobal) =
   ## wrapper around H5Fflush for convenience
   var err: herr_t
   case flushKind
@@ -337,7 +337,7 @@ template withH5*(h5file, rw_type: string, actions: untyped) =
   if err != 0:
     echo "Closing of H5 file unsuccessful. Returned code ", err
 
-proc getObjectIdByName(h5file: var H5FileObj, name: string): hid_t =
+proc getObjectIdByName(h5file: H5FileObj, name: string): hid_t =
   ## proc to retrieve the location ID of a H5 object based its relative path
   ## to the given id
   let h5type = getObjectTypeByName(h5file.file_id, name)
@@ -360,7 +360,7 @@ proc getObjectIdByName(h5file: var H5FileObj, name: string): hid_t =
 
 
 # TODO: should this remain in files.nim?
-proc create_hardlink*(h5file: var H5FileObj, target: string, link_name: string) =
+proc create_hardlink*(h5file: H5FileObj, target: string, link_name: string) =
   ## proc to create hardlinks between pointing to an object `target`. Can be either a group
   ## or a dataset, defined by its name (full path!)
   ## the target has to exist, while the link_name must be free
@@ -428,7 +428,7 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
       # see, I'm going to where the HDF5 library is in the first place...
       discard h5f[name.dset_str]
 
-proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) {.raises: [IOError].} =
+proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) =
   ## this proc iterates over the whole file and reads the complete content
   ## optionally only visits all elements below hid_t
   ## H5Ovisit recursively visits any object (group or dataset + a couple specific
@@ -464,7 +464,6 @@ proc visit_file*(h5f: var H5FileObj, h5id: hid_t = 0.hid_t) {.raises: [IOError].
 
   # now set visited flag
   h5f.visited = true
-
 
 iterator items*(h5f: var H5FileObj, start_path = "/", depth = 0): H5Group =
   ## iterator, which returns a non mutable group objects starting from `start_path` in the
@@ -515,7 +514,7 @@ iterator items*(h5f: var H5FileObj, start_path = "/", depth = 0): H5Group =
           continue
       yield h5f[grp.grp_str]
 
-proc contains*[T: (H5FileObj | H5Group)](h5f: var T, name: string): bool =
+proc contains*[T: (H5FileObj | H5Group)](h5f: T, name: string): bool =
   ## proc to check whehther an element named `name` is contained in the
   ## HDF5 file. Checks for both groups and datasets!
   ## For groups either a full path or a relative path (relative to the name
@@ -540,7 +539,7 @@ proc contains*[T: (H5FileObj | H5Group)](h5f: var T, name: string): bool =
       h5f.visit_file
   else:
     if h5f.file_ref.visited == false:
-      visit_file(h5f.file_ref[])
+      visit_file(h5f.file_ref)
 
   result = false
   if name in h5f.groups:

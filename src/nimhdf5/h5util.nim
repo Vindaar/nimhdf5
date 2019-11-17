@@ -102,7 +102,7 @@ proc firstExistingParent*[T](h5f: T, name: string): Option[H5Group] =
     # in this case we're not at the root, so check whether name exists
     let exists = hasKey(h5f.groups, name)
     if exists == true:
-      result = some(h5f.groups[name][])
+      result = some(h5f.groups[name])
     else:
       result = firstExistingParent(h5f, getParent(name))
   else:
@@ -140,7 +140,7 @@ proc getObjectTypeByName*(h5id: hid_t, name: string): H5O_type_t =
   else:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getObjectTypeByName`")
 
-proc contains*(h5f: var H5FileObj, name: string): bool =
+proc contains*(h5f: H5FileObj, name: string): bool =
   ## Faster version of `contains` below, simply making use of
   ## `H5Lexists` using `existsInFile`. Does not require us to
   ## traverse our tables
@@ -156,7 +156,7 @@ proc delete*[T](h5o: T, name: string): bool =
   let h5id = getH5Id(h5o)
   result = if H5Ldelete(h5id, name, H5P_DEFAULT) >= 0: true else: false
 
-proc copy*[T](h5in: var H5FileObj, h5o: T,
+proc copy*[T](h5in: H5FileObj, h5o: T,
               target: Option[string] = none[string](),
               h5out: Option[H5FileObj] = none[H5FileObj]()): bool =
   ## Copies the object `h5o` from `source` to `target`.
