@@ -13,7 +13,6 @@ import hdf5_wrapper
 import H5nimtypes
 import datatypes
 import dataspaces
-import h5util
 import util
 
 # forward declare procs, which we need to read the attributes from file

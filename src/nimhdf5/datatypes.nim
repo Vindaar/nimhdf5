@@ -7,7 +7,6 @@ import hdf5_wrapper
 import H5nimtypes
 import util
 
-
 type
   # these distinct types provide the ability to distinguish the `[]` function
   # acting on H5FileObj between a dataset and a group, s.t. we can access groups
@@ -187,6 +186,21 @@ const
 
 # add an invalid rw code to handle wrong inputs in parseH5rw_type
 const H5F_INVALID_RW*    = cuint(0x00FF)
+
+template getH5Id*(h5o: typed): hid_t =
+  ## this template returns the correct location id of either
+  ## - a H5FileObj
+  ## - a H5DataSet
+  ## - a H5Group
+  ## given as `h5o`
+  # var result: hid_t = -1
+  when h5o is H5FileObj:
+    let result = h5o.file_id
+  elif h5o is H5DataSet:
+    let result = h5o.dataset_id
+  elif h5o is H5Group:
+    let result = h5o.group_id
+  result
 
 proc getTypeNoSize(x: AnyKind): AnyKind =
   ## returns the datatype without size information
