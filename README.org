@@ -163,9 +163,6 @@ features and their usage.
 The high level bindings come with several quirks which are good to
 know.
 
-- an annoying bug, because of a conversion of datatype names from their
-  name without to their name with size attached, can cause a
-  =ValueError= to be raised (see issue #9)
 - when reading back a dataset with dimension > 1, the returned data is
   returned in a flat =seq=, instead of e.g. a nested
   =seq[seq[<type>]]= as one might expect.
@@ -175,10 +172,6 @@ know.
   The exception is variable length data in case of a 1D dataset
   containing seqs of varying sizes. Here a nested seq of the correct
   elements is returned.
-- a large fraction of all procs currently rely on a mutable object
-  to keep track of the corresponding objects in the H5
-  library. However, there are quite a few procs which could work just
-  fine on a constant object (see issue #10).
 - when grabbing a group or dataset from a H5FileObj via =[](name:
   string)=, a conversion of the string to a distinct =string= type
   =grp_str= or =dset_str= is used to provide a uniform interface for
