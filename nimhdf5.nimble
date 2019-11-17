@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.15"
+version       = "0.3.0"
 author        = "Sebastian Schmidt"
 description   = "Bindings for the HDF5 data format C library"
 license       = "MIT"
@@ -10,7 +10,7 @@ skipExt       = @["nim~"]
 
 # Dependencies
 
-requires "nim >= 0.18.0"
+requires "nim >= 1.0.0"
 requires "https://github.com/vindaar/seqmath#head"
 
 task test, "Runs all tests":
