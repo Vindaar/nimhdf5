@@ -19,10 +19,6 @@ import util
 proc read_all_attributes*(h5attr: H5Attributes)
 proc getNumAttrs(h5attr: H5Attributes): int
 
-proc `$`*(h5attr: H5Attr): string =
-  ## proc to define echo of H5Attr by echoing its contained object
-  result = $(h5attr)
-
 proc newH5Attributes*(): H5Attributes =
   let attr = newTable[string, H5Attr]()
   result = H5Attributes(attr_tab: attr,
