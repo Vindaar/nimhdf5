@@ -151,14 +151,14 @@ proc readAttributeInfo(h5attr: H5Attributes, key: string) =
   attr.opened = true
   readAttributeInfo(h5attr, attr, key)
 
-proc read_all_attributes*(h5attr: H5Attributes) {.deprecated: "Read all " &
-  "attributes is deprecated, because it is unsafe and not very useful.".} =
+proc read_all_attributes*(h5attr: H5Attributes) =
   ## proc to read all attributes of the parent from file and store the names
-  ## and attribute ids in `h5attr`
-  ## NOTE: when using this proc, make sure to close all attributes again!
+  ## and attribute ids in `h5attr`.
+  ## NOTE: If possible try to avoid using this proc! However, if you must, make
+  ## sure to close all attributes after usage, otherwise memory leaks might happen.
   # first get how many objects there are
   h5attr.num_attrs = h5attr.getNumAttrs
-  for i in 0..<h5attr.num_attrs:
+  for i in 0 ..< h5attr.num_attrs:
     var attr = new H5Attr
     attr.attr_id = openAttrByIdx(h5attr, i)
     attr.opened = true
@@ -533,6 +533,7 @@ proc copy_attributes*[T: H5Group | H5DataSet](h5o: T, attrs: H5Attributes) =
   ## this can be used to copy attributes also between different files
   # simply walk over all key value pairs in the given attributes and
   # write them as new attributes to `h5o`
+  attrs.read_all_attributes()
   for key, value in pairs(attrs.attr_tab):
     # TODO: fix it using H5Ocopy instead!
     # IMPORTANT!!!!
@@ -542,3 +543,5 @@ proc copy_attributes*[T: H5Group | H5DataSet](h5o: T, attrs: H5Attributes) =
     attrs.withAttr(key):
       # use injected read attribute value to write it
       h5o.attrs[key] = attr
+    # close attr again to avoid memory leaking
+    doAssert value.close() >= 0, "error closing attribute " & $value
