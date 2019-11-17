@@ -32,33 +32,26 @@ type
   H5Attributes* = ref object
     # attr_tab is a table containing names and corresponding
     # H5 info
-    attr_tab*: ref Table[string, ref H5Attr]
+    attr_tab*: TableRef[string, H5Attr]
     num_attrs*: int
     parent_name*: string
     parent_id*: hid_t
     parent_type*: string
 
-  # a tuple which stores information about a single attribute
-  H5Attr* = tuple[
-    opened: bool, # flag which indicates whether attribute is opened
-    attr_id: hid_t,
-    dtype_c: hid_t,
-    dtypeAnyKind: AnyKind,
+  # stores information about a single attribute
+  H5Attr* = ref object
+    opened*: bool # flag which indicates whether attribute is opened
+    attr_id*: hid_t
+    dtype_c*: hid_t
+    dtypeAnyKind*: AnyKind
     # BaseKind contains the type within a (nested) seq iff
     # dtypeAnyKind is akSequence
-    dtypeBaseKind: AnyKind,
-    attr_dspace_id: hid_t]
-
-
-  # not used atm
-  H5Object = object of RootObj
-    name*: string
-    parent*: string
-    parent_id*: hid_t
+    dtypeBaseKind*: AnyKind
+    attr_dspace_id*: hid_t
 
   # an object to store information about a hdf5 dataset. It is a combination of
   # an HDF5 dataspace and dataset id (contains both of them)
-  H5DataSet* = object #of H5Object
+  H5DataSet* = ref object
     name*: string
     # we store the shape information internally as a seq, so that we do
     # not have to know about it at compile time
@@ -106,7 +99,7 @@ type
     dcpl_id*: hid_t
 
   # an object to store information about a HDF5 group
-  H5Group* = object #of H5Object
+  H5Group* = ref object
     name*: string
     # # parent string, which contains the name of the group in which the
     # # dataset is located
@@ -120,7 +113,7 @@ type
     # reference to the file object, in which group resides. Important to perform checks
     # in procs, which should not depend explicitly on H5FileObj, but necessarily depend
     # implicitly on it, e.g. create_group, iterator items etc.
-    file_ref*: ref H5FileObj
+    file_ref*: H5FileObj
     # the id of the HDF5 group (its location id)
     group_id*: hid_t
     # TODO: think, should H5Group contain a table about its dataspaces? Or should
@@ -129,9 +122,9 @@ type
     # However: then H5FileObj needs to still know (!) about its dataspaces and where
     # they are located. Easily done by keeping a table of string of each dataset, which
     # contains their location simply by the path and have a table of H5Group objects
-    datasets*: ref Table[string, ref H5DataSet]
+    datasets*: TableRef[string, H5DataSet]
     # each group may have subgroups itself, keep table of these
-    groups*: ref Table[string, ref H5Group]
+    groups*: TableRef[string, H5Group]
     # attr stores information about attributes
     attrs*: H5Attributes
     # property list identifier, which stores information like "is chunked storage" etc.
@@ -140,9 +133,7 @@ type
     # here we store H5P_GROUP_CREATE property list
     gcpl_id*: hid_t
 
-
-
-  H5FileObj* = object #of H5Object
+  H5FileObj* = ref object
     name*: string
     # the file_id is the unique identifier of the opened file. Each
     # low level C call uses this file_id to idenfity the file to work
@@ -157,10 +148,10 @@ type
     # var to store status of C calls
     status*: hid_t
     # groups is a table, which stores the names of groups stored in the file
-    groups*: ref Table[string, ref H5Group]
+    groups*: TableRef[string, H5Group]
     # datasets is a table, which stores the names of datasets by string
     # while keeping the hid_t dataset_id as the value
-    datasets*: ref Table[string, ref H5DataSet]
+    datasets*: TableRef[string, H5DataSet]
     dataspaces*: Table[string, hid_t]
     # attr stores information about attributes
     attrs*: H5Attributes
@@ -171,8 +162,6 @@ type
     fapl_id*: hid_t
     # here we store H5P_FILE_CREATE property list
     fcpl_id*: hid_t
-
-
 
   # this exception is used in cases where all conditional cases are already thought
   # to be covered to annotate (hopefully!) unreachable branches

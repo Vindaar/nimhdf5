@@ -24,7 +24,7 @@ import h5util
 
 from groups import create_group, isGroup
 
-proc newH5DataSet*(name: string = ""): ref H5DataSet =
+proc newH5DataSet*(name: string = ""): H5DataSet =
   ## default constructor for a H5File object, for internal use
   let shape: seq[int] = @[]
   let maxshape: seq[int] = @[]
@@ -68,9 +68,9 @@ proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
     #raise newException(KeyError, "Dataset with name: " & dset_name & " not found in file " & h5f.name)
     result = none(H5DataSet)
   else:
-    result = some(h5f.datasets[dset_name][])
+    result = some(h5f.datasets[dset_name])
 
-proc isDataset*(h5f: var H5FileObj, name: string): bool =
+proc isDataset*(h5f: H5FileObj, name: string): bool =
   ## checks for existence of object in file. If it exists checks whether
   ## object is a dataset or not
   let target = formatName name
@@ -137,7 +137,7 @@ proc readMaxShape(dspace_id: hid_t): seq[int] =
   let (shape, maxshape) = readShape(dspace_id)
   result = maxshape
 
-proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
+proc get(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
   ## convenience proc to return the dataset with name dset_name
   ## if it does not exist, KeyError is thrown
   ## inputs:
@@ -152,7 +152,7 @@ proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
   let dset_name = string(dset_in)
   let dset_exist = hasKey(h5f.datasets, dset_name)
 
-  result = newH5DataSet(dset_name)[]
+  result = newH5DataSet(dset_name)
   if dset_exist == false:
     # before we raise an exception, because the dataset does not yet exist,
     # check whether such a dataset exists in the file we're not aware of yet
@@ -210,7 +210,7 @@ proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
       # now that we have created the group fully (including IDs), we can add it to the file and
       # the parent
       var dset_ref = new H5DataSet
-      dset_ref[] = result
+      dset_ref = result
       parent.datasets[result.name] = dset_ref
       h5f.datasets[result.name] = dset_ref
     else:
@@ -224,7 +224,7 @@ proc get(h5f: var H5FileObj, dset_in: dset_str): H5DataSet =
         raise newException(KeyError, "Dataset with name: " & dset_name &
           " not found in file " & h5f.name)
   else:
-    result = h5f.datasets[dset_name][]
+    result = h5f.datasets[dset_name]
     # in this case we still need to update e.g. shape
     # TODO: think about what else we might have to update!
     let dataspace_id = result.dataset_id.dataspace_id
@@ -254,7 +254,7 @@ proc parseShapeTuple[T: tuple](dims: T): seq[int] =
   for el in dims.fields:
     result.add int(el)
 
-proc parseChunkSizeAndMaxShape(dset: var H5DataSet, chunksize, maxshape: seq[int]): hid_t =
+proc parseChunkSizeAndMaxShape(dset: H5DataSet, chunksize, maxshape: seq[int]): hid_t =
   ## proc to parse the chunk size and maxhshape arguments handed to the create_dataset()
   ## Takes into account the different possible scenarios:
   ##    chunksize: seq[int] = a sequence containing the chunksize: the dataset should be
@@ -401,7 +401,7 @@ proc create_dataset*[T: (tuple | int | seq)](
   var dset_name = formatName(dset_raw)
 
   # set up the dataset object
-  var dset = newH5DataSet(dset_name)[]
+  var dset = newH5DataSet(dset_name)
   dset.file    = h5f.name
   dset.parent  = getParent(dset_name)
 
@@ -508,7 +508,7 @@ proc create_dataset*[T: (tuple | int | seq)](
   # now create attributes field
   dset.attrs = initH5Attributes(dset.dataset_id, dset.name, "H5DataSet")
   var dset_ref = new H5DataSet
-  dset_ref[] = dset
+  dset_ref = dset
   h5f.datasets[dset_name] = dset_ref
   # redundant:
   h5f.dataspaces[dset_name] = dset.dataspace_id
@@ -534,7 +534,7 @@ proc create_dataset*[T: (tuple | int | seq)](
                               filter,
                               overwrite = overwrite)
 
-proc write_dataset*[TT](h5f: var H5FileObj, name: string, data: TT): H5DataSet =
+proc write_dataset*[TT](h5f: H5FileObj, name: string, data: TT): H5DataSet =
   ## convenience proc to create a dataset and write data it immediately
   type T = getInnerType(TT)
   result = h5f.create_dataset(name, data.shape, T)
@@ -686,7 +686,7 @@ proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
     msg = msg % [$length, $dset.name, $dset.shape]
     raise newException(ValueError, msg)
 
-proc `[]=`*[T](dset: var H5DataSet, inds: HSlice[int, int], data: seq[T]) =
+proc `[]=`*[T](dset: H5DataSet, inds: HSlice[int, int], data: seq[T]) =
   ## procedure to write a sequence of array to a dataset
   ## will be given to HDF5 library upon call, H5DataSet object
   ## does not store the data
@@ -965,7 +965,7 @@ proc readAs*[T: SomeNumber](dset: H5DataSet, dtype: typedesc[T]): seq[dtype] =
       name(dtype)
     result = @[]
 
-proc readAs*[T: SomeNumber](h5f: var H5FileObj, dset: string, dtype: typedesc[T]): seq[dtype] =
+proc readAs*[T: SomeNumber](h5f: H5FileObj, dset: string, dtype: typedesc[T]): seq[dtype] =
   ## reads data from the H5file without an intermediate return of a `H5DataSet`
   let dset = h5f.get(dset.dset_str)
   result = dset.readAs(dtype)
@@ -1215,14 +1215,14 @@ proc write_norm*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
     raise newException(ValueError, msg)
 
 
-template write*[T: seq, U](dset: var H5DataSet, coord: seq[T], data: seq[U]) =
+template write*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
   ## template around both write fns for normal and vlen data
   if dset.dtype_class == H5T_VLEN:
     dset.write_vlen(coord, data)
   else:
     dset.write_norm(coord, data)
 
-template write*[T: (SomeNumber | bool | char | string), U](dset: var H5DataSet,
+template write*[T: (SomeNumber | bool | char | string), U](dset: H5DataSet,
                                                            coord: seq[T],
                                                            data: seq[U]) =
   ## template around both write fns for normal and vlen data in case
@@ -1244,7 +1244,7 @@ template write*[T: (SomeNumber | bool | char | string), U](dset: var H5DataSet,
       # in case of 1D data, need to separate each element into 1 element
       dset.write_norm(mapIt(coord, @[it, 0]), data)
 
-template write*[T: (seq | SomeNumber | bool | char | string)](dset: var H5DataSet,
+template write*[T: (seq | SomeNumber | bool | char | string)](dset: H5DataSet,
                                                               ind: int,
                                                               data: T,
                                                               column = false) =
@@ -1288,12 +1288,12 @@ template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
   ## a simple wrapper around get for datasets
   h5f.get(name)
 
-proc `[]`*[T](h5f: var H5FileObj, name: string, dtype: typedesc[T]): seq[T] =
+proc `[]`*[T](h5f: H5FileObj, name: string, dtype: typedesc[T]): seq[T] =
   ## reads data from the H5file without an intermediate return of a `H5DataSet`
   let dset = h5f.get(name.dset_str)
   result = dset[dtype]
 
-proc `[]`*[T](h5f: var H5FileObj, name: string, t: hid_t, dtype: typedesc[T]):
+proc `[]`*[T](h5f: H5FileObj, name: string, t: hid_t, dtype: typedesc[T]):
                 seq[seq[T]] =
   ## reads variable length data from the H5file without an intermediate return
   ## of a `H5DataSet`
@@ -1306,7 +1306,7 @@ func isChunked*(dset: H5DataSet): bool =
   ## returns `true` if the dataset is using chunked storage
   result = H5Pget_layout(dset.dcpl_id) == H5D_CHUNKED
 
-proc resize*[T: tuple | seq](dset: var H5DataSet, shape: T) =
+proc resize*[T: tuple | seq](dset: H5DataSet, shape: T) =
   ## proc to resize the dataset to the new size given by `shape`
   ## inputs:
   ##     dset: var H5DataSet = dataset to be resized
@@ -1345,7 +1345,7 @@ proc resize*[T: tuple | seq](dset: var H5DataSet, shape: T) =
     raise newException(ImmutableDatasetError, "Cannot resize a non-chunked " &
                        " (i.e. contiguous) dataset!")
 
-proc add*[T](dset: var H5DataSet, data: T, axis = 0, rewriteAsChunked = false) =
+proc add*[T](dset: H5DataSet, data: T, axis = 0, rewriteAsChunked = false) =
   ## Adds the `data` to the `dset` thereby resizing the dataset to fit
   ## the additional data. For this `data` must be compatible with the
   ## existing dataset.

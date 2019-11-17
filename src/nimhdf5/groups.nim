@@ -15,10 +15,10 @@ import util
 # get visit_file from files.nim for dataset iterator
 from files import visit_file
 
-proc newH5Group*(name: string = ""): ref H5Group =
+proc newH5Group*(name: string = ""): H5Group =
   ## default constructor for a H5Group object, for internal use
-  let datasets = newTable[string, ref H5DataSet]()
-  let groups = newTable[string, ref H5Group]()
+  let datasets = newTable[string, H5DataSet]()
+  let groups = newTable[string, H5Group]()
   let attrs = newH5Attributes()
   result = new H5Group
   result.name = name
@@ -76,9 +76,9 @@ proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
     #raise newException(KeyError, "Dataset with name: " & grp_name & " not found in file " & h5f.name)
     result = none(H5Group)
   else:
-    result = some(h5f.groups[grp_name][])
+    result = some(h5f.groups[grp_name])
 
-proc isGroup*(h5f: var H5FileObj, name: string): bool =
+proc isGroup*(h5f: H5FileObj, name: string): bool =
   ## checks for existence of object in file. If it exists checks whether
   ## object is a group or not
   let target = formatName name
@@ -113,7 +113,7 @@ template get(h5f: H5FileObj, group_in: grp_str): H5Group =
       # does not exists, raise exception
       raise newException(KeyError, "Group with name: " & group_name & " not found in file " & h5f.name)
   else:
-    result = h5f.groups[group_name][]
+    result = h5f.groups[group_name]
   result
 
 
@@ -126,7 +126,7 @@ template isGroup(h5_object: typed): bool =
     result = false
   result
 
-proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
+proc createGroupFromParent[T](h5f: T, group_name: string): H5Group =
   ## procedure to create a group within a H5F
   ## Note: this procedure requires that the parent of the group
   ## to create exists, while the group to be created does not!
@@ -137,7 +137,7 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   ##    group_name: string = the name of the group to be created
   ## outputs:
   ##    H5Group = returns a group object with the basic properties set
-  result = newH5Group(group_name)[]
+  result = newH5Group(group_name)
   # the location id (id of group or the root) at which to create the group
   let location_id = h5f.file_id
   let exists = location_id.existsInFile(result.name)
@@ -185,7 +185,7 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
     # if called by file obj itself, create new reference and
     # assign that to file reference
     var h5ref = new H5FileObj
-    h5ref[] = h5f
+    h5ref = h5f
     result.file_ref = h5ref
   else:
     # else use the ref of the parent creating this object
@@ -194,14 +194,14 @@ proc createGroupFromParent[T](h5f: var T, group_name: string): H5Group =
   # now that we have created the group fully (including IDs), we can add it
   # to the H5FileObj
   var grp = new H5Group
-  grp[] = result
+  grp = result
   withDebug:
     debugEcho "Adding element to h5f groups ", group_name
   h5f.groups[group_name] = grp
   grp.groups = h5f.groups
 
 
-proc create_group*[T](h5f: var T, group_name: string): H5Group =
+proc create_group*[T](h5f: T, group_name: string): H5Group =
   ## checks whether the given group name already exists or not.
   ## If yes:
   ##   return the H5Group object,
@@ -233,7 +233,7 @@ proc create_group*[T](h5f: var T, group_name: string): H5Group =
   let exists = hasKey(h5f.groups, group_path)
   if exists == true:
     # then we return the object
-    result = h5f.groups[group_path][]
+    result = h5f.groups[group_path]
   else:
     # we need to create it. But first check whether the parent
     # group already exists
@@ -249,7 +249,7 @@ template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
   # a simple wrapper around get for groups
   h5f.get(name)
 
-# proc openGroupById(h5f: H5FileObj, locaction_id: hid_t, name: string): ref H5Group =
+# proc openGroupById(h5f: H5FileObj, locaction_id: hid_t, name: string): H5Group =
 #   # proc which opens an existing group by its ID
 #   var group = newH5Group(name)
 #   group.group_id = H5Gopen2(locaction_id, name, H5P_DEFAULT)
@@ -265,7 +265,7 @@ template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
 
 # for H5Groups first implement relative create_group
 
-iterator groups*(group: var H5Group, start_path = ".", depth = 1): H5Group =
+iterator groups*(group: H5Group, start_path = ".", depth = 1): H5Group =
   ## iterator to return groups below the given group. By default we do not
   ## return groups in subgroups of the given ``group``
   ## NOTE: make sure the file is visited via `files.visit_file` before calling
@@ -289,9 +289,9 @@ iterator groups*(group: var H5Group, start_path = ".", depth = 1): H5Group =
         if n_current - n_start > depth:
           # in this case continue without yielding
           continue
-      yield group.groups[grp][]
+      yield group.groups[grp]
 
-iterator items*(group: var H5Group, start_path = "."): H5DataSet =
+iterator items*(group: H5Group, start_path = "."): H5DataSet =
   ## iterator, which returns a non mutable dataset object starting from `start_path` in the
   ## H5 group
   ## TODO: currently start_path has no effect, unless it's the groups name, because
@@ -322,7 +322,7 @@ iterator items*(group: var H5Group, start_path = "."): H5DataSet =
 
   if group.file_ref.visited == false:
     # call visit file to get info about all groups and dsets
-    visit_file(group.file_ref[])
+    visit_file(group.file_ref)
 
   # now make sure the start_path is properly formatted
   if start_path != ".":
@@ -336,4 +336,4 @@ iterator items*(group: var H5Group, start_path = "."): H5DataSet =
   for dset in keys(group.datasets):
     if dset.startsWith(mstart_path) == true and dset != mstart_path:
       # means we're reading a fitting dataset, yield
-      yield group.datasets[dset][]
+      yield group.datasets[dset]
