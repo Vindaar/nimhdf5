@@ -69,7 +69,7 @@ proc close*(attr: H5Attr): herr_t =
     result = H5Sclose(attr.attr_dspace_id)
     attr.opened = false
 
-proc getAttrName*[T: SomeInteger](attr_id: hid_t, buf_space: T = 20): string =
+proc getAttrName*[T: SomeInteger](attr_id: hid_t, buf_space: T = 200): string =
   ## proc to get the attribute name of the attribute with the given id
   ## reserves space for the name to be written to
   withDebug:
