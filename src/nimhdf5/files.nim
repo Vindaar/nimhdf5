@@ -328,14 +328,15 @@ template withH5*(h5file, rw_type: string, actions: untyped) =
   ## template to work with a H5 file, taking care of opening
   ## and closing the file
   ## injects the `h5f` variable into the calling space
-  var h5f {.inject.} = H5File(h5file, rw_type)
+  block:
+    var h5f {.inject.} = H5File(h5file, rw_type)
 
-  # perform actions with H5FileObj
-  actions
+    # perform actions with H5FileObj
+    actions
 
-  let err = h5f.close()
-  if err != 0:
-    echo "Closing of H5 file unsuccessful. Returned code ", err
+    let err = h5f.close()
+    if err != 0:
+      echo "Closing of H5 file unsuccessful. Returned code ", err
 
 proc getObjectIdByName(h5file: H5FileObj, name: string): hid_t =
   ## proc to retrieve the location ID of a H5 object based its relative path
