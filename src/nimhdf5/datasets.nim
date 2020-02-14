@@ -149,7 +149,7 @@ proc get(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
   ##    KeyError: if dataset could not be found
   var status: cint
 
-  let dset_name = string(dset_in)
+  let dset_name = formatName(string(dset_in))
   let dset_exist = hasKey(h5f.datasets, dset_name)
 
   result = newH5DataSet(dset_name)
