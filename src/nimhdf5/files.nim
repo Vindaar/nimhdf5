@@ -409,7 +409,11 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
   ## this proc is only called in the case where the start from the root group
 
   # cast the H5FileObj pointer back
-  let h5f = cast[H5FileObj](h5f_p)
+  # NOTE: in `visit_file` we use `unsafeAddr` to hand the address of the `h5f` to
+  # the HDF5 library. For some reason we have to cast to a `var H5FileObj` here,
+  # because otherwise we get a segfault! I assume that is because how `let` and `var`
+  # is handled?
+  var h5f = cast[var H5FileObj](h5f_p)
   if name_c == ".":
     # in case the location is `.`, we are simply at our starting point (currently
     # means root group), we don't want to do anything here, so continue
