@@ -1,13 +1,46 @@
-import typeinfo
 import strutils
 import tables
 import strformat
+import macros
 
 import hdf5_wrapper
 import H5nimtypes
 import util
 
 type
+  # based on `typeinfo.AnyKind` enum
+  DtypeKind* = enum  ## what kind of ``dtype`` it is
+    dkNone,        ## invalid any
+    dkBool,        ## represents a ``bool``
+    dkChar,        ## represents a ``char``
+    dkEnum,        ## represents an enum
+    dkArray,       ## represents an array
+    dkObject,      ## represents an object
+    dkTuple,       ## represents a tuple
+    dkSet,         ## represents a set
+    dkRange,       ## represents a range
+    dkPtr,         ## represents a ptr
+    dkRef,         ## represents a ref
+    dkSequence,    ## represents a sequence
+    dkProc,        ## represents a proc
+    dkPointer,     ## represents a pointer
+    dkString,      ## represents a string
+    dkCString,     ## represents a cstring
+    dkInt,         ## represents an int
+    dkInt8,        ## represents an int8
+    dkInt16,       ## represents an int16
+    dkInt32,       ## represents an int32
+    dkInt64,       ## represents an int64
+    dkFloat,       ## represents a float
+    dkFloat32,     ## represents a float32
+    dkFloat64,     ## represents a float64
+    dkFloat128,    ## represents a float128
+    dkUInt,        ## represents an unsigned int
+    dkUInt8,       ## represents an unsigned int8
+    dkUInt16,      ## represents an unsigned in16
+    dkUInt32,      ## represents an unsigned int32
+    dkUInt64,      ## represents an unsigned int64
+
   # these distinct types provide the ability to distinguish the `[]` function
   # acting on H5FileObj between a dataset and a group, s.t. we can access groups
   # as well as datasets from the object using `[]`. Typecast the name (as a string)
@@ -42,10 +75,10 @@ type
     opened*: bool # flag which indicates whether attribute is opened
     attr_id*: hid_t
     dtype_c*: hid_t
-    dtypeAnyKind*: AnyKind
+    dtypeAnyKind*: DtypeKind
     # BaseKind contains the type within a (nested) seq iff
-    # dtypeAnyKind is akSequence
-    dtypeBaseKind*: AnyKind
+    # dtypeAnyKind is dkSequence
+    dtypeBaseKind*: DtypeKind
     attr_dspace_id*: hid_t
 
   # an object to store information about a hdf5 dataset. It is a combination of
@@ -63,10 +96,10 @@ type
     chunksize*: seq[int]
     # descriptor of datatype as string of the Nim type
     dtype*: string
-    dtypeAnyKind*: AnyKind
+    dtypeAnyKind*: DtypeKind
     # BaseKind contains the type within a (nested) seq iff
-    # dtypeAnyKind is akSequence (i.e. of variable length type)
-    dtypeBaseKind*: AnyKind
+    # dtypeAnyKind is dkSequence (i.e. of variable length type)
+    dtypeBaseKind*: DtypeKind
     # actual HDF5 datatype used as a hid_t, this can be handed to functions needing
     # its datatype
     dtype_c*: hid_t
@@ -202,20 +235,24 @@ template getH5Id*(h5o: typed): hid_t =
     let result = h5o.group_id
   result
 
-proc getTypeNoSize(x: AnyKind): AnyKind =
+proc getTypeNoSize(x: DtypeKind): DtypeKind =
   ## returns the datatype without size information
   case x
-  of akNone .. akCString:
+  of dkNone .. dkCString:
     result = x
-  of akInt .. akInt64:
-    result = akInt
-  of akFloat .. akFloat128:
-    result = akFloat
-  of akUint .. akUint64:
-    result = akUint
+  of dkInt .. dkInt64:
+    result = dkInt
+  of dkFloat .. dkFloat128:
+    result = dkFloat
+  of dkUint .. dkUint64:
+    result = dkUint
   else:
-    # for other cases (which ones?!) return akNone
-    result = akNone
+    # for other cases (which ones?!) return dkNone
+    result = dkNone
+
+macro name*(t: typed): untyped =
+  ## returns name of given data type
+  result = getTypeInst(t)[1].getType.toStrLit
 
 proc typeMatches*(dtype: typedesc, dstr: string): bool =
   ## returns true, if the given ``typedesc`` matches the descriptor in
@@ -224,18 +261,12 @@ proc typeMatches*(dtype: typedesc, dstr: string): bool =
   ## (if it is of int | float | uint that is)
   ## This is the case for datatypes stored as strings in the datasets within
   ## a H5 file
-  ## We construct an `Any` object, get its kind and compare that to the
-  ## ``AnyKind`` we parse from the string
-  ## This is reasonable, because we create the `dstr` from ``AnyKind`` by stripping
-  ## the "ak" prefix in the first place!
-  var tmp: dtype
-  # create an ``AnyKind`` from given dtype and remove potential size information
-  let dAnyKind = toAny(tmp).kind.getTypeNoSize
-  # get the string datatypes `AnyKind` without size information
-  let dstrAnyKind = parseEnum[AnyKind]("ak" & dstr, akNone).getTypeNoSize
-  # and the size in bytes of it
+  # create an ``DtypeKind`` from given dtype and remove potential size information
+  let dAnyKind = parseEnum[DtypeKind]("dk" & name(dtype), dkNone).getTypeNoSize
+  # get the string datatypes `DtypeKind` without size information
+  let dstrAnyKind = parseEnum[DtypeKind]("dk" & dstr, dkNone).getTypeNoSize
   case dstrAnyKind
-  of akInt .. akUint64:
+  of dkInt .. dkUint64:
     let expectedSize = dstr.strip(chars = Letters).parseInt div 8
     result = if expectedSize == sizeof(dtype) and
                 dAnyKind == dstrAnyKind:
@@ -246,14 +277,13 @@ proc typeMatches*(dtype: typedesc, dstr: string): bool =
     # no size check necessary
     result = if dAnyKind == dstrAnyKind: true else: false
 
-
-proc h5ToNimType*(dtype_id: hid_t): AnyKind =
-  ## proc to return a type descriptor (via typeinfo.AnyKind) describing the given
+proc h5ToNimType*(dtype_id: hid_t): DtypeKind =
+  ## proc to return a type descriptor (via DtypeKind) describing the given
   ## H5 type. From the return value, we can set the data type in the H5DataSet obj
   ## inputs:
   ##     dtype_id: hid_t = datatype id returned by the H5 library about the datasets' type
   ## outputs:
-  ##     AnyKind = typeinfo.AnyKind enum value corresponding to a Nim datatype. We use the
+  ##     DtypeKind = enum value corresponding to a Nim datatype. We use the
   ##            string representation of it to set the H5DataSet.dtype: string to its
   ##            correct value
   ## throws:
@@ -270,30 +300,30 @@ proc h5ToNimType*(dtype_id: hid_t): AnyKind =
   # converted to int64
 
   if H5Tequal(H5T_NATIVE_DOUBLE, dtype_id) == 1:
-    result = akFloat64
+    result = dkFloat64
   elif H5Tequal(H5T_NATIVE_FLOAT, dtype_id) == 1:
-    result = akFloat32
+    result = dkFloat32
   elif H5Tequal(H5T_NATIVE_SHORT, dtype_id) == 1:
-    result = akInt32
+    result = dkInt32
   elif H5Tequal(H5T_NATIVE_LONG, dtype_id) == 1 or H5Tequal(H5T_NATIVE_INT, dtype_id) == 1 or H5Tequal(H5T_NATIVE_LLONG, dtype_id) == 1:
-    result = akInt64
+    result = dkInt64
   elif H5Tequal(H5T_NATIVE_UINT, dtype_id) == 1 or H5Tequal(H5T_NATIVE_ULONG, dtype_id) == 1:
-    result = akUint32
+    result = dkUint32
   elif H5Tequal(H5T_NATIVE_ULLONG, dtype_id) == 1:
-    result = akUint64
+    result = dkUint64
   elif H5Tequal(H5T_NATIVE_SHORT, dtype_id) == 1:
-    result = akInt16
+    result = dkInt16
   elif H5Tequal(H5T_NATIVE_USHORT, dtype_id) == 1:
-    result = akUint16
+    result = dkUint16
   elif H5Tequal(H5T_NATIVE_CHAR, dtype_id) == 1:
-    result = akChar
+    result = dkChar
   elif H5Tequal(H5T_NATIVE_UCHAR, dtype_id) == 1:
-    result = akUint8
+    result = dkUint8
   elif H5Tget_class(dtype_id) == H5T_STRING:
-    result = akString
+    result = dkString
   elif H5Tget_class(dtype_id) == H5T_VLEN:
     # represent vlen types as sequence for any kind
-    result = akSequence
+    result = dkSequence
   else:
     raise newException(KeyError, "Warning: the following H5 type could not be converted: $# of class $#" % [$dtype_id, $H5Tget_class(dtype_id)])
 
@@ -366,9 +396,9 @@ proc nimToH5type*(dtype: typedesc): hid_t =
     # `result` as the second argument and the string you wish to
     # write as 1st after the call to this fn
 
-template anyTypeToString*(dtype: AnyKind): string =
-  ## return a datatype string from an AnyKind object
-  strip($dtype, chars = {'a', 'k'}).toLowerAscii
+template anyTypeToString*(dtype: DtypeKind): string =
+  ## return a datatype string from an DtypeKind object
+  strip($dtype, chars = {'d', 'k'}).toLowerAscii
 
 proc getDtypeString*(dset_id: hid_t): string =
   ## using a dataset id `dset_id`, return the name of the datatype by a call

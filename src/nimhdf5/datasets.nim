@@ -4,8 +4,6 @@ This file contains all procedures related to datasets.
 The H5DataSet type is defined in the datatypes.nim file.
 ]#
 
-import typeinfo
-import typetraits
 import options
 import tables
 import strutils
@@ -167,8 +165,8 @@ proc get(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
       # does exist, add to H5FileObj
       let datatype_id = H5Dget_type(result.dataset_id)
       let f = h5ToNimType(datatype_id)
-      if f == akSequence:
-        # akSequence == VLEN type
+      if f == dkSequence:
+        # dkSequence == VLEN type
         # in this case this only determines dtypeAnyKind, but we don't
         # know the basetype. Set that by another call of the super of
         # the datatype
@@ -489,17 +487,15 @@ proc create_dataset*[T: (tuple | int | seq)](
     # for now we only support vlen arrays, later we need to
     # differentiate between the different H5T class types
     dset.dtype = "vlen"
-    dset.dtypeAnyKind = akSequence
+    dset.dtypeAnyKind = dkSequence
   else:
     # in case of non vlen datatypes, don't take the immediate string of the datatype
     # but instead get it from the H5 datatype to conform to the same datatype, which
     # we read back from the file after writing
     dset.dtype = getDtypeString(dset.dataset_id)
-    # tmp var to get AnyKind using typeinfo.kind
-    var tmp: dtype
-    dset.dtypeAnyKind = tmp.toAny.kind
+    dset.dtypeAnyKind = parseEnum[DtypeKind]("dk" & name(dtype), dkNone)
   # now get datatype base kind if vlen datatype
-  if dset.dtypeAnyKind == akSequence:
+  if dset.dtypeAnyKind == dkSequence:
     # need to get datatype id (id specific to this dataset describing type),
     # then super, which is the base type of a VLEN type and finally convert
     # that to a AnyKind type
@@ -729,43 +725,43 @@ template withDset*(h5dset: H5DataSet, actions: untyped) =
   ## with that dataset, without having to manually check the data type of the
   ## dataset
   case h5dset.dtypeAnyKind
-  of akBool:
+  of dkBool:
     let dset {.inject.} = h5dset[bool]
     actions
-  of akChar:
+  of dkChar:
     let dset {.inject.} = h5dset[char]
     actions
-  of akString:
+  of dkString:
     let dset {.inject.} = h5dset[string]
     actions
-  of akFloat32:
+  of dkFloat32:
     let dset {.inject.} = h5dset[float32]
     actions
-  of akFloat64:
+  of dkFloat64:
     let dset {.inject.} = h5dset[float64]
     actions
-  of akInt8:
+  of dkInt8:
     let dset {.inject.} = h5dset[int8]
     actions
-  of akInt16:
+  of dkInt16:
     let dset {.inject.} = h5dset[int16]
     actions
-  of akInt32:
+  of dkInt32:
     let dset {.inject.} = h5dset[int32]
     actions
-  of akInt64:
+  of dkInt64:
     let dset {.inject.} = h5dset[int64]
     actions
-  of akUint8:
+  of dkUint8:
     let dset {.inject.} = h5dset[uint8]
     actions
-  of akUint16:
+  of dkUint16:
     let dset {.inject.} = h5dset[uint16]
     actions
-  of akUint32:
+  of dkUint32:
     let dset {.inject.} = h5dset[uint32]
     actions
-  of akUint64:
+  of dkUint64:
     let dset {.inject.} = h5dset[uint64]
     actions
   else:
@@ -788,17 +784,17 @@ proc convertType*(h5dset: H5DataSet, dt: typedesc):
       dset[fromType].mapIt(tt(it))
 
   case h5dset.dtypeAnyKind
-  of akFloat32: result = proc(d: H5DataSet): seq[dt] = d.fromTo(float32, dt)
-  of akFloat64: result = proc(d: H5DataSet): seq[dt] = d.fromTo(float64, dt)
-  of akInt: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int, dt)
-  of akInt8: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int8, dt)
-  of akInt16: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int16, dt)
-  of akInt32: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int32, dt)
-  of akInt64: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int64, dt)
-  of akUint8: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint8, dt)
-  of akUint16: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint16, dt)
-  of akUint32: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint32, dt)
-  of akUint64: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint64, dt)
+  of dkFloat32: result = proc(d: H5DataSet): seq[dt] = d.fromTo(float32, dt)
+  of dkFloat64: result = proc(d: H5DataSet): seq[dt] = d.fromTo(float64, dt)
+  of dkInt: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int, dt)
+  of dkInt8: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int8, dt)
+  of dkInt16: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int16, dt)
+  of dkInt32: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int32, dt)
+  of dkInt64: result = proc(d: H5DataSet): seq[dt] = d.fromTo(int64, dt)
+  of dkUint8: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint8, dt)
+  of dkUint16: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint16, dt)
+  of dkUint32: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint32, dt)
+  of dkUint64: result = proc(d: H5DataSet): seq[dt] = d.fromTo(uint64, dt)
   else:
     echo "it's of type ", h5dset.dtypeAnyKind
     result = proc(d: H5DataSet): seq[dt] = discard
@@ -923,17 +919,17 @@ proc readAs*[T: SomeNumber](dset: H5DataSet, indices: seq[int], dtype: typedesc[
                 seq[dtype] =
   ## read some indices and returns the data converted to `dtype`
   case dset.dtypeAnyKind
-  of akFloat32: result = dset[indices, float32].mapIt(dtype(it))
-  of akFloat64: result = dset[indices, float64].mapIt(dtype(it))
-  of akInt:     result = dset[indices, int].mapIt(dtype(it))
-  of akInt8:    result = dset[indices, int8].mapIt(dtype(it))
-  of akInt16:   result = dset[indices, int16].mapIt(dtype(it))
-  of akInt32:   result = dset[indices, int32].mapIt(dtype(it))
-  of akInt64:   result = dset[indices, int64].mapIt(dtype(it))
-  of akUint8:   result = dset[indices, uint8].mapIt(dtype(it))
-  of akUint16:  result = dset[indices, uint16].mapIt(dtype(it))
-  of akUint32:  result = dset[indices, uint32].mapIt(dtype(it))
-  of akUint64:  result = dset[indices, uint64].mapIt(dtype(it))
+  of dkFloat32: result = dset[indices, float32].mapIt(dtype(it))
+  of dkFloat64: result = dset[indices, float64].mapIt(dtype(it))
+  of dkInt:     result = dset[indices, int].mapIt(dtype(it))
+  of dkInt8:    result = dset[indices, int8].mapIt(dtype(it))
+  of dkInt16:   result = dset[indices, int16].mapIt(dtype(it))
+  of dkInt32:   result = dset[indices, int32].mapIt(dtype(it))
+  of dkInt64:   result = dset[indices, int64].mapIt(dtype(it))
+  of dkUint8:   result = dset[indices, uint8].mapIt(dtype(it))
+  of dkUint16:  result = dset[indices, uint16].mapIt(dtype(it))
+  of dkUint32:  result = dset[indices, uint32].mapIt(dtype(it))
+  of dkUint64:  result = dset[indices, uint64].mapIt(dtype(it))
   else:
     echo "Unsupported datatype for H5DataSet to convert to some number!"
     echo "Dset dtype: " & $dset.dtypeAnyKind & "; requested target: " &
@@ -948,17 +944,17 @@ proc readConvert*[T: SomeNumber](dset: H5DataSet, indices: seq[int], dtype: type
 proc readAs*[T: SomeNumber](dset: H5DataSet, dtype: typedesc[T]): seq[dtype] =
   ## read some indices and returns the data converted to `dtype`
   case dset.dtypeAnyKind
-  of akFloat32: result = dset[float32].mapIt(dtype(it))
-  of akFloat64: result = dset[float64].mapIt(dtype(it))
-  of akInt:     result = dset[int].mapIt(dtype(it))
-  of akInt8:    result = dset[int8].mapIt(dtype(it))
-  of akInt16:   result = dset[int16].mapIt(dtype(it))
-  of akInt32:   result = dset[int32].mapIt(dtype(it))
-  of akInt64:   result = dset[int64].mapIt(dtype(it))
-  of akUint8:   result = dset[uint8].mapIt(dtype(it))
-  of akUint16:  result = dset[uint16].mapIt(dtype(it))
-  of akUint32:  result = dset[uint32].mapIt(dtype(it))
-  of akUint64:  result = dset[uint64].mapIt(dtype(it))
+  of dkFloat32: result = dset[float32].mapIt(dtype(it))
+  of dkFloat64: result = dset[float64].mapIt(dtype(it))
+  of dkInt:     result = dset[int].mapIt(dtype(it))
+  of dkInt8:    result = dset[int8].mapIt(dtype(it))
+  of dkInt16:   result = dset[int16].mapIt(dtype(it))
+  of dkInt32:   result = dset[int32].mapIt(dtype(it))
+  of dkInt64:   result = dset[int64].mapIt(dtype(it))
+  of dkUint8:   result = dset[uint8].mapIt(dtype(it))
+  of dkUint16:  result = dset[uint16].mapIt(dtype(it))
+  of dkUint32:  result = dset[uint32].mapIt(dtype(it))
+  of dkUint64:  result = dset[uint64].mapIt(dtype(it))
   else:
     echo "Unsupported datatype for H5DataSet to convert to some number!"
     echo "Dset dtype: " & $dset.dtypeAnyKind & "; requested target: " &

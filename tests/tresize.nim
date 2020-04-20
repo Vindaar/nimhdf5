@@ -2,7 +2,6 @@ import nimhdf5
 import sequtils
 import os
 import ospaths
-import typeinfo
 
 const
   File = "tests/dset.h5"
@@ -28,12 +27,12 @@ proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet, resized: bool) =
   assert(dtypeCheck)
 
   # currently if we hand a float64 for a datatype, we end up with
-  # akFloat after creation, but when reading it back we get a
-  # akFloat64. The first is due to Nim defining float64
+  # dkFloat after creation, but when reading it back we get a
+  # dkFloat64. The first is due to Nim defining float64
   # 1. as the default float type on a 64 bit machine
   # 2. in case of float64 actually even more nuanced, in the sense
   #    that Nim defines float as an alias for float64
-  let anyKindCheck = if dset.dtypeAnyKind == akInt or dset.dtypeAnyKind == akInt64: true else: false
+  let anyKindCheck = if dset.dtypeAnyKind == dkInt or dset.dtypeAnyKind == dkInt64: true else: false
   assert(anyKindCheck)
 
   assert(dset.parent == parentDir(DsetName))
