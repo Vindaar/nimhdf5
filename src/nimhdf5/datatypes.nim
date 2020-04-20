@@ -246,9 +246,6 @@ proc getTypeNoSize(x: DtypeKind): DtypeKind =
     result = dkFloat
   of dkUint .. dkUint64:
     result = dkUint
-  else:
-    # for other cases (which ones?!) return dkNone
-    result = dkNone
 
 macro name*(t: typed): untyped =
   ## returns name of given data type
