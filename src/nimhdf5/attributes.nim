@@ -5,7 +5,6 @@ The attribute types are defined in the datatypes.nim file.
 ]#
 
 import typeinfo
-import typetraits
 import tables
 import strutils, sequtils
 
@@ -110,7 +109,7 @@ proc setAttrAnyKind(attr: H5Attr) =
   ## proc which sets the AnyKind fields of a H5Attr
   let npoints = H5Sget_simple_extent_npoints(attr.attr_dspace_id)
   if npoints > 1:
-    attr.dtypeAnyKind = akSequence
+    attr.dtypeAnyKind = dkSequence
     # set the base type based on what's contained in the sequence
     attr.dtypeBaseKind = h5ToNimType(attr.dtype_c)
   else:
@@ -443,79 +442,79 @@ template withAttr*(h5attr: H5Attributes, name: string, actions: untyped) =
   # TODO: NOTE this is a very ugly solution, when we could just use H5Ocopy in the calling
   # proc....
   case h5attr.attr_tab[name].dtypeAnyKind
-  of akBool:
+  of dkBool:
     let attr {.inject.} = h5attr[name, bool]
     actions
-  of akChar:
+  of dkChar:
     let attr {.inject.} = h5attr[name, char]
     actions
-  of akString:
+  of dkString:
     let attr {.inject.} = h5attr[name, string]
     actions
-  of akFloat32:
+  of dkFloat32:
     let attr {.inject.} = h5attr[name, float32]
     actions
-  of akFloat64:
+  of dkFloat64:
     let attr {.inject.} = h5attr[name, float64]
     actions
-  of akInt8:
+  of dkInt8:
     let attr {.inject.} = h5attr[name, int8]
     actions
-  of akInt16:
+  of dkInt16:
     let attr {.inject.} = h5attr[name, int16]
     actions
-  of akInt32:
+  of dkInt32:
     let attr {.inject.} = h5attr[name, int32]
     actions
-  of akInt64:
+  of dkInt64:
     let attr {.inject.} = h5attr[name, int64]
     actions
-  of akUint8:
+  of dkUint8:
     let attr {.inject.} = h5attr[name, uint8]
     actions
-  of akUint16:
+  of dkUint16:
     let attr {.inject.} = h5attr[name, uint16]
     actions
-  of akUint32:
+  of dkUint32:
     let attr {.inject.} = h5attr[name, uint32]
     actions
-  of akUint64:
+  of dkUint64:
     let attr {.inject.} = h5attr[name, uint64]
     actions
-  of akSequence:
+  of dkSequence:
     # need to perform same game again...
     case h5attr.attr_tab[name].dtypeBaseKind
-    of akString:
+    of dkString:
       let attr {.inject.} = h5attr[name, seq[string]]
       actions
-    of akFloat32:
+    of dkFloat32:
       let attr {.inject.} = h5attr[name, seq[float32]]
       actions
-    of akFloat64:
+    of dkFloat64:
       let attr {.inject.} = h5attr[name, seq[float64]]
       actions
-    of akInt8:
+    of dkInt8:
       let attr {.inject.} = h5attr[name, seq[int8]]
       actions
-    of akInt16:
+    of dkInt16:
       let attr {.inject.} = h5attr[name, seq[int16]]
       actions
-    of akInt32:
+    of dkInt32:
       let attr {.inject.} = h5attr[name, seq[int32]]
       actions
-    of akInt64:
+    of dkInt64:
       let attr {.inject.} = h5attr[name, seq[int64]]
       actions
-    of akUint8:
+    of dkUint8:
       let attr {.inject.} = h5attr[name, seq[uint8]]
       actions
-    of akUint16:
+    of dkUint16:
       let attr {.inject.} = h5attr[name, seq[uint16]]
       actions
-    of akUint32:
+    of dkUint32:
       let attr {.inject.} = h5attr[name, seq[uint32]]
       actions
-    of akUint64:
+    of dkUint64:
       let attr {.inject.} = h5attr[name, seq[uint64]]
       actions
     else:

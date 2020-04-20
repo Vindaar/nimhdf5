@@ -23,12 +23,12 @@ proc doAssert_fields(h5f: var H5FileObj, dset: var H5DataSet) =
   doAssert(dset.dtype == "vlen")
 
   # currently if we hand a float64 for a datatype, we end up with
-  # akFloat after creation, but when reading it back we get a
-  # akFloat64. The first is due to Nim defining float64
+  # dkFloat after creation, but when reading it back we get a
+  # dkFloat64. The first is due to Nim defining float64
   # 1. as the default float type on a 64 bit machine
   # 2. in case of float64 actually even more nuanced, in the sense
   #    that Nim defines float as an alias for float64
-  let baseKindCheck = if dset.dtypeBaseKind == akFloat or dset.dtypeBaseKind == akFloat64: true else: false
+  let baseKindCheck = if dset.dtypeBaseKind == dkFloat or dset.dtypeBaseKind == dkFloat64: true else: false
   doAssert(baseKindCheck)
 
   doAssert(dset.parent == parentDir(VlenName))

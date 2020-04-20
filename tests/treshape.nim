@@ -5,12 +5,11 @@ import ospaths
 import typeinfo
 import strformat
 import algorithm
-import typetraits
 
 const
   File = "tests/treshape.h5"
   Dset2D = "/group1/reshape2D"
-  Dset3D = "/group1/reshape3D"  
+  Dset3D = "/group1/reshape3D"
 
 var d2d = @[ @[1, 1, 1],
              @[1, 1, 1],
@@ -23,7 +22,7 @@ var d3d = @[ @[ @[1, 2, 3, 4, 5],
 proc create_dset(h5f: var H5FileObj): (H5DataSet, H5DataSet) =
   var
     d1 = h5f.create_dataset(Dset2D, (3, 3), int)
-    d2 = h5f.create_dataset(Dset3D, (2, 2, 5), int)  
+    d2 = h5f.create_dataset(Dset3D, (2, 2, 5), int)
   d1[d1.all] = d2d
   d2[d2.all] = d3d
   result = (d1, d2)
@@ -52,7 +51,7 @@ proc assert_data(dset: var H5DataSet, shape: seq[int]) =
   else:
     # for the 3D case
     let data_reshaped = data.reshape3D(dset.shape)
-    let data_reshaped_alt = data.reshape([2, 2, 5])    
+    let data_reshaped_alt = data.reshape([2, 2, 5])
     assert data_reshaped.shape == d3d.shape
     assert data_reshaped_alt.shape == d3d.shape
     # in this case for convenience compare the flattened arrays
@@ -79,13 +78,13 @@ when isMainModule:
     h5f_read = H5File(File, "r")
   # get same dset from before
   dset2d = h5f_read[Dset2D.dset_str]
-  dset3d = h5f_read[Dset3D.dset_str]  
+  dset3d = h5f_read[Dset3D.dset_str]
   # check if assertions still hold true (did we read correctly?)
   echo "Asserting fields of read data"
   # now read actual data and compare with what we wrote to file
   assert_data(dset2d, @[3, 3])
-  assert_data(dset3d, @[2, 2, 5])  
-  
+  assert_data(dset3d, @[2, 2, 5])
+
   err = h5f_read.close()
   assert(err >= 0)
 
