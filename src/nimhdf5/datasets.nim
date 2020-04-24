@@ -7,7 +7,8 @@ The H5DataSet type is defined in the datatypes.nim file.
 import options
 import tables
 import strutils
-export nimIdentNormalize
+when (NimMajor, NimMinor, NimPatch) > (1, 2, 0):
+  export nimIdentNormalize
 import sequtils
 import seqmath
 import macros
