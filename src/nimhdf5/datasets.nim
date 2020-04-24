@@ -4,10 +4,17 @@ This file contains all procedures related to datasets.
 The H5DataSet type is defined in the datatypes.nim file.
 ]#
 
+## TODO: this is only a workaround, because `choosenim` devel on travis
+## has a nim version from `19/04/20`, which was before the `parseEnum`
+## PR was merged
+template tryExport(body: untyped): untyped =
+  when compiles(body):
+    discard
+
 import options
 import tables
 import strutils
-when (NimMajor, NimMinor, NimPatch) > (1, 2, 0):
+tryExport:
   export nimIdentNormalize
 import sequtils
 import seqmath
