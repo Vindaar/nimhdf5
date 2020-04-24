@@ -292,28 +292,42 @@ proc h5ToNimType*(dtype_id: hid_t): DtypeKind =
   withDebug:
     echo "dtype is ", dtype_id
     echo "native is ", H5Tget_native_type(dtype_id, H5T_DIR_ASCEND)
-  # TODO: make sure the types are correctly identified!
-  # MAKING PROBLEMS ALREADY! int64 is read back as a NATIVE_LONG, which thus needs to be
-  # converted to int64
-
   if H5Tequal(H5T_NATIVE_DOUBLE, dtype_id) == 1:
     result = dkFloat64
   elif H5Tequal(H5T_NATIVE_FLOAT, dtype_id) == 1:
     result = dkFloat32
-  elif H5Tequal(H5T_NATIVE_SHORT, dtype_id) == 1:
+  elif H5Tequal(H5T_NATIVE_LONG, dtype_id) == 1:
+    # maps to `long`
+    case sizeof(clong)
+    of 4: result = dkInt32
+    of 8: result = dkInt64
+    else: doAssert false, "`long` of size other than 4, 8 bytes?"
+  elif H5Tequal(H5T_NATIVE_INT, dtype_id) == 1:
+    # maps to `int`
+    doAssert sizeof(cint) == 4
     result = dkInt32
-  elif H5Tequal(H5T_NATIVE_LONG, dtype_id) == 1 or H5Tequal(H5T_NATIVE_INT, dtype_id) == 1 or H5Tequal(H5T_NATIVE_LLONG, dtype_id) == 1:
+  elif H5Tequal(H5T_NATIVE_LLONG, dtype_id) == 1:
+    # maps to `long long`
+    doAssert sizeof(clonglong) == 8
     result = dkInt64
-  elif H5Tequal(H5T_NATIVE_UINT, dtype_id) == 1 or H5Tequal(H5T_NATIVE_ULONG, dtype_id) == 1:
+  elif H5Tequal(H5T_NATIVE_UINT, dtype_id) == 1:
+    # maps to `unsigned`
+    doAssert sizeof(cuint) == 4
     result = dkUint32
+  elif H5Tequal(H5T_NATIVE_ULONG, dtype_id) == 1:
+    case sizeof(culong)
+    of 4: result = dkUint32
+    of 8: result = dkUint64
+    else: doAssert false, "`unsigned long` of size other than 4, 8 bytes?"
   elif H5Tequal(H5T_NATIVE_ULLONG, dtype_id) == 1:
+    doAssert sizeof(culonglong) == 8
     result = dkUint64
   elif H5Tequal(H5T_NATIVE_SHORT, dtype_id) == 1:
     result = dkInt16
   elif H5Tequal(H5T_NATIVE_USHORT, dtype_id) == 1:
     result = dkUint16
   elif H5Tequal(H5T_NATIVE_CHAR, dtype_id) == 1:
-    result = dkChar
+    result = dkInt8
   elif H5Tequal(H5T_NATIVE_UCHAR, dtype_id) == 1:
     result = dkUint8
   elif H5Tget_class(dtype_id) == H5T_STRING:
