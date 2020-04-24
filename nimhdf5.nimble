@@ -32,3 +32,4 @@ task test, "Runs all tests":
   # regression tests
   exec "nim c -r tests/tint64_dset.nim"
   exec "nim c -r tests/t17.nim"
+  exec "nim c -r tests/tIntegerTypes.nim"
