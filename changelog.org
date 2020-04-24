@@ -1,3 +1,6 @@
+* v0.3.9
+- fix mapping of H5 types to Nim types, see PR #36.
+
 * v0.3.8
 
 - remove dependency of =typetraits= and =typeinfo= modules by
