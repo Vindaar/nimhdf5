@@ -502,7 +502,7 @@ proc create_dataset*[T: (tuple | int | seq)](
     # but instead get it from the H5 datatype to conform to the same datatype, which
     # we read back from the file after writing
     dset.dtype = getDtypeString(dset.dataset_id)
-    dset.dtypeAnyKind = parseEnum[DtypeKind]("dk" & name(dtype), dkNone)
+    dset.dtypeAnyKind = parseEnum[DtypeKind]("dk" & dset.dtype, dkNone)
   # now get datatype base kind if vlen datatype
   if dset.dtypeAnyKind == dkSequence:
     # need to get datatype id (id specific to this dataset describing type),
