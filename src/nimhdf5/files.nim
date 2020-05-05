@@ -473,8 +473,6 @@ proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t) =
 iterator items*(h5f: H5FileObj, start_path = "/", depth = 0): H5Group =
   ## iterator, which returns a non mutable group objects starting from `start_path` in the
   ## H5 file
-  ## Note: many procs working on groups need a mutable object!
-  ## TODO: mutability often not needed in those procs.. change!
   ## inputs:
   ##    h5f: H5FileObj = the H5 file object, over which to iterate
   ##    start_path: string = optional starting location from which to iterate
@@ -508,7 +506,14 @@ iterator items*(h5f: H5FileObj, start_path = "/", depth = 0): H5Group =
 
   # now loop over all groups, checking for start_path in each group name
   for grp in keys(h5f.groups):
-    if grp.startsWith(mstart_path) == true and grp != mstart_path:
+    if grp.startsWith(mstart_path) and grp != mstart_path and
+      not (mstart_path != "/" and # if not start at root
+           grp.len > mstart_path.len and # check grp longer than start path
+           grp[mstart_path.len] != '/'): # and if this isn't a another group starting same name
+                                         # e.g. start path: /group/foo
+                                         #      current: /group/fooBar
+                                         # If next character after start_path is not `/` means this is a group
+                                         # with a similar name
       # in this case we're neither visiting the group at which we start
       # nor a group, which is not a subgroup
       if depth != 0:
