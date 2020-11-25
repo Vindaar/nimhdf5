@@ -25,7 +25,7 @@ when not declared(libname_hl):
 
 proc H5LDget_dset_dims*(did: hid_t; cur_dims: ptr hsize_t): herr_t {.cdecl,
     importc: "H5LDget_dset_dims", dynlib: libname_hl.}
-proc H5LDget_dset_type_size*(did: hid_t; fields: cstring): csize {.cdecl,
+proc H5LDget_dset_type_size*(did: hid_t; fields: cstring): csize_t {.cdecl,
     importc: "H5LDget_dset_type_size", dynlib: libname_hl.}
 proc H5LDget_dset_elmts*(did: hid_t; prev_dims: ptr hsize_t; cur_dims: ptr hsize_t;
                         fields: cstring; buf: pointer): herr_t {.cdecl,

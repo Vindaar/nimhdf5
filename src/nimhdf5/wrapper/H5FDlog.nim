@@ -85,7 +85,7 @@ const
 
 proc H5FD_log_init*(): hid_t {.cdecl, importc: "H5FD_log_init", dynlib: libname.}
 proc H5Pset_fapl_log*(fapl_id: hid_t; logfile: cstring; flags: culonglong;
-                     buf_size: csize): herr_t {.cdecl, importc: "H5Pset_fapl_log",
+                     buf_size: csize_t): herr_t {.cdecl, importc: "H5Pset_fapl_log",
     dynlib: libname.}
 
 let

@@ -153,8 +153,8 @@ type
 ##  Filter callback function definition
 
 type
-  H5Z_filter_func_t* = proc (filter: H5Z_filter_t; buf: pointer; buf_size: csize;
-                          op_data: pointer): H5Z_cb_return_t {.cdecl.}
+  H5Z_filter_func_t* = proc (filter: H5Z_filter_t; buf: pointer; buf_size: csize_t;
+                             op_data: pointer): H5Z_cb_return_t {.cdecl.}
 
 ##  Structure for filter callback property
 
@@ -231,8 +231,8 @@ type
 ##
 
 type
-  H5Z_func_t* = proc (flags: cuint; cd_nelmts: csize; cd_values: ptr cuint; nbytes: csize;
-                   buf_size: ptr csize; buf: ptr pointer): csize {.cdecl.}
+  H5Z_func_t* = proc (flags: cuint; cd_nelmts: csize_t; cd_values: ptr cuint; nbytes: csize_t;
+                      buf_size: ptr csize_t; buf: ptr pointer): csize_t {.cdecl.}
 
 ##
 ##  The filter table maps filter identification numbers to structs that

@@ -82,7 +82,7 @@ proc H5Rget_obj_type2*(id: hid_t; ref_type: H5R_type_t; `ref`: pointer;
                       obj_type: ptr H5O_type_t): herr_t {.cdecl,
     importc: "H5Rget_obj_type2", dynlib: libname.}
 proc H5Rget_name*(loc_id: hid_t; ref_type: H5R_type_t; `ref`: pointer; name: cstring; ## out
-                 size: csize): ssize_t {.cdecl, importc: "H5Rget_name",
+                 size: csize_t): ssize_t {.cdecl, importc: "H5Rget_name",
                                       dynlib: libname.}
 ##  Symbols defined for compatibility with previous versions of the HDF5 API.
 ##

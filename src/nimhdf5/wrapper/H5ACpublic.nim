@@ -454,16 +454,16 @@ type
     trace_file_name*: array[H5AC_MAX_TRACE_FILE_NAME_LEN + 1, char]
     evictions_enabled*: hbool_t
     set_initial_size*: hbool_t
-    initial_size*: csize
+    initial_size*: csize_t
     min_clean_fraction*: cdouble
-    max_size*: csize
-    min_size*: csize
+    max_size*: csize_t
+    min_size*: csize_t
     epoch_length*: clong       ##  size increase control fields:
     incr_mode*: H5C_cache_incr_mode
     lower_hr_threshold*: cdouble
     increment*: cdouble
     apply_max_increment*: hbool_t
-    max_increment*: csize
+    max_increment*: csize_t
     flash_incr_mode*: H5C_cache_flash_incr_mode
     flash_multiple*: cdouble
     flash_threshold*: cdouble  ##  size decrease control fields:
@@ -471,11 +471,11 @@ type
     upper_hr_threshold*: cdouble
     decrement*: cdouble
     apply_max_decrement*: hbool_t
-    max_decrement*: csize
+    max_decrement*: csize_t
     epochs_before_eviction*: cint
     apply_empty_reserve*: hbool_t
     empty_reserve*: cdouble    ##  parallel configuration fields:
-    dirty_bytes_threshold*: csize
+    dirty_bytes_threshold*: csize_t
     metadata_write_strategy*: cint
 
 

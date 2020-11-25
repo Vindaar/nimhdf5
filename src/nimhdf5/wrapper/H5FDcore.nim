@@ -23,9 +23,9 @@ import ../H5nimtypes, ../h5libname
 ##
 
 proc H5FD_core_init*(): hid_t {.cdecl, importc: "H5FD_core_init", dynlib: libname.}
-proc H5Pset_fapl_core*(fapl_id: hid_t; increment: csize; backing_store: hbool_t): herr_t {.
+proc H5Pset_fapl_core*(fapl_id: hid_t; increment: csize_t; backing_store: hbool_t): herr_t {.
     cdecl, importc: "H5Pset_fapl_core", dynlib: libname.}
-proc H5Pget_fapl_core*(fapl_id: hid_t; increment: ptr csize; ## out
+proc H5Pget_fapl_core*(fapl_id: hid_t; increment: ptr csize_t; ## out
                       backing_store: ptr hbool_t): herr_t {.cdecl,
     importc: "H5Pget_fapl_core", dynlib: libname.}
   ## out

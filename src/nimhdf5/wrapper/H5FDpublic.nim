@@ -335,11 +335,11 @@ type
     sb_encode*: proc (file: ptr H5FD_t_prot; name: cstring; ## out
                     p: ptr cuchar): herr_t {.cdecl.} ## out
     sb_decode*: proc (f: ptr H5FD_t_prot; name: cstring; p: ptr cuchar): herr_t {.cdecl.}
-    fapl_size*: csize
+    fapl_size*: csize_t
     fapl_get*: proc (file: ptr H5FD_t_prot): pointer {.cdecl.}
     fapl_copy*: proc (fapl: pointer): pointer {.cdecl.}
     fapl_free*: proc (fapl: pointer): herr_t {.cdecl.}
-    dxpl_size*: csize
+    dxpl_size*: csize_t
     dxpl_copy*: proc (dxpl: pointer): pointer {.cdecl.}
     dxpl_free*: proc (dxpl: pointer): herr_t {.cdecl.}
     open*: proc (name: cstring; flags: cuint; fapl: hid_t; maxaddr: haddr_t): ptr H5FD_t_prot {.
@@ -358,9 +358,9 @@ type
     get_handle*: proc (file: ptr H5FD_t_prot; fapl: hid_t; file_handle: ptr pointer): herr_t {.
         cdecl.}
     read*: proc (file: ptr H5FD_t_prot; `type`: H5FD_mem_t; dxpl: hid_t; `addr`: haddr_t;
-               size: csize; buffer: pointer): herr_t {.cdecl.}
+               size: csize_t; buffer: pointer): herr_t {.cdecl.}
     write*: proc (file: ptr H5FD_t_prot; `type`: H5FD_mem_t; dxpl: hid_t; `addr`: haddr_t;
-                size: csize; buffer: pointer): herr_t {.cdecl.}
+                size: csize_t; buffer: pointer): herr_t {.cdecl.}
     flush*: proc (file: ptr H5FD_t_prot; dxpl_id: hid_t; closing: hbool_t): herr_t {.cdecl.}
     truncate*: proc (file: ptr H5FD_t_prot; dxpl_id: hid_t; closing: hbool_t): herr_t {.cdecl.}
     lock*: proc (file: ptr H5FD_t_prot; rw: hbool_t): herr_t {.cdecl.}
@@ -395,12 +395,12 @@ type
 
 type
   H5FD_file_image_callbacks_t* = object
-    image_malloc*: proc (size: csize; file_image_op: H5FD_file_image_op_t;
+    image_malloc*: proc (size: csize_t; file_image_op: H5FD_file_image_op_t;
                        udata: pointer): pointer {.cdecl.}
-    image_memcpy*: proc (dest: pointer; src: pointer; size: csize;
+    image_memcpy*: proc (dest: pointer; src: pointer; size: csize_t;
                        file_image_op: H5FD_file_image_op_t; udata: pointer): pointer {.
         cdecl.}
-    image_realloc*: proc (`ptr`: pointer; size: csize;
+    image_realloc*: proc (`ptr`: pointer; size: csize_t;
                         file_image_op: H5FD_file_image_op_t; udata: pointer): pointer {.
         cdecl.}
     image_free*: proc (`ptr`: pointer; file_image_op: H5FD_file_image_op_t;
@@ -436,11 +436,11 @@ proc H5FDget_eof*(file: ptr H5FD_t; `type`: H5FD_mem_t): haddr_t {.cdecl,
 proc H5FDget_vfd_handle*(file: ptr H5FD_t; fapl: hid_t; file_handle: ptr pointer): herr_t {.
     cdecl, importc: "H5FDget_vfd_handle", dynlib: libname.}
 proc H5FDread*(file: ptr H5FD_t; `type`: H5FD_mem_t; dxpl_id: hid_t; `addr`: haddr_t;
-              size: csize; buf: pointer): herr_t {.cdecl, importc: "H5FDread",
+              size: csize_t; buf: pointer): herr_t {.cdecl, importc: "H5FDread",
     dynlib: libname.}
   ## out
 proc H5FDwrite*(file: ptr H5FD_t; `type`: H5FD_mem_t; dxpl_id: hid_t; `addr`: haddr_t;
-               size: csize; buf: pointer): herr_t {.cdecl, importc: "H5FDwrite",
+               size: csize_t; buf: pointer): herr_t {.cdecl, importc: "H5FDwrite",
     dynlib: libname.}
 proc H5FDflush*(file: ptr H5FD_t; dxpl_id: hid_t; closing: hbool_t): herr_t {.cdecl,
     importc: "H5FDflush", dynlib: libname.}

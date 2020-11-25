@@ -111,7 +111,7 @@ proc H5Sset_extent_simple*(space_id: hid_t; rank: cint; dims: ptr hsize_t;
     importc: "H5Sset_extent_simple", dynlib: libname.}
 proc H5Scopy*(space_id: hid_t): hid_t {.cdecl, importc: "H5Scopy", dynlib: libname.}
 proc H5Sclose*(space_id: hid_t): herr_t {.cdecl, importc: "H5Sclose", dynlib: libname.}
-proc H5Sencode*(obj_id: hid_t; buf: pointer; nalloc: ptr csize): herr_t {.cdecl,
+proc H5Sencode*(obj_id: hid_t; buf: pointer; nalloc: ptr csize_t): herr_t {.cdecl,
     importc: "H5Sencode", dynlib: libname.}
 proc H5Sdecode*(buf: pointer): hid_t {.cdecl, importc: "H5Sdecode", dynlib: libname.}
 proc H5Sget_simple_extent_npoints*(space_id: hid_t): hssize_t {.cdecl,
@@ -141,7 +141,7 @@ when defined(NEW_HYPERSLAB_API):
       cdecl, importc: "H5Sselect_select", dynlib: libname.}
   proc H5Scombine_select*(space1_id: hid_t; op: H5S_seloper_t; space2_id: hid_t): hid_t {.
       cdecl, importc: "H5Scombine_select", dynlib: libname.}
-proc H5Sselect_elements*(space_id: hid_t; op: H5S_seloper_t; num_elem: csize;
+proc H5Sselect_elements*(space_id: hid_t; op: H5S_seloper_t; num_elem: csize_t;
                         coord: ptr hsize_t): herr_t {.cdecl,
     importc: "H5Sselect_elements", dynlib: libname.}
 proc H5Sget_simple_extent_type*(space_id: hid_t): H5S_class_t {.cdecl,

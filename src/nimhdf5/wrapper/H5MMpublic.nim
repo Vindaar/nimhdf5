@@ -35,5 +35,5 @@ import
 ##  These typedefs are currently used for VL datatype allocation/freeing
 
 type
-  H5MM_allocate_t* = proc (size: csize; alloc_info: pointer): pointer {.cdecl.}
+  H5MM_allocate_t* = proc (size: csize_t; alloc_info: pointer): pointer {.cdecl.}
   H5MM_free_t* = proc (mem: pointer; free_info: pointer) {.cdecl.}

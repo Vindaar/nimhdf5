@@ -150,11 +150,11 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
       nlink*: cuint            ## number of hard links to object
       `type`*: H5G_obj_t       ## basic object type
       mtime*: time_t           ## modification time
-      linklen*: csize          ## symbolic link value length
+      linklen*: csize_t          ## symbolic link value length
       ohdr*: H5O_stat_t        ##  Object header information
 
   ##  Function prototypes
-  proc H5Gcreate1*(loc_id: hid_t; name: cstring; size_hint: csize): hid_t {.cdecl,
+  proc H5Gcreate1*(loc_id: hid_t; name: cstring; size_hint: csize_t): hid_t {.cdecl,
       importc: "H5Gcreate1", dynlib: libname.}
   proc H5Gopen1*(loc_id: hid_t; name: cstring): hid_t {.cdecl, importc: "H5Gopen1",
       dynlib: libname.}
@@ -174,12 +174,12 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
       dynlib: libname.}
   proc H5Gunlink*(loc_id: hid_t; name: cstring): herr_t {.cdecl, importc: "H5Gunlink",
       dynlib: libname.}
-  proc H5Gget_linkval*(loc_id: hid_t; name: cstring; size: csize; buf: cstring): herr_t {.
+  proc H5Gget_linkval*(loc_id: hid_t; name: cstring; size: csize_t; buf: cstring): herr_t {.
       cdecl, importc: "H5Gget_linkval", dynlib: libname.}
     ## out
   proc H5Gset_comment*(loc_id: hid_t; name: cstring; comment: cstring): herr_t {.cdecl,
       importc: "H5Gset_comment", dynlib: libname.}
-  proc H5Gget_comment*(loc_id: hid_t; name: cstring; bufsize: csize; buf: cstring): cint {.
+  proc H5Gget_comment*(loc_id: hid_t; name: cstring; bufsize: csize_t; buf: cstring): cint {.
       cdecl, importc: "H5Gget_comment", dynlib: libname.}
   proc H5Giterate*(loc_id: hid_t; name: cstring; idx: ptr cint; op: H5G_iterate_t;
                   op_data: pointer): herr_t {.cdecl, importc: "H5Giterate",
@@ -189,7 +189,7 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
   proc H5Gget_objinfo*(loc_id: hid_t; name: cstring; follow_link: hbool_t; statbuf: ptr H5G_stat_t): herr_t {.
       cdecl, importc: "H5Gget_objinfo", dynlib: libname.}
     ## out
-  proc H5Gget_objname_by_idx*(loc_id: hid_t; idx: hsize_t; name: cstring; size: csize): ssize_t {.
+  proc H5Gget_objname_by_idx*(loc_id: hid_t; idx: hsize_t; name: cstring; size: csize_t): ssize_t {.
       cdecl, importc: "H5Gget_objname_by_idx", dynlib: libname.}
   proc H5Gget_objtype_by_idx*(loc_id: hid_t; idx: hsize_t): H5G_obj_t {.cdecl,
       importc: "H5Gget_objtype_by_idx", dynlib: libname.}

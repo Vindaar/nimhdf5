@@ -469,15 +469,15 @@ template toH5vlen*[T](data: var seq[T]): untyped =
   when T is seq:
     mapIt(toSeq(0..data.high)) do:
       if data[it].len > 0:
-        hvl_t(`len`: csize(data[it].len), p: addr(data[it][0]))
+        hvl_t(`len`: csize_t(data[it].len), p: addr(data[it][0]))
       else:
-        hvl_t(`len`: csize(0), p: nil)
+        hvl_t(`len`: csize_t(0), p: nil)
   else:
     # this doesn't make sense ?!...
     static:
       warning("T is " & T.name)
       warning("Cannot be converted to VLEN data!")
-    #mapIt(toSeq(0 .. data.high), hvl_t(`len`: csize(data[it]), p: addr(data[it][0])))
+    #mapIt(toSeq(0 .. data.high), hvl_t(`len`: csize_t(data[it]), p: addr(data[it][0])))
 
 proc vlenToSeq*[T](data: seq[hvl_t]): seq[seq[T]] =
   # converting the raw data from the C library to a Nim sequence is sort of ugly, but

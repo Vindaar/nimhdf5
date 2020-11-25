@@ -59,7 +59,7 @@ proc H5PLinsert*(plugin_path: cstring; index: cuint): herr_t {.cdecl,
     importc: "H5PLinsert", dynlib: libname.}
 proc H5PLremove*(index: cuint): herr_t {.cdecl, importc: "H5PLremove", dynlib: libname.}
 proc H5PLget*(index: cuint; pathname: cstring; ## out
-             size: csize): ssize_t {.cdecl, importc: "H5PLget", dynlib: libname.}
+             size: csize_t): ssize_t {.cdecl, importc: "H5PLget", dynlib: libname.}
 proc H5PLsize*(listsize: ptr cuint): herr_t {.cdecl, importc: "H5PLsize",
     dynlib: libname.}
   ## out
