@@ -266,7 +266,7 @@ proc H5Fget_intent*(file_id: hid_t; intent: ptr cuint): herr_t {.cdecl,
     importc: "H5Fget_intent", dynlib: libname.}
 proc H5Fget_obj_count*(file_id: hid_t; types: cuint): ssize_t {.cdecl,
     importc: "H5Fget_obj_count", dynlib: libname.}
-proc H5Fget_obj_ids*(file_id: hid_t; types: cuint; max_objs: csize;
+proc H5Fget_obj_ids*(file_id: hid_t; types: cuint; max_objs: csize_t;
                     obj_id_list: ptr hid_t): ssize_t {.cdecl,
     importc: "H5Fget_obj_ids", dynlib: libname.}
 proc H5Fget_vfd_handle*(file_id: hid_t; fapl: hid_t; file_handle: ptr pointer): herr_t {.
@@ -279,7 +279,7 @@ proc H5Fget_freespace*(file_id: hid_t): hssize_t {.cdecl,
     importc: "H5Fget_freespace", dynlib: libname.}
 proc H5Fget_filesize*(file_id: hid_t; size: ptr hsize_t): herr_t {.cdecl,
     importc: "H5Fget_filesize", dynlib: libname.}
-proc H5Fget_file_image*(file_id: hid_t; buf_ptr: pointer; buf_len: csize): ssize_t {.
+proc H5Fget_file_image*(file_id: hid_t; buf_ptr: pointer; buf_len: csize_t): ssize_t {.
     cdecl, importc: "H5Fget_file_image", dynlib: libname.}
 proc H5Fget_mdc_config*(file_id: hid_t; config_ptr: ptr H5AC_cache_config_t): herr_t {.
     cdecl, importc: "H5Fget_mdc_config", dynlib: libname.}
@@ -287,13 +287,13 @@ proc H5Fset_mdc_config*(file_id: hid_t; config_ptr: ptr H5AC_cache_config_t): he
     cdecl, importc: "H5Fset_mdc_config", dynlib: libname.}
 proc H5Fget_mdc_hit_rate*(file_id: hid_t; hit_rate_ptr: ptr cdouble): herr_t {.cdecl,
     importc: "H5Fget_mdc_hit_rate", dynlib: libname.}
-proc H5Fget_mdc_size*(file_id: hid_t; max_size_ptr: ptr csize;
-                     min_clean_size_ptr: ptr csize; cur_size_ptr: ptr csize;
+proc H5Fget_mdc_size*(file_id: hid_t; max_size_ptr: ptr csize_t;
+                     min_clean_size_ptr: ptr csize_t; cur_size_ptr: ptr csize_t;
                      cur_num_entries_ptr: ptr cint): herr_t {.cdecl,
     importc: "H5Fget_mdc_size", dynlib: libname.}
 proc H5Freset_mdc_hit_rate_stats*(file_id: hid_t): herr_t {.cdecl,
     importc: "H5Freset_mdc_hit_rate_stats", dynlib: libname.}
-proc H5Fget_name*(obj_id: hid_t; name: cstring; size: csize): ssize_t {.cdecl,
+proc H5Fget_name*(obj_id: hid_t; name: cstring; size: csize_t): ssize_t {.cdecl,
     importc: "H5Fget_name", dynlib: libname.}
 proc H5Fget_info2*(obj_id: hid_t; finfo: ptr H5F_info2_t): herr_t {.cdecl,
     importc: "H5Fget_info2", dynlib: libname.}
@@ -301,7 +301,7 @@ proc H5Fget_metadata_read_retry_info*(file_id: hid_t; info: ptr H5F_retry_info_t
     cdecl, importc: "H5Fget_metadata_read_retry_info", dynlib: libname.}
 proc H5Fstart_swmr_write*(file_id: hid_t): herr_t {.cdecl,
     importc: "H5Fstart_swmr_write", dynlib: libname.}
-proc H5Fget_free_sections*(file_id: hid_t; `type`: H5F_mem_t; nsects: csize; sect_info: ptr H5F_sect_info_t): ssize_t {.
+proc H5Fget_free_sections*(file_id: hid_t; `type`: H5F_mem_t; nsects: csize_t; sect_info: ptr H5F_sect_info_t): ssize_t {.
     cdecl, importc: "H5Fget_free_sections", dynlib: libname.}
   ## out
 proc H5Fclear_elink_file_cache*(file_id: hid_t): herr_t {.cdecl,

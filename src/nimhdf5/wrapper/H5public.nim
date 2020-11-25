@@ -150,7 +150,7 @@ template H5_VERSION_LE*(Maj, Min, Rel: untyped): untyped =
 
 ##  Define the ssize_t type if it not is defined
 
-const H5_SIZEOF_SSIZE_T = sizeof(csize)
+const H5_SIZEOF_SSIZE_T = sizeof(csize_t)
 when H5_SIZEOF_SSIZE_T == 0:
   ##  Undefine this size, we will re-define it in one of the sections below
   when H5_SIZEOF_SIZE_T == H5_SIZEOF_INT:
@@ -170,7 +170,7 @@ when H5_SIZEOF_SSIZE_T == 0:
       H5_SIZEOF_SSIZE_T* = H5_SIZEOF_LONG_LONG
 else:
   type
-    ssize_t* = csize
+    ssize_t* = csize_t
 #   else:
 ##
 ##  The sizes of file objects have their own types defined here, use a 64-bit
@@ -370,7 +370,7 @@ proc H5is_library_threadsafe*(is_ts: ptr hbool_t): herr_t {.cdecl,
     importc: "H5is_library_threadsafe", dynlib: libname.}
 proc H5free_memory*(mem: pointer): herr_t {.cdecl, importc: "H5free_memory",
                                         dynlib: libname.}
-proc H5allocate_memory*(size: csize; clear: hbool_t): pointer {.cdecl,
+proc H5allocate_memory*(size: csize_t; clear: hbool_t): pointer {.cdecl,
     importc: "H5allocate_memory", dynlib: libname.}
-proc H5resize_memory*(mem: pointer; size: csize): pointer {.cdecl,
+proc H5resize_memory*(mem: pointer; size: csize_t): pointer {.cdecl,
     importc: "H5resize_memory", dynlib: libname.}

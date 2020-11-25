@@ -43,9 +43,9 @@ proc H5DSget_num_scales*(did: hid_t; dim: cuint): cint {.cdecl,
     importc: "H5DSget_num_scales", dynlib: libname_hl.}
 proc H5DSset_label*(did: hid_t; idx: cuint; label: cstring): herr_t {.cdecl,
     importc: "H5DSset_label", dynlib: libname_hl.}
-proc H5DSget_label*(did: hid_t; idx: cuint; label: cstring; size: csize): ssize_t {.cdecl,
+proc H5DSget_label*(did: hid_t; idx: cuint; label: cstring; size: csize_t): ssize_t {.cdecl,
     importc: "H5DSget_label", dynlib: libname_hl.}
-proc H5DSget_scale_name*(did: hid_t; name: cstring; size: csize): ssize_t {.cdecl,
+proc H5DSget_scale_name*(did: hid_t; name: cstring; size: csize_t): ssize_t {.cdecl,
     importc: "H5DSget_scale_name", dynlib: libname_hl.}
 proc H5DSis_scale*(did: hid_t): htri_t {.cdecl, importc: "H5DSis_scale",
                                      dynlib: libname_hl.}

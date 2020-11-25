@@ -56,18 +56,18 @@ type
 ##  Define property list callback function pointer types
 
 type
-  H5P_prp_cb1_t* = proc (name: cstring; size: csize; value: pointer): herr_t {.cdecl.}
-  H5P_prp_cb2_t* = proc (prop_id: hid_t; name: cstring; size: csize; value: pointer): herr_t {.
+  H5P_prp_cb1_t* = proc (name: cstring; size: csize_t; value: pointer): herr_t {.cdecl.}
+  H5P_prp_cb2_t* = proc (prop_id: hid_t; name: cstring; size: csize_t; value: pointer): herr_t {.
       cdecl.}
   H5P_prp_create_func_t* = H5P_prp_cb1_t
   H5P_prp_set_func_t* = H5P_prp_cb2_t
   H5P_prp_get_func_t* = H5P_prp_cb2_t
-  H5P_prp_encode_func_t* = proc (value: pointer; buf: ptr pointer; size: ptr csize): herr_t {.
+  H5P_prp_encode_func_t* = proc (value: pointer; buf: ptr pointer; size: ptr csize_t): herr_t {.
       cdecl.}
   H5P_prp_decode_func_t* = proc (buf: ptr pointer; value: pointer): herr_t {.cdecl.}
   H5P_prp_delete_func_t* = H5P_prp_cb2_t
   H5P_prp_copy_func_t* = H5P_prp_cb1_t
-  H5P_prp_compare_func_t* = proc (value1: pointer; value2: pointer; size: csize): cint {.
+  H5P_prp_compare_func_t* = proc (value1: pointer; value2: pointer; size: csize_t): cint {.
       cdecl.}
   H5P_prp_close_func_t* = H5P_prp_cb1_t
 
@@ -430,13 +430,13 @@ proc H5Pcreate_class*(parent: hid_t; name: cstring;
 proc H5Pget_class_name*(pclass_id: hid_t): cstring {.cdecl,
     importc: "H5Pget_class_name", dynlib: libname.}
 proc H5Pcreate*(cls_id: hid_t): hid_t {.cdecl, importc: "H5Pcreate", dynlib: libname.}
-proc H5Pregister2*(cls_id: hid_t; name: cstring; size: csize; def_value: pointer;
+proc H5Pregister2*(cls_id: hid_t; name: cstring; size: csize_t; def_value: pointer;
                   prp_create: H5P_prp_create_func_t; prp_set: H5P_prp_set_func_t;
                   prp_get: H5P_prp_get_func_t; prp_del: H5P_prp_delete_func_t;
                   prp_copy: H5P_prp_copy_func_t; prp_cmp: H5P_prp_compare_func_t;
                   prp_close: H5P_prp_close_func_t): herr_t {.cdecl,
     importc: "H5Pregister2", dynlib: libname.}
-proc H5Pinsert2*(plist_id: hid_t; name: cstring; size: csize; value: pointer;
+proc H5Pinsert2*(plist_id: hid_t; name: cstring; size: csize_t; value: pointer;
                 prp_set: H5P_prp_set_func_t; prp_get: H5P_prp_get_func_t;
                 prp_delete: H5P_prp_delete_func_t; prp_copy: H5P_prp_copy_func_t;
                 prp_cmp: H5P_prp_compare_func_t; prp_close: H5P_prp_close_func_t): herr_t {.
@@ -445,12 +445,12 @@ proc H5Pset*(plist_id: hid_t; name: cstring; value: pointer): herr_t {.cdecl,
     importc: "H5Pset", dynlib: libname.}
 proc H5Pexist*(plist_id: hid_t; name: cstring): htri_t {.cdecl, importc: "H5Pexist",
     dynlib: libname.}
-proc H5Pencode*(plist_id: hid_t; buf: pointer; nalloc: ptr csize): herr_t {.cdecl,
+proc H5Pencode*(plist_id: hid_t; buf: pointer; nalloc: ptr csize_t): herr_t {.cdecl,
     importc: "H5Pencode", dynlib: libname.}
 proc H5Pdecode*(buf: pointer): hid_t {.cdecl, importc: "H5Pdecode", dynlib: libname.}
-proc H5Pget_size*(id: hid_t; name: cstring; size: ptr csize): herr_t {.cdecl,
+proc H5Pget_size*(id: hid_t; name: cstring; size: ptr csize_t): herr_t {.cdecl,
     importc: "H5Pget_size", dynlib: libname.}
-proc H5Pget_nprops*(id: hid_t; nprops: ptr csize): herr_t {.cdecl,
+proc H5Pget_nprops*(id: hid_t; nprops: ptr csize_t): herr_t {.cdecl,
     importc: "H5Pget_nprops", dynlib: libname.}
 proc H5Pget_class*(plist_id: hid_t): hid_t {.cdecl, importc: "H5Pget_class",
     dynlib: libname.}
@@ -490,24 +490,24 @@ proc H5Pset_obj_track_times*(plist_id: hid_t; track_times: hbool_t): herr_t {.cd
 proc H5Pget_obj_track_times*(plist_id: hid_t; track_times: ptr hbool_t): herr_t {.
     cdecl, importc: "H5Pget_obj_track_times", dynlib: libname.}
 proc H5Pmodify_filter*(plist_id: hid_t; filter: H5Z_filter_t; flags: cuint;
-                      cd_nelmts: csize; cd_values: ptr cuint): herr_t {.cdecl,
+                      cd_nelmts: csize_t; cd_values: ptr cuint): herr_t {.cdecl,
     importc: "H5Pmodify_filter", dynlib: libname.}
   ## cd_nelmts
 proc H5Pset_filter*(plist_id: hid_t; filter: H5Z_filter_t; flags: cuint;
-                   cd_nelmts: csize; c_values: ptr cuint): herr_t {.cdecl,
+                   cd_nelmts: csize_t; c_values: ptr cuint): herr_t {.cdecl,
     importc: "H5Pset_filter", dynlib: libname.}
 proc H5Pget_nfilters*(plist_id: hid_t): cint {.cdecl, importc: "H5Pget_nfilters",
     dynlib: libname.}
 proc H5Pget_filter2*(plist_id: hid_t; filter: cuint; flags: ptr cuint; ## out
-                    cd_nelmts: ptr csize; ## out
+                    cd_nelmts: ptr csize_t; ## out
                     cd_values: ptr cuint; ## out
-                    namelen: csize; name: ptr char; filter_config: ptr cuint): H5Z_filter_t {.
+                    namelen: csize_t; name: ptr char; filter_config: ptr cuint): H5Z_filter_t {.
     cdecl, importc: "H5Pget_filter2", dynlib: libname.}
   ## out
 proc H5Pget_filter_by_id2*(plist_id: hid_t; id: H5Z_filter_t; flags: ptr cuint; ## out
-                          cd_nelmts: ptr csize; ## out
+                          cd_nelmts: ptr csize_t; ## out
                           cd_values: ptr cuint; ## out
-                          namelen: csize; name: ptr char; ## out
+                          namelen: csize_t; name: ptr char; ## out
                           filter_config: ptr cuint): herr_t {.cdecl,
     importc: "H5Pget_filter_by_id2", dynlib: libname.}
   ## out
@@ -525,10 +525,10 @@ proc H5Pset_userblock*(plist_id: hid_t; size: hsize_t): herr_t {.cdecl,
     importc: "H5Pset_userblock", dynlib: libname.}
 proc H5Pget_userblock*(plist_id: hid_t; size: ptr hsize_t): herr_t {.cdecl,
     importc: "H5Pget_userblock", dynlib: libname.}
-proc H5Pset_sizes*(plist_id: hid_t; sizeof_addr: csize; sizeof_size: csize): herr_t {.
+proc H5Pset_sizes*(plist_id: hid_t; sizeof_addr: csize_t; sizeof_size: csize_t): herr_t {.
     cdecl, importc: "H5Pset_sizes", dynlib: libname.}
-proc H5Pget_sizes*(plist_id: hid_t; sizeof_addr: ptr csize; ## out
-                  sizeof_size: ptr csize): herr_t {.cdecl, importc: "H5Pget_sizes",
+proc H5Pget_sizes*(plist_id: hid_t; sizeof_addr: ptr csize_t; ## out
+                  sizeof_size: ptr csize_t): herr_t {.cdecl, importc: "H5Pget_sizes",
     dynlib: libname.}
   ## out
 proc H5Pset_sym_k*(plist_id: hid_t; ik: cuint; lk: cuint): herr_t {.cdecl,
@@ -591,12 +591,12 @@ proc H5Pset_multi_type*(fapl_id: hid_t; `type`: H5FD_mem_t): herr_t {.cdecl,
     importc: "H5Pset_multi_type", dynlib: libname.}
 proc H5Pget_multi_type*(fapl_id: hid_t; `type`: ptr H5FD_mem_t): herr_t {.cdecl,
     importc: "H5Pget_multi_type", dynlib: libname.}
-proc H5Pset_cache*(plist_id: hid_t; mdc_nelmts: cint; rdcc_nslots: csize;
-                  rdcc_nbytes: csize; rdcc_w0: cdouble): herr_t {.cdecl,
+proc H5Pset_cache*(plist_id: hid_t; mdc_nelmts: cint; rdcc_nslots: csize_t;
+                  rdcc_nbytes: csize_t; rdcc_w0: cdouble): herr_t {.cdecl,
     importc: "H5Pset_cache", dynlib: libname.}
-proc H5Pget_cache*(plist_id: hid_t; mdc_nelmts: ptr cint; rdcc_nslots: ptr csize; ##  out
+proc H5Pget_cache*(plist_id: hid_t; mdc_nelmts: ptr cint; rdcc_nslots: ptr csize_t; ##  out
 ## out
-                  rdcc_nbytes: ptr csize; ## out
+                  rdcc_nbytes: ptr csize_t; ## out
                   rdcc_w0: ptr cdouble): herr_t {.cdecl, importc: "H5Pget_cache",
     dynlib: libname.}
 proc H5Pset_mdc_config*(plist_id: hid_t; config_ptr: ptr H5AC_cache_config_t): herr_t {.
@@ -619,9 +619,9 @@ proc H5Pset_meta_block_size*(fapl_id: hid_t; size: hsize_t): herr_t {.cdecl,
 proc H5Pget_meta_block_size*(fapl_id: hid_t; size: ptr hsize_t): herr_t {.cdecl,
     importc: "H5Pget_meta_block_size", dynlib: libname.}
   ## out
-proc H5Pset_sieve_buf_size*(fapl_id: hid_t; size: csize): herr_t {.cdecl,
+proc H5Pset_sieve_buf_size*(fapl_id: hid_t; size: csize_t): herr_t {.cdecl,
     importc: "H5Pset_sieve_buf_size", dynlib: libname.}
-proc H5Pget_sieve_buf_size*(fapl_id: hid_t; size: ptr csize): herr_t {.cdecl,
+proc H5Pget_sieve_buf_size*(fapl_id: hid_t; size: ptr csize_t): herr_t {.cdecl,
     importc: "H5Pget_sieve_buf_size", dynlib: libname.}
   ## out
 proc H5Pset_small_data_block_size*(fapl_id: hid_t; size: hsize_t): herr_t {.cdecl,
@@ -638,10 +638,10 @@ proc H5Pset_elink_file_cache_size*(plist_id: hid_t; efc_size: cuint): herr_t {.c
     importc: "H5Pset_elink_file_cache_size", dynlib: libname.}
 proc H5Pget_elink_file_cache_size*(plist_id: hid_t; efc_size: ptr cuint): herr_t {.
     cdecl, importc: "H5Pget_elink_file_cache_size", dynlib: libname.}
-proc H5Pset_file_image*(fapl_id: hid_t; buf_ptr: pointer; buf_len: csize): herr_t {.
+proc H5Pset_file_image*(fapl_id: hid_t; buf_ptr: pointer; buf_len: csize_t): herr_t {.
     cdecl, importc: "H5Pset_file_image", dynlib: libname.}
 proc H5Pget_file_image*(fapl_id: hid_t; buf_ptr_ptr: ptr pointer;
-                       buf_len_ptr: ptr csize): herr_t {.cdecl,
+                       buf_len_ptr: ptr csize_t): herr_t {.cdecl,
     importc: "H5Pget_file_image", dynlib: libname.}
 proc H5Pset_file_image_callbacks*(fapl_id: hid_t;
                                  callbacks_ptr: ptr H5FD_file_image_callbacks_t): herr_t {.
@@ -650,10 +650,10 @@ proc H5Pget_file_image_callbacks*(fapl_id: hid_t;
                                  callbacks_ptr: ptr H5FD_file_image_callbacks_t): herr_t {.
     cdecl, importc: "H5Pget_file_image_callbacks", dynlib: libname.}
 proc H5Pset_core_write_tracking*(fapl_id: hid_t; is_enabled: hbool_t;
-                                page_size: csize): herr_t {.cdecl,
+                                page_size: csize_t): herr_t {.cdecl,
     importc: "H5Pset_core_write_tracking", dynlib: libname.}
 proc H5Pget_core_write_tracking*(fapl_id: hid_t; is_enabled: ptr hbool_t;
-                                page_size: ptr csize): herr_t {.cdecl,
+                                page_size: ptr csize_t): herr_t {.cdecl,
     importc: "H5Pget_core_write_tracking", dynlib: libname.}
 proc H5Pset_metadata_read_attempts*(plist_id: hid_t; attempts: cuint): herr_t {.cdecl,
     importc: "H5Pset_metadata_read_attempts", dynlib: libname.}
@@ -668,7 +668,7 @@ proc H5Pset_mdc_log_options*(plist_id: hid_t; is_enabled: hbool_t; location: cst
                             start_on_access: hbool_t): herr_t {.cdecl,
     importc: "H5Pset_mdc_log_options", dynlib: libname.}
 proc H5Pget_mdc_log_options*(plist_id: hid_t; is_enabled: ptr hbool_t;
-                            location: cstring; location_size: ptr csize;
+                            location: cstring; location_size: ptr csize_t;
                             start_on_access: ptr hbool_t): herr_t {.cdecl,
     importc: "H5Pget_mdc_log_options", dynlib: libname.}
 proc H5Pset_evict_on_close*(fapl_id: hid_t; evict_on_close: hbool_t): herr_t {.cdecl,
@@ -690,10 +690,10 @@ proc H5Pset_mdc_image_config*(plist_id: hid_t;
 proc H5Pget_mdc_image_config*(plist_id: hid_t; config_ptr: ptr H5AC_cache_image_config_t): herr_t {.
     cdecl, importc: "H5Pget_mdc_image_config", dynlib: libname.}
   ## out
-proc H5Pset_page_buffer_size*(plist_id: hid_t; buf_size: csize; min_meta_per: cuint;
+proc H5Pset_page_buffer_size*(plist_id: hid_t; buf_size: csize_t; min_meta_per: cuint;
                              min_raw_per: cuint): herr_t {.cdecl,
     importc: "H5Pset_page_buffer_size", dynlib: libname.}
-proc H5Pget_page_buffer_size*(plist_id: hid_t; buf_size: ptr csize;
+proc H5Pget_page_buffer_size*(plist_id: hid_t; buf_size: ptr csize_t;
                              min_meta_per: ptr cuint; min_raw_per: ptr cuint): herr_t {.
     cdecl, importc: "H5Pget_page_buffer_size", dynlib: libname.}
 ##  Dataset creation property list (DCPL) routines
@@ -711,18 +711,18 @@ proc H5Pget_chunk*(plist_id: hid_t; max_ndims: cint; dim: ptr hsize_t): cint {.c
 proc H5Pset_virtual*(dcpl_id: hid_t; vspace_id: hid_t; src_file_name: cstring;
                     src_dset_name: cstring; src_space_id: hid_t): herr_t {.cdecl,
     importc: "H5Pset_virtual", dynlib: libname.}
-proc H5Pget_virtual_count*(dcpl_id: hid_t; count: ptr csize): herr_t {.cdecl,
+proc H5Pget_virtual_count*(dcpl_id: hid_t; count: ptr csize_t): herr_t {.cdecl,
     importc: "H5Pget_virtual_count", dynlib: libname.}
   ## out
-proc H5Pget_virtual_vspace*(dcpl_id: hid_t; index: csize): hid_t {.cdecl,
+proc H5Pget_virtual_vspace*(dcpl_id: hid_t; index: csize_t): hid_t {.cdecl,
     importc: "H5Pget_virtual_vspace", dynlib: libname.}
-proc H5Pget_virtual_srcspace*(dcpl_id: hid_t; index: csize): hid_t {.cdecl,
+proc H5Pget_virtual_srcspace*(dcpl_id: hid_t; index: csize_t): hid_t {.cdecl,
     importc: "H5Pget_virtual_srcspace", dynlib: libname.}
-proc H5Pget_virtual_filename*(dcpl_id: hid_t; index: csize; name: cstring; ## out
-                             size: csize): ssize_t {.cdecl,
+proc H5Pget_virtual_filename*(dcpl_id: hid_t; index: csize_t; name: cstring; ## out
+                             size: csize_t): ssize_t {.cdecl,
     importc: "H5Pget_virtual_filename", dynlib: libname.}
-proc H5Pget_virtual_dsetname*(dcpl_id: hid_t; index: csize; name: cstring; ## out
-                             size: csize): ssize_t {.cdecl,
+proc H5Pget_virtual_dsetname*(dcpl_id: hid_t; index: csize_t; name: cstring; ## out
+                             size: csize_t): ssize_t {.cdecl,
     importc: "H5Pget_virtual_dsetname", dynlib: libname.}
 proc H5Pset_external*(plist_id: hid_t; name: cstring; offset: off_t; size: hsize_t): herr_t {.
     cdecl, importc: "H5Pset_external", dynlib: libname.}
@@ -732,7 +732,7 @@ proc H5Pget_chunk_opts*(plist_id: hid_t; opts: ptr cuint): herr_t {.cdecl,
     importc: "H5Pget_chunk_opts", dynlib: libname.}
 proc H5Pget_external_count*(plist_id: hid_t): cint {.cdecl,
     importc: "H5Pget_external_count", dynlib: libname.}
-proc H5Pget_external*(plist_id: hid_t; idx: cuint; name_size: csize; name: cstring; ## out
+proc H5Pget_external*(plist_id: hid_t; idx: cuint; name_size: csize_t; name: cstring; ## out
                      offset: ptr off_t; ## out
                      size: ptr hsize_t): herr_t {.cdecl, importc: "H5Pget_external",
     dynlib: libname.}
@@ -765,11 +765,11 @@ proc H5Pget_fill_time*(plist_id: hid_t; fill_time: ptr H5D_fill_time_t): herr_t 
   ## out
 ##  Dataset access property list (DAPL) routines
 
-proc H5Pset_chunk_cache*(dapl_id: hid_t; rdcc_nslots: csize; rdcc_nbytes: csize;
+proc H5Pset_chunk_cache*(dapl_id: hid_t; rdcc_nslots: csize_t; rdcc_nbytes: csize_t;
                         rdcc_w0: cdouble): herr_t {.cdecl,
     importc: "H5Pset_chunk_cache", dynlib: libname.}
-proc H5Pget_chunk_cache*(dapl_id: hid_t; rdcc_nslots: ptr csize; ## out
-                        rdcc_nbytes: ptr csize; ## out
+proc H5Pget_chunk_cache*(dapl_id: hid_t; rdcc_nslots: ptr csize_t; ## out
+                        rdcc_nbytes: ptr csize_t; ## out
                         rdcc_w0: ptr cdouble): herr_t {.cdecl,
     importc: "H5Pget_chunk_cache", dynlib: libname.}
   ## out
@@ -790,19 +790,19 @@ proc H5Pget_append_flush*(plist_id: hid_t; dims: cuint; boundary: ptr hsize_t;
 proc H5Pset_efile_prefix*(dapl_id: hid_t; prefix: cstring): herr_t {.cdecl,
     importc: "H5Pset_efile_prefix", dynlib: libname.}
 proc H5Pget_efile_prefix*(dapl_id: hid_t; prefix: cstring; ## out
-                         size: csize): ssize_t {.cdecl,
+                         size: csize_t): ssize_t {.cdecl,
     importc: "H5Pget_efile_prefix", dynlib: libname.}
 ##  Dataset xfer property list (DXPL) routines
 
 proc H5Pset_data_transform*(plist_id: hid_t; expression: cstring): herr_t {.cdecl,
     importc: "H5Pset_data_transform", dynlib: libname.}
 proc H5Pget_data_transform*(plist_id: hid_t; expression: cstring; ## out
-                           size: csize): ssize_t {.cdecl,
+                           size: csize_t): ssize_t {.cdecl,
     importc: "H5Pget_data_transform", dynlib: libname.}
-proc H5Pset_buffer*(plist_id: hid_t; size: csize; tconv: pointer; bkg: pointer): herr_t {.
+proc H5Pset_buffer*(plist_id: hid_t; size: csize_t; tconv: pointer; bkg: pointer): herr_t {.
     cdecl, importc: "H5Pset_buffer", dynlib: libname.}
 proc H5Pget_buffer*(plist_id: hid_t; tconv: ptr pointer; ## out
-                   bkg: ptr pointer): csize {.cdecl, importc: "H5Pget_buffer",
+                   bkg: ptr pointer): csize_t {.cdecl, importc: "H5Pget_buffer",
     dynlib: libname.}
   ## out
 proc H5Pset_preserve*(plist_id: hid_t; status: hbool_t): herr_t {.cdecl,
@@ -832,9 +832,9 @@ proc H5Pget_vlen_mem_manager*(plist_id: hid_t; alloc_func: ptr H5MM_allocate_t;
                              alloc_info: ptr pointer; free_func: ptr H5MM_free_t;
                              free_info: ptr pointer): herr_t {.cdecl,
     importc: "H5Pget_vlen_mem_manager", dynlib: libname.}
-proc H5Pset_hyper_vector_size*(fapl_id: hid_t; size: csize): herr_t {.cdecl,
+proc H5Pset_hyper_vector_size*(fapl_id: hid_t; size: csize_t): herr_t {.cdecl,
     importc: "H5Pset_hyper_vector_size", dynlib: libname.}
-proc H5Pget_hyper_vector_size*(fapl_id: hid_t; size: ptr csize): herr_t {.cdecl,
+proc H5Pget_hyper_vector_size*(fapl_id: hid_t; size: ptr csize_t): herr_t {.cdecl,
     importc: "H5Pget_hyper_vector_size", dynlib: libname.}
   ## out
 proc H5Pset_type_conv_cb*(dxpl_id: hid_t; op: H5T_conv_except_func_t;
@@ -863,9 +863,9 @@ proc H5Pget_create_intermediate_group*(plist_id: hid_t; crt_intmd: ptr cuint): h
   ## out
 ##  Group creation property list (GCPL) routines
 
-proc H5Pset_local_heap_size_hint*(plist_id: hid_t; size_hint: csize): herr_t {.cdecl,
+proc H5Pset_local_heap_size_hint*(plist_id: hid_t; size_hint: csize_t): herr_t {.cdecl,
     importc: "H5Pset_local_heap_size_hint", dynlib: libname.}
-proc H5Pget_local_heap_size_hint*(plist_id: hid_t; size_hint: ptr csize): herr_t {.
+proc H5Pget_local_heap_size_hint*(plist_id: hid_t; size_hint: ptr csize_t): herr_t {.
     cdecl, importc: "H5Pget_local_heap_size_hint", dynlib: libname.}
   ## out
 proc H5Pset_link_phase_change*(plist_id: hid_t; max_compact: cuint; min_dense: cuint): herr_t {.
@@ -895,13 +895,13 @@ proc H5Pget_char_encoding*(plist_id: hid_t; encoding: ptr H5T_cset_t): herr_t {.
   ## out
 ##  Link access property list (LAPL) routines
 
-proc H5Pset_nlinks*(plist_id: hid_t; nlinks: csize): herr_t {.cdecl,
+proc H5Pset_nlinks*(plist_id: hid_t; nlinks: csize_t): herr_t {.cdecl,
     importc: "H5Pset_nlinks", dynlib: libname.}
-proc H5Pget_nlinks*(plist_id: hid_t; nlinks: ptr csize): herr_t {.cdecl,
+proc H5Pget_nlinks*(plist_id: hid_t; nlinks: ptr csize_t): herr_t {.cdecl,
     importc: "H5Pget_nlinks", dynlib: libname.}
 proc H5Pset_elink_prefix*(plist_id: hid_t; prefix: cstring): herr_t {.cdecl,
     importc: "H5Pset_elink_prefix", dynlib: libname.}
-proc H5Pget_elink_prefix*(plist_id: hid_t; prefix: cstring; size: csize): ssize_t {.
+proc H5Pget_elink_prefix*(plist_id: hid_t; prefix: cstring; size: csize_t): ssize_t {.
     cdecl, importc: "H5Pget_elink_prefix", dynlib: libname.}
 proc H5Pget_elink_fapl*(lapl_id: hid_t): hid_t {.cdecl, importc: "H5Pget_elink_fapl",
     dynlib: libname.}
@@ -945,26 +945,26 @@ when not defined(H5_NO_DEPRECATED_SYMBOLS):
   #  H5P_NO_CLASS* = H5P_ROOT
   ##  Typedefs
   ##  Function prototypes
-  proc H5Pregister1*(cls_id: hid_t; name: cstring; size: csize; def_value: pointer;
+  proc H5Pregister1*(cls_id: hid_t; name: cstring; size: csize_t; def_value: pointer;
                     prp_create: H5P_prp_create_func_t;
                     prp_set: H5P_prp_set_func_t; prp_get: H5P_prp_get_func_t;
                     prp_del: H5P_prp_delete_func_t; prp_copy: H5P_prp_copy_func_t;
                     prp_close: H5P_prp_close_func_t): herr_t {.cdecl,
       importc: "H5Pregister1", dynlib: libname.}
-  proc H5Pinsert1*(plist_id: hid_t; name: cstring; size: csize; value: pointer;
+  proc H5Pinsert1*(plist_id: hid_t; name: cstring; size: csize_t; value: pointer;
                   prp_set: H5P_prp_set_func_t; prp_get: H5P_prp_get_func_t;
                   prp_delete: H5P_prp_delete_func_t;
                   prp_copy: H5P_prp_copy_func_t; prp_close: H5P_prp_close_func_t): herr_t {.
       cdecl, importc: "H5Pinsert1", dynlib: libname.}
   proc H5Pget_filter1*(plist_id: hid_t; filter: cuint; flags: ptr cuint; ## out
-                      cd_nelmts: ptr csize; ## out
+                      cd_nelmts: ptr csize_t; ## out
                       cd_values: ptr cuint; ## out
-                      namelen: csize; name: ptr char): H5Z_filter_t {.cdecl,
+                      namelen: csize_t; name: ptr char): H5Z_filter_t {.cdecl,
       importc: "H5Pget_filter1", dynlib: libname.}
   proc H5Pget_filter_by_id1*(plist_id: hid_t; id: H5Z_filter_t; flags: ptr cuint; ## out
-                            cd_nelmts: ptr csize; ## out
+                            cd_nelmts: ptr csize_t; ## out
                             cd_values: ptr cuint; ## out
-                            namelen: csize; name: ptr char): herr_t {.cdecl,
+                            namelen: csize_t; name: ptr char): herr_t {.cdecl,
       importc: "H5Pget_filter_by_id1", dynlib: libname.}
     ## out
   proc H5Pget_version*(plist_id: hid_t; boot: ptr cuint; ## out

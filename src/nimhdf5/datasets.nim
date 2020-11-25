@@ -822,7 +822,7 @@ proc select_elements[T](dset: H5DataSet, coord: seq[T]): hid_t {.inline, discard
   result = dset.dataspace_id
   let res = H5Sselect_elements(result,
                                H5S_SELECT_SET,
-                               csize(coord.len),
+                               csize_t(coord.len),
                                addr(flat_coord[0]))
   if res < 0:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `select_elements` " &

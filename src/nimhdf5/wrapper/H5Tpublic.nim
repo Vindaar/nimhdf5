@@ -226,14 +226,14 @@ type
 
 type
   hvl_t* = object
-    `len`*: csize                ##  Length of VL data (in base type units)
+    `len`*: csize_t                ##  Length of VL data (in base type units)
     p*: pointer                ##  Pointer to VL data
 
 
 ##  Variable Length String information
 
 const
-  H5T_VARIABLE* = csize.high ##  Indicate that a string is variable length (null-terminated in C, instead of fixed length)
+  H5T_VARIABLE* = csize_t.high ##  Indicate that a string is variable length (null-terminated in C, instead of fixed length)
 
 ##  Opaque information
 
@@ -245,8 +245,8 @@ const
 ##  All datatype conversion functions are...
 
 type
-  H5T_conv_t* = proc (src_id: hid_t; dst_id: hid_t; cdata: ptr H5T_cdata_t; nelmts: csize;
-                   buf_stride: csize; bkg_stride: csize; buf: pointer; bkg: pointer;
+  H5T_conv_t* = proc (src_id: hid_t; dst_id: hid_t; cdata: ptr H5T_cdata_t; nelmts: csize_t;
+                   buf_stride: csize_t; bkg_stride: csize_t; buf: pointer; bkg: pointer;
                    dset_xfer_plist: hid_t): herr_t {.cdecl.}
 
 ##  Exception handler.  If an exception like overflow happenes during conversion,
@@ -663,7 +663,7 @@ let
 
 ##  Operations defined on all datatypes
 
-proc H5Tcreate*(`type`: H5T_class_t; size: csize): hid_t {.cdecl, importc: "H5Tcreate",
+proc H5Tcreate*(`type`: H5T_class_t; size: csize_t): hid_t {.cdecl, importc: "H5Tcreate",
     dynlib: libname.}
 proc H5Tcopy*(type_id: hid_t): hid_t {.cdecl, importc: "H5Tcopy", dynlib: libname.}
 proc H5Tclose*(type_id: hid_t): herr_t {.cdecl, importc: "H5Tclose", dynlib: libname.}
@@ -681,7 +681,7 @@ proc H5Tget_create_plist*(type_id: hid_t): hid_t {.cdecl,
     importc: "H5Tget_create_plist", dynlib: libname.}
 proc H5Tcommitted*(type_id: hid_t): htri_t {.cdecl, importc: "H5Tcommitted",
     dynlib: libname.}
-proc H5Tencode*(obj_id: hid_t; buf: pointer; nalloc: ptr csize): herr_t {.cdecl,
+proc H5Tencode*(obj_id: hid_t; buf: pointer; nalloc: ptr csize_t): herr_t {.cdecl,
     importc: "H5Tencode", dynlib: libname.}
 proc H5Tdecode*(buf: pointer): hid_t {.cdecl, importc: "H5Tdecode", dynlib: libname.}
 proc H5Tflush*(type_id: hid_t): herr_t {.cdecl, importc: "H5Tflush", dynlib: libname.}
@@ -689,7 +689,7 @@ proc H5Trefresh*(type_id: hid_t): herr_t {.cdecl, importc: "H5Trefresh",
                                        dynlib: libname.}
 ##  Operations defined on compound datatypes
 
-proc H5Tinsert*(parent_id: hid_t; name: cstring; offset: csize; member_id: hid_t): herr_t {.
+proc H5Tinsert*(parent_id: hid_t; name: cstring; offset: csize_t; member_id: hid_t): herr_t {.
     cdecl, importc: "H5Tinsert", dynlib: libname.}
 proc H5Tpack*(type_id: hid_t): herr_t {.cdecl, importc: "H5Tpack", dynlib: libname.}
 ##  Operations defined on enumeration datatypes
@@ -699,7 +699,7 @@ proc H5Tenum_create*(base_id: hid_t): hid_t {.cdecl, importc: "H5Tenum_create",
 proc H5Tenum_insert*(`type`: hid_t; name: cstring; value: pointer): herr_t {.cdecl,
     importc: "H5Tenum_insert", dynlib: libname.}
 proc H5Tenum_nameof*(`type`: hid_t; value: pointer; name: cstring; ## out
-                    size: csize): herr_t {.cdecl, importc: "H5Tenum_nameof",
+                    size: csize_t): herr_t {.cdecl, importc: "H5Tenum_nameof",
                                         dynlib: libname.}
 proc H5Tenum_valueof*(`type`: hid_t; name: cstring; value: pointer): herr_t {.cdecl,
     importc: "H5Tenum_valueof", dynlib: libname.}
@@ -731,11 +731,11 @@ proc H5Tget_class*(type_id: hid_t): H5T_class_t {.cdecl, importc: "H5Tget_class"
     dynlib: libname.}
 proc H5Tdetect_class*(type_id: hid_t; cls: H5T_class_t): htri_t {.cdecl,
     importc: "H5Tdetect_class", dynlib: libname.}
-proc H5Tget_size*(type_id: hid_t): csize {.cdecl, importc: "H5Tget_size",
+proc H5Tget_size*(type_id: hid_t): csize_t {.cdecl, importc: "H5Tget_size",
                                        dynlib: libname.}
 proc H5Tget_order*(type_id: hid_t): H5T_order_t {.cdecl, importc: "H5Tget_order",
     dynlib: libname.}
-proc H5Tget_precision*(type_id: hid_t): csize {.cdecl, importc: "H5Tget_precision",
+proc H5Tget_precision*(type_id: hid_t): csize_t {.cdecl, importc: "H5Tget_precision",
     dynlib: libname.}
 proc H5Tget_offset*(type_id: hid_t): cint {.cdecl, importc: "H5Tget_offset",
                                         dynlib: libname.}
@@ -745,14 +745,14 @@ proc H5Tget_pad*(type_id: hid_t; lsb: ptr H5T_pad_t; ## out
   ## out
 proc H5Tget_sign*(type_id: hid_t): H5T_sign_t {.cdecl, importc: "H5Tget_sign",
     dynlib: libname.}
-proc H5Tget_fields*(type_id: hid_t; spos: ptr csize; ## out
-                   epos: ptr csize; ## out
-                   esize: ptr csize; ## out
-                   mpos: ptr csize; ## out
-                   msize: ptr csize): herr_t {.cdecl, importc: "H5Tget_fields",
+proc H5Tget_fields*(type_id: hid_t; spos: ptr csize_t; ## out
+                   epos: ptr csize_t; ## out
+                   esize: ptr csize_t; ## out
+                   mpos: ptr csize_t; ## out
+                   msize: ptr csize_t): herr_t {.cdecl, importc: "H5Tget_fields",
     dynlib: libname.}
   ## out
-proc H5Tget_ebias*(type_id: hid_t): csize {.cdecl, importc: "H5Tget_ebias",
+proc H5Tget_ebias*(type_id: hid_t): csize_t {.cdecl, importc: "H5Tget_ebias",
                                         dynlib: libname.}
 proc H5Tget_norm*(type_id: hid_t): H5T_norm_t {.cdecl, importc: "H5Tget_norm",
     dynlib: libname.}
@@ -766,7 +766,7 @@ proc H5Tget_member_name*(type_id: hid_t; membno: cuint): cstring {.cdecl,
     importc: "H5Tget_member_name", dynlib: libname.}
 proc H5Tget_member_index*(type_id: hid_t; name: cstring): cint {.cdecl,
     importc: "H5Tget_member_index", dynlib: libname.}
-proc H5Tget_member_offset*(type_id: hid_t; membno: cuint): csize {.cdecl,
+proc H5Tget_member_offset*(type_id: hid_t; membno: cuint): csize_t {.cdecl,
     importc: "H5Tget_member_offset", dynlib: libname.}
 proc H5Tget_member_class*(type_id: hid_t; membno: cuint): H5T_class_t {.cdecl,
     importc: "H5Tget_member_class", dynlib: libname.}
@@ -783,22 +783,22 @@ proc H5Tget_native_type*(type_id: hid_t; direction: H5T_direction_t): hid_t {.cd
     importc: "H5Tget_native_type", dynlib: libname.}
 ##  Setting property values
 
-proc H5Tset_size*(type_id: hid_t; size: csize): herr_t {.cdecl, importc: "H5Tset_size",
+proc H5Tset_size*(type_id: hid_t; size: csize_t): herr_t {.cdecl, importc: "H5Tset_size",
     dynlib: libname.}
 proc H5Tset_order*(type_id: hid_t; order: H5T_order_t): herr_t {.cdecl,
     importc: "H5Tset_order", dynlib: libname.}
-proc H5Tset_precision*(type_id: hid_t; prec: csize): herr_t {.cdecl,
+proc H5Tset_precision*(type_id: hid_t; prec: csize_t): herr_t {.cdecl,
     importc: "H5Tset_precision", dynlib: libname.}
-proc H5Tset_offset*(type_id: hid_t; offset: csize): herr_t {.cdecl,
+proc H5Tset_offset*(type_id: hid_t; offset: csize_t): herr_t {.cdecl,
     importc: "H5Tset_offset", dynlib: libname.}
 proc H5Tset_pad*(type_id: hid_t; lsb: H5T_pad_t; msb: H5T_pad_t): herr_t {.cdecl,
     importc: "H5Tset_pad", dynlib: libname.}
 proc H5Tset_sign*(type_id: hid_t; sign: H5T_sign_t): herr_t {.cdecl,
     importc: "H5Tset_sign", dynlib: libname.}
-proc H5Tset_fields*(type_id: hid_t; spos: csize; epos: csize; esize: csize; mpos: csize;
-                   msize: csize): herr_t {.cdecl, importc: "H5Tset_fields",
+proc H5Tset_fields*(type_id: hid_t; spos: csize_t; epos: csize_t; esize: csize_t; mpos: csize_t;
+                   msize: csize_t): herr_t {.cdecl, importc: "H5Tset_fields",
                                         dynlib: libname.}
-proc H5Tset_ebias*(type_id: hid_t; ebias: csize): herr_t {.cdecl,
+proc H5Tset_ebias*(type_id: hid_t; ebias: csize_t): herr_t {.cdecl,
     importc: "H5Tset_ebias", dynlib: libname.}
 proc H5Tset_norm*(type_id: hid_t; norm: H5T_norm_t): herr_t {.cdecl,
     importc: "H5Tset_norm", dynlib: libname.}
@@ -820,7 +820,7 @@ proc H5Tfind*(src_id: hid_t; dst_id: hid_t; pcdata: ptr ptr H5T_cdata_t): H5T_co
     cdecl, importc: "H5Tfind", dynlib: libname.}
 proc H5Tcompiler_conv*(src_id: hid_t; dst_id: hid_t): htri_t {.cdecl,
     importc: "H5Tcompiler_conv", dynlib: libname.}
-proc H5Tconvert*(src_id: hid_t; dst_id: hid_t; nelmts: csize; buf: pointer;
+proc H5Tconvert*(src_id: hid_t; dst_id: hid_t; nelmts: csize_t; buf: pointer;
                 background: pointer; plist_id: hid_t): herr_t {.cdecl,
     importc: "H5Tconvert", dynlib: libname.}
 ##  Symbols defined for compatibility with previous versions of the HDF5 API.

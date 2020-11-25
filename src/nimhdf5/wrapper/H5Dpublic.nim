@@ -31,8 +31,8 @@ import
 ##  Macros used to "unset" chunk cache configuration parameters
 
 const
-  H5D_CHUNK_CACHE_NSLOTS_DEFAULT* = csize.high
-  H5D_CHUNK_CACHE_NBYTES_DEFAULT* = csize.high
+  H5D_CHUNK_CACHE_NSLOTS_DEFAULT* = csize_t.high
+  H5D_CHUNK_CACHE_NBYTES_DEFAULT* = csize_t.high
   H5D_CHUNK_CACHE_W0_DEFAULT* = (- 1.0)
 
 ##  Bit flags for the H5Pset_chunk_opts() and H5Pget_chunk_opts()
@@ -137,13 +137,13 @@ type
 
 type
   H5D_scatter_func_t* = proc (src_buf: ptr pointer; ## out
-                           src_buf_bytes_used: ptr csize; ## out
+                           src_buf_bytes_used: ptr csize_t; ## out
                            op_data: pointer): herr_t {.cdecl.}
 
 ##  Define the operator function pointer for H5Dgather()
 
 type
-  H5D_gather_func_t* = proc (dst_buf: pointer; dst_buf_bytes_used: csize;
+  H5D_gather_func_t* = proc (dst_buf: pointer; dst_buf_bytes_used: csize_t;
                           op_data: pointer): herr_t {.cdecl.}
 
 proc H5Dcreate2*(loc_id: hid_t; name: cstring; type_id: hid_t; space_id: hid_t;
@@ -195,7 +195,7 @@ proc H5Dscatter*(op: H5D_scatter_func_t; op_data: pointer; type_id: hid_t;
                 dst_space_id: hid_t; dst_buf: pointer): herr_t {.cdecl,
     importc: "H5Dscatter", dynlib: libname.}
 proc H5Dgather*(src_space_id: hid_t; src_buf: pointer; type_id: hid_t;
-               dst_buf_size: csize; dst_buf: pointer; op: H5D_gather_func_t;
+               dst_buf_size: csize_t; dst_buf: pointer; op: H5D_gather_func_t;
                op_data: pointer): herr_t {.cdecl, importc: "H5Dgather",
                                         dynlib: libname.}
 proc H5Ddebug*(dset_id: hid_t): herr_t {.cdecl, importc: "H5Ddebug", dynlib: libname.}

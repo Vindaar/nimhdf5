@@ -26,7 +26,7 @@ when not declared(libname_hl):
 ## -------------------------------------------------------------------------
 ##  Create/Open/Close functions
 ## -------------------------------------------------------------------------
-## 
+##
 ##  NOTE: H5PTcreate is replacing H5PTcreate_fl for better name due to the
 ##    removal of H5PTcreate_vl.  H5PTcreate_fl may be retired in 1.8.19.
 
@@ -44,23 +44,23 @@ proc H5PTcreate_fl*(loc_id: hid_t; dset_name: cstring; dtype_id: hid_t;
 ## -------------------------------------------------------------------------
 ##  Write functions
 ## -------------------------------------------------------------------------
-## 
+##
 
-proc H5PTappend*(table_id: hid_t; nrecords: csize; data: pointer): herr_t {.cdecl,
+proc H5PTappend*(table_id: hid_t; nrecords: csize_t; data: pointer): herr_t {.cdecl,
     importc: "H5PTappend", dynlib: libname_hl.}
 ## -------------------------------------------------------------------------
 ##  Read functions
 ## -------------------------------------------------------------------------
-## 
+##
 
-proc H5PTget_next*(table_id: hid_t; nrecords: csize; data: pointer): herr_t {.cdecl,
+proc H5PTget_next*(table_id: hid_t; nrecords: csize_t; data: pointer): herr_t {.cdecl,
     importc: "H5PTget_next", dynlib: libname_hl.}
-proc H5PTread_packets*(table_id: hid_t; start: hsize_t; nrecords: csize; data: pointer): herr_t {.
+proc H5PTread_packets*(table_id: hid_t; start: hsize_t; nrecords: csize_t; data: pointer): herr_t {.
     cdecl, importc: "H5PTread_packets", dynlib: libname_hl.}
 ## -------------------------------------------------------------------------
 ##  Inquiry functions
 ## -------------------------------------------------------------------------
-## 
+##
 
 proc H5PTget_num_packets*(table_id: hid_t; nrecords: ptr hsize_t): herr_t {.cdecl,
     importc: "H5PTget_num_packets", dynlib: libname_hl.}
@@ -69,22 +69,22 @@ proc H5PTis_valid*(table_id: hid_t): herr_t {.cdecl, importc: "H5PTis_valid",
 proc H5PTis_varlen*(table_id: hid_t): herr_t {.cdecl, importc: "H5PTis_varlen",
     dynlib: libname_hl.}
 ## -------------------------------------------------------------------------
-## 
+##
 ##  Accessor functions
-## 
+##
 ## -------------------------------------------------------------------------
-## 
+##
 
 proc H5PTget_dataset*(table_id: hid_t): hid_t {.cdecl, importc: "H5PTget_dataset",
     dynlib: libname_hl.}
 proc H5PTget_type*(table_id: hid_t): hid_t {.cdecl, importc: "H5PTget_type",
     dynlib: libname_hl.}
 ## -------------------------------------------------------------------------
-## 
+##
 ##  Packet Table "current index" functions
-## 
+##
 ## -------------------------------------------------------------------------
-## 
+##
 
 proc H5PTcreate_index*(table_id: hid_t): herr_t {.cdecl, importc: "H5PTcreate_index",
     dynlib: libname_hl.}
@@ -93,11 +93,11 @@ proc H5PTset_index*(table_id: hid_t; pt_index: hsize_t): herr_t {.cdecl,
 proc H5PTget_index*(table_id: hid_t; pt_index: ptr hsize_t): herr_t {.cdecl,
     importc: "H5PTget_index", dynlib: libname_hl.}
 ## -------------------------------------------------------------------------
-## 
+##
 ##  Memory Management functions
-## 
+##
 ## -------------------------------------------------------------------------
-## 
+##
 
-proc H5PTfree_vlen_buff*(table_id: hid_t; bufflen: csize; buff: pointer): herr_t {.
+proc H5PTfree_vlen_buff*(table_id: hid_t; bufflen: csize_t; buff: pointer): herr_t {.
     cdecl, importc: "H5PTfree_vlen_buff", dynlib: libname_hl.}

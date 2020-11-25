@@ -244,10 +244,10 @@ proc H5Oset_comment*(obj_id: hid_t; comment: cstring): herr_t {.cdecl,
 proc H5Oset_comment_by_name*(loc_id: hid_t; name: cstring; comment: cstring;
                             lapl_id: hid_t): herr_t {.cdecl,
     importc: "H5Oset_comment_by_name", dynlib: libname.}
-proc H5Oget_comment*(obj_id: hid_t; comment: cstring; bufsize: csize): ssize_t {.cdecl,
+proc H5Oget_comment*(obj_id: hid_t; comment: cstring; bufsize: csize_t): ssize_t {.cdecl,
     importc: "H5Oget_comment", dynlib: libname.}
 proc H5Oget_comment_by_name*(loc_id: hid_t; name: cstring; comment: cstring;
-                            bufsize: csize; lapl_id: hid_t): ssize_t {.cdecl,
+                            bufsize: csize_t; lapl_id: hid_t): ssize_t {.cdecl,
     importc: "H5Oget_comment_by_name", dynlib: libname.}
 when defined(H5_FUTURE):
   proc H5Ovisit*(obj_id: hid_t; idx_type: H5_index_t; order: H5_iter_order_t;

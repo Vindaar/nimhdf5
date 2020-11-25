@@ -99,12 +99,12 @@ proc H5Iget_type*(id: hid_t): H5I_type_t {.cdecl, importc: "H5Iget_type",
 proc H5Iget_file_id*(id: hid_t): hid_t {.cdecl, importc: "H5Iget_file_id",
                                      dynlib: libname.}
 proc H5Iget_name*(id: hid_t; name: cstring; ## out
-                 size: csize): ssize_t {.cdecl, importc: "H5Iget_name",
+                 size: csize_t): ssize_t {.cdecl, importc: "H5Iget_name",
                                       dynlib: libname.}
 proc H5Iinc_ref*(id: hid_t): cint {.cdecl, importc: "H5Iinc_ref", dynlib: libname.}
 proc H5Idec_ref*(id: hid_t): cint {.cdecl, importc: "H5Idec_ref", dynlib: libname.}
 proc H5Iget_ref*(id: hid_t): cint {.cdecl, importc: "H5Iget_ref", dynlib: libname.}
-proc H5Iregister_type*(hash_size: csize; reserved: cuint; free_func: H5I_free_t): H5I_type_t {.
+proc H5Iregister_type*(hash_size: csize_t; reserved: cuint; free_func: H5I_free_t): H5I_type_t {.
     cdecl, importc: "H5Iregister_type", dynlib: libname.}
 proc H5Iclear_type*(`type`: H5I_type_t; force: hbool_t): herr_t {.cdecl,
     importc: "H5Iclear_type", dynlib: libname.}

@@ -181,14 +181,14 @@ proc H5Eget_current_stack*(): hid_t {.cdecl, importc: "H5Eget_current_stack",
                                    dynlib: libname.}
 proc H5Eclose_stack*(stack_id: hid_t): herr_t {.cdecl, importc: "H5Eclose_stack",
     dynlib: libname.}
-proc H5Eget_class_name*(class_id: hid_t; name: cstring; size: csize): ssize_t {.cdecl,
+proc H5Eget_class_name*(class_id: hid_t; name: cstring; size: csize_t): ssize_t {.cdecl,
     importc: "H5Eget_class_name", dynlib: libname.}
 proc H5Eset_current_stack*(err_stack_id: hid_t): herr_t {.cdecl,
     importc: "H5Eset_current_stack", dynlib: libname.}
 proc H5Epush2*(err_stack: hid_t; file: cstring; `func`: cstring; line: cuint;
               cls_id: hid_t; maj_id: hid_t; min_id: hid_t; msg: cstring): herr_t {.
     varargs, cdecl, importc: "H5Epush2", dynlib: libname.}
-proc H5Epop*(err_stack: hid_t; count: csize): herr_t {.cdecl, importc: "H5Epop",
+proc H5Epop*(err_stack: hid_t; count: csize_t): herr_t {.cdecl, importc: "H5Epop",
     dynlib: libname.}
 proc H5Eprint2*(err_stack: hid_t; stream: ptr FILE): herr_t {.cdecl,
     importc: "H5Eprint2", dynlib: libname.}
@@ -203,7 +203,7 @@ proc H5Eclear2*(err_stack: hid_t): herr_t {.cdecl, importc: "H5Eclear2",
                                         dynlib: libname.}
 proc H5Eauto_is_v2*(err_stack: hid_t; is_stack: ptr cuint): herr_t {.cdecl,
     importc: "H5Eauto_is_v2", dynlib: libname.}
-proc H5Eget_msg*(msg_id: hid_t; `type`: ptr H5E_type_t; msg: cstring; size: csize): ssize_t {.
+proc H5Eget_msg*(msg_id: hid_t; `type`: ptr H5E_type_t; msg: cstring; size: csize_t): ssize_t {.
     cdecl, importc: "H5Eget_msg", dynlib: libname.}
 proc H5Eget_num*(error_stack_id: hid_t): ssize_t {.cdecl, importc: "H5Eget_num",
     dynlib: libname.}

@@ -35,11 +35,11 @@ when defined(H5_HAVE_DIRECT):
     CBSIZE_DEF* = 16 * 1024 * 1024
   proc H5FD_direct_init*(): hid_t {.cdecl, importc: "H5FD_direct_init",
                                  dynlib: libname.}
-  proc H5Pset_fapl_direct*(fapl_id: hid_t; alignment: csize; block_size: csize;
-                          cbuf_size: csize): herr_t {.cdecl,
+  proc H5Pset_fapl_direct*(fapl_id: hid_t; alignment: csize_t; block_size: csize_t;
+                          cbuf_size: csize_t): herr_t {.cdecl,
       importc: "H5Pset_fapl_direct", dynlib: libname.}
-  proc H5Pget_fapl_direct*(fapl_id: hid_t; boundary: ptr csize; ## out
-                          block_size: ptr csize; ## out
-                          cbuf_size: ptr csize): herr_t {.cdecl,
+  proc H5Pget_fapl_direct*(fapl_id: hid_t; boundary: ptr csize_t; ## out
+                          block_size: ptr csize_t; ## out
+                          cbuf_size: ptr csize_t): herr_t {.cdecl,
       importc: "H5Pget_fapl_direct", dynlib: libname.}
     ## out

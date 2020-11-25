@@ -38,14 +38,14 @@ when HasBloscSupport:
 
   # need malloc and free, since we allocate memory, which needs to be freed
   # by the HDF5 library
-  proc malloc(size: csize): pointer {.importc: "malloc", header: "stdlib.h".}
+  proc malloc(size: csize_t): pointer {.importc: "malloc", header: "stdlib.h".}
   proc free(p: pointer) {.importc: "free", header: "stdlib.h".}
 
   ## Prototypes for filter function in bloscFilter.c
   proc bloscFilter(flags: cuint, cd_nelmts: cint,
-                    cd_values: ptr cuint, nbytes: csize,
+                    cd_values: ptr cuint, nbytes: csize_t,
                     buf_size: ptr cint, buf: ptr pointer):
-                      csize {.exportc: "blosc_filter", cdecl.}
+                      csize_t {.exportc: "blosc_filter", cdecl.}
 
   proc bloscSetLocal(dcpl, dtype, space: hid_t):
                       herr_t {.exportc: "blosc_set_local", cdecl.}
@@ -78,11 +78,11 @@ when HasBloscSupport:
     ##   3. Compute the chunk size in bytes and store it in slot 3.
     var
       r: herr_t
-      basetypesize: csize
-      bufsize: csize
+      basetypesize: csize_t
+      bufsize: csize_t
       chunkdims = newSeq[hsize_t](32)
       flags: cuint
-      nelements = 8.csize
+      nelements = 8.csize_t
       values = newSeq[cuint](8)
 
     r = getFilter(dcpl, FILTER_BLOSC, addr flags, addr nelements, addr values[0], 0, nil)
@@ -127,7 +127,7 @@ when HasBloscSupport:
     # Get the size of the chunk
     bufsize = typesize
     for i in 0 ..< ndims:
-      bufsize = bufsize * chunkdims[i].csize
+      bufsize = bufsize * chunkdims[i].csize_t
     values[3] = bufsize.cuint
 
     when defined(BLOSC_DEBUG):
@@ -141,22 +141,22 @@ when HasBloscSupport:
 
 
   proc bloscFilter(flags: cuint, cd_nelmts: cint,
-                    cd_values: ptr cuint, nbytes: csize,
+                    cd_values: ptr cuint, nbytes: csize_t,
                     buf_size: ptr cint, buf: ptr pointer):
-                      csize {.exportc: "blosc_filter", cdecl.} =
+                      csize_t {.exportc: "blosc_filter", cdecl.} =
     ## The filter function
     var
       outbuf: pointer
       status = 0.cint                # Return code from Blosc routines
-      outbuf_size: csize
+      outbuf_size: csize_t
       clevel = 5.cint
       doshuffle = 1.cint             # Shuffle default
       compname = "blosclz".cstring    # The compressor by default
       cd_val_arr = cast[ptr UncheckedArray[cuint]](cd_values)
 
     # Filter params that are always set
-    let typesize = cd_val_arr[2].csize      # The datatype size
-    outbuf_size = cd_val_arr[3].csize   # Precomputed buffer guess
+    let typesize = cd_val_arr[2].csize_t      # The datatype size
+    outbuf_size = cd_val_arr[3].csize_t   # Precomputed buffer guess
     # Optional params
     if cd_nelmts >= 5.cint:
       clevel = cd_val_arr[4].cint        # The compression level
@@ -188,7 +188,7 @@ when HasBloscSupport:
       # as optional, so HDF5 marks the chunk as uncompressed and
       # proceeds.
 
-      outbuf_size = buf_size[].csize
+      outbuf_size = buf_size[].csize_t
 
       when defined(BLOSC_DEBUG):
         debugEcho "Blosc: Compress ", nbytes, " chunk w/buffer ", outbuf_size
@@ -212,8 +212,8 @@ when HasBloscSupport:
       # We're decompressing
       # declare dummy variables
       var
-        cbytes: csize
-        blocksize: csize
+        cbytes: csize_t
+        blocksize: csize_t
 
       # Extract the exact outbuf_size from the buffer header.
       #
@@ -245,7 +245,7 @@ when HasBloscSupport:
       free buf[]
       buf[] = outbuf
       buf_size[] = outbuf_size.cint
-      return status.csize  # Size of compressed/decompressed data
+      return status.csize_t  # Size of compressed/decompressed data
 
     result = 0
 

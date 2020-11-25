@@ -86,7 +86,7 @@ const
 type
   INNER_C_UNION_3734014316* = object {.union.}
     address*: haddr_t          ##  Address hard link points to
-    val_size*: csize           ##  Size of a soft link or UD link value
+    val_size*: csize_t           ##  Size of a soft link or UD link value
 
   H5L_info_t* = object
     `type`*: H5L_type_t        ##  Type of link
@@ -105,38 +105,38 @@ type
 
 type
   H5L_create_func_t* = proc (link_name: cstring; loc_group: hid_t; lnkdata: pointer;
-                          lnkdata_size: csize; lcpl_id: hid_t): herr_t {.cdecl.}
+                          lnkdata_size: csize_t; lcpl_id: hid_t): herr_t {.cdecl.}
 
 ##  Callback for when the link is moved
 
 type
   H5L_move_func_t* = proc (new_name: cstring; new_loc: hid_t; lnkdata: pointer;
-                        lnkdata_size: csize): herr_t {.cdecl.}
+                        lnkdata_size: csize_t): herr_t {.cdecl.}
 
 ##  Callback for when the link is copied
 
 type
   H5L_copy_func_t* = proc (new_name: cstring; new_loc: hid_t; lnkdata: pointer;
-                        lnkdata_size: csize): herr_t {.cdecl.}
+                        lnkdata_size: csize_t): herr_t {.cdecl.}
 
 ##  Callback during link traversal
 
 type
   H5L_traverse_func_t* = proc (link_name: cstring; cur_group: hid_t; lnkdata: pointer;
-                            lnkdata_size: csize; lapl_id: hid_t): hid_t {.cdecl.}
+                            lnkdata_size: csize_t; lapl_id: hid_t): hid_t {.cdecl.}
 
 ##  Callback for when the link is deleted
 
 type
   H5L_delete_func_t* = proc (link_name: cstring; file: hid_t; lnkdata: pointer;
-                          lnkdata_size: csize): herr_t {.cdecl.}
+                          lnkdata_size: csize_t): herr_t {.cdecl.}
 
 ##  Callback for querying the link
 ##  Returns the size of the buffer needed
 
 type
-  H5L_query_func_t* = proc (link_name: cstring; lnkdata: pointer; lnkdata_size: csize; buf: pointer; ## out
-                         buf_size: csize): ssize_t {.cdecl.}
+  H5L_query_func_t* = proc (link_name: cstring; lnkdata: pointer; lnkdata_size: csize_t; buf: pointer; ## out
+                         buf_size: csize_t): ssize_t {.cdecl.}
 
 ##  User-defined link types
 
@@ -192,11 +192,11 @@ proc H5Ldelete_by_idx*(loc_id: hid_t; group_name: cstring; idx_type: H5_index_t;
                       order: H5_iter_order_t; n: hsize_t; lapl_id: hid_t): herr_t {.
     cdecl, importc: "H5Ldelete_by_idx", dynlib: libname.}
 proc H5Lget_val*(loc_id: hid_t; name: cstring; buf: pointer; ## out
-                size: csize; lapl_id: hid_t): herr_t {.cdecl, importc: "H5Lget_val",
+                size: csize_t; lapl_id: hid_t): herr_t {.cdecl, importc: "H5Lget_val",
     dynlib: libname.}
 proc H5Lget_val_by_idx*(loc_id: hid_t; group_name: cstring; idx_type: H5_index_t;
                        order: H5_iter_order_t; n: hsize_t; buf: pointer; ## out
-                       size: csize; lapl_id: hid_t): herr_t {.cdecl,
+                       size: csize_t; lapl_id: hid_t): herr_t {.cdecl,
     importc: "H5Lget_val_by_idx", dynlib: libname.}
 proc H5Lexists*(loc_id: hid_t; name: cstring; lapl_id: hid_t): htri_t {.cdecl,
     importc: "H5Lexists", dynlib: libname.}
@@ -209,7 +209,7 @@ proc H5Lget_info_by_idx*(loc_id: hid_t; group_name: cstring; idx_type: H5_index_
     importc: "H5Lget_info_by_idx", dynlib: libname.}
 proc H5Lget_name_by_idx*(loc_id: hid_t; group_name: cstring; idx_type: H5_index_t;
                         order: H5_iter_order_t; n: hsize_t; name: cstring; ## out
-                        size: csize; lapl_id: hid_t): ssize_t {.cdecl,
+                        size: csize_t; lapl_id: hid_t): ssize_t {.cdecl,
     importc: "H5Lget_name_by_idx", dynlib: libname.}
 proc H5Literate*(grp_id: hid_t; idx_type: H5_index_t; order: H5_iter_order_t;
                 idx: ptr hsize_t; op: H5L_iterate_t; op_data: pointer): herr_t {.cdecl,
@@ -228,7 +228,7 @@ proc H5Lvisit_by_name*(loc_id: hid_t; group_name: cstring; idx_type: H5_index_t;
 ##  UD link functions
 
 proc H5Lcreate_ud*(link_loc_id: hid_t; link_name: cstring; link_type: H5L_type_t;
-                  udata: pointer; udata_size: csize; lcpl_id: hid_t; lapl_id: hid_t): herr_t {.
+                  udata: pointer; udata_size: csize_t; lcpl_id: hid_t; lapl_id: hid_t): herr_t {.
     cdecl, importc: "H5Lcreate_ud", dynlib: libname.}
 proc H5Lregister*(cls: ptr H5L_class_t): herr_t {.cdecl, importc: "H5Lregister",
     dynlib: libname.}
@@ -239,7 +239,7 @@ proc H5Lis_registered*(id: H5L_type_t): htri_t {.cdecl, importc: "H5Lis_register
 ##  External link functions
 
 proc H5Lunpack_elink_val*(ext_linkval: pointer; ## in
-                         link_size: csize; flags: ptr cuint; filename: cstringArray; ## out
+                         link_size: csize_t; flags: ptr cuint; filename: cstringArray; ## out
                          obj_path: cstringArray): herr_t {.cdecl,
     importc: "H5Lunpack_elink_val", dynlib: libname.}
   ## out

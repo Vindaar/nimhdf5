@@ -73,11 +73,11 @@ proc H5Aget_type*(attr_id: hid_t): hid_t {.cdecl, importc: "H5Aget_type",
                                        dynlib: libname.}
 proc H5Aget_create_plist*(attr_id: hid_t): hid_t {.cdecl,
     importc: "H5Aget_create_plist", dynlib: libname.}
-proc H5Aget_name*(attr_id: hid_t; buf_size: csize; buf: cstring): ssize_t {.cdecl,
+proc H5Aget_name*(attr_id: hid_t; buf_size: csize_t; buf: cstring): ssize_t {.cdecl,
     importc: "H5Aget_name", dynlib: libname.}
 proc H5Aget_name_by_idx*(loc_id: hid_t; obj_name: cstring; idx_type: H5_index_t;
                         order: H5_iter_order_t; n: hsize_t; name: cstring; ## out
-                        size: csize; lapl_id: hid_t): ssize_t {.cdecl,
+                        size: csize_t; lapl_id: hid_t): ssize_t {.cdecl,
     importc: "H5Aget_name_by_idx", dynlib: libname.}
 proc H5Aget_storage_size*(attr_id: hid_t): hsize_t {.cdecl,
     importc: "H5Aget_storage_size", dynlib: libname.}

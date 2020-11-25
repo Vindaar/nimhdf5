@@ -75,11 +75,11 @@ proc getAttrName*[T: SomeInteger](attr_id: hid_t, buf_space: T = 200): string =
     debugEcho "Call to getAttrName! with size $#" % $buf_space
   var name = newString(buf_space)
   # read the name
-  let length = attr_id.H5Aget_name(len(name).csize, name)
+  let length = attr_id.H5Aget_name(len(name).csize_t, name)
   # H5Aget_name returns the length of the name. In case the name
   # is longer than the given buffer, we call this function again with
   # a buffer with the correct length
-  if length <= name.len.csize:
+  if length <= name.len.csize_t:
     result = name.strip
     # now set the length of the resulting string to the size
     # it actually occupies
