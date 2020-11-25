@@ -9,8 +9,6 @@ import datatypes
 import attributes
 import h5util
 import util
-#import datasets
-#from h5util import `$`
 
 # get visit_file from files.nim for dataset iterator
 from files import visit_file

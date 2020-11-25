@@ -1,4 +1,3 @@
-
 import nimhdf5
 import ospaths
 import os
