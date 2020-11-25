@@ -69,17 +69,23 @@ proc create_simple_memspace_1d*[T](coord: seq[T]): hid_t {.inline.} =
   # get enough space for the N coordinates in coord
   result = simple_dataspace(coord.len)
 
-proc string_dataspace*(str: string, dtype: hid_t): hid_t =
+proc string_dataspace*[T: seq[string] | string](str: T, dtype: hid_t): hid_t =
   ## returns a dataspace of size 1 for a string of length N, by
   ## changing the size of the datatype given
   # need at least a minimum size of 1 for a HDF5 string to store
   # the null terminator
-  let dspaceLen = max(str.len, 1)
-  discard H5Tset_size(dtype, dspaceLen.csize)
-  # append null termination
-  discard H5Tset_strpad(dtype, H5T_STR_NULLTERM)
-  # now return dataspace of size 1
-  result = simple_dataspace(1)
+  when T is string:
+    let dspaceLen = max(str.len, 1)
+    discard H5Tset_size(dtype, dspaceLen.csize_t)
+    # append null termination
+    discard H5Tset_strpad(dtype, H5T_STR_NULLTERM)
+    # now return dataspace of size 1
+    result = simple_dataspace(1)
+  else:
+    # set type to be variable length string
+    discard H5Tset_size(dtype, H5T_VARIABLE)
+    # and create dataspace for each element in the string sequence
+    result = simple_dataspace(str.len)
 
 proc dataspace_id*(dataset_id: hid_t): hid_t {.inline.} =
   ## convenienve wrapper around H5Dget_space proc, which returns the dataspace

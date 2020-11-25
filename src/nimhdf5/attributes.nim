@@ -252,12 +252,17 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
       # extension to nested seqs should be easy (using shape, handed simple_dataspace),
       # however we still need to have a good function to get the basetype of a nested
       # sequence for that
-      when T is seq:
+      when T is seq[string]:
+        let
+          dtype = nimToH5type(string)
+          attr_dspace_id = string_dataspace(val, dtype)
+      elif T is seq:
         # take first element of sequence to get the datatype
-        let dtype = nimToH5type(type(val[0]))
-        # create dataspace for attribute
-        # 1D so call simple_dataspace with integer, instead of seq
-        let attr_dspace_id = simple_dataspace(len(val))
+        let
+          dtype = nimToH5type(type(val[0]))
+          # create dataspace for attribute
+          # 1D so call simple_dataspace with integer, instead of seq
+          attr_dspace_id = simple_dataspace(len(val))
       else:
         let
           # get copy of string type
@@ -266,13 +271,17 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
           attr_dspace_id = string_dataspace(val, dtype)
       # create the attribute
       let attribute_id = H5Acreate2(h5attr.parent_id, name, dtype, attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT)
-      # mutable copy for address
-      var mval = val
       # write the value
-      if mval.len > 0:
+      if val.len > 0:
         # only write the value, if we have something to write
-        discard H5Awrite(attribute_id, dtype, addr(mval[0]))
-
+        when T is seq[string]:
+          var cstringData = val.mapIt(it.cstring)
+          let err = H5Awrite(attribute_id, dtype, addr(cstringData[0]))
+        else:
+          let err = H5Awrite(attribute_id, dtype, unsafeAddr(val[0]))
+        if err < 0:
+          raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+            "calling `H5Awrite` in `write_attribute` to write " & $name)
       # write information to H5Attr tuple
       attr.attr_id = attribute_id
       attr.opened = true
@@ -312,48 +321,38 @@ template `[]=`*[T](h5attr: H5Attributes, name: string, val: T) =
   ## convenience access to write_attribue
   h5attr.write_attribute(name, val)
 
-proc parseString(buffer: ptr UncheckedArray[char]): string =
-  ## parses the given unchecked array until a null delimiter is reached
-  ## and returns the string
-  var i = 0
-  while buffer[i] != '\0':
-    result.add buffer[i]
-    inc i
+proc readStringArrayAttribute(attr: H5Attr, npoints: hssize_t): seq[string] =
+  ## proc to read an array of strings attribute from a H5 file, for an existing
+  ## `H5Attr`. This proc is only used in the `read_attribute` proc
+  ## for users after checking of attribute is done.
+  doAssert attr.dtypeAnyKind == dkSequence, "`readStringArrayAttribute` called for " &
+    "a non string attribute. Attribute is kind " & $attr.dtypeAnyKind & "!"
+  doAssert attr.dtypeBaseKind == dkString, "Base kind of attribute has to be string!"
+  # create a void pointer equivalent
+  let nativeType = H5Tcopy(H5T_C_S1)
+  discard H5Tset_size(nativeType, H5T_VARIABLE)
+  var buf = newSeq[cstring](npoints.int)
+  let err2 = H5Aread(attr.attr_id, nativeType, buf[0].addr)
+  # cast the void pointer to a ptr on a ptr of an unchecked array
+  # and dereference it to get a ptr to an unchecked char array
+  result = newSeq[string](npoints)
+  for i, s in buf:
+    result[i] = $s
 
 proc readStringAttribute(attr: H5Attr): string =
   ## proc to read a string attribute from a H5 file, for an existing
   ## `H5Attr`. This proc is only used in the `read_attribute` proc
   ## for users after checking of attribute is done.
-  # TODO: complete documentation
+  doAssert attr.dtypeAnyKind == dkString, "`readStringAttribute` called for a non " &
+    "string attribute. Attribute is kind " & $attr.dtypeAnyKind & "!"
+  # in case of string, need to determine size. use:
+  # in case of existence, read the data and return
   attr.attr_dspace_id = H5Aget_space(attr.attr_id)
-  let isVlen = H5Tis_variable_str(attr.dtype_c)
   let nativeType = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
-  withDebug:
-    # TODO: remove debug
-    debugEcho "isVlen ", isVlen
-    debugEcho "Native type is ", nativeType
-    debugEcho "Encoding is ", H5Tget_cset(attr.dtype_c)
-  if isVlen == 1:
-    # create a void pointer equivalent
-    var bufPtrPtr = alloc(8 * sizeof(char))
-    let err2 = H5Aread(attr.attr_id, nativeType, bufPtrPtr)
-    # cast the void pointer to a ptr on a ptr of an unchecked array
-    # and dereference it to get a ptr to an unchecked char array
-    let bufData = cast[ptr ptr UncheckedArray[char]](bufPtrPtr)[]
-    # parse the unchecked char array
-    result = parseString(bufData)
-
-    # TODO: remove debug
-    withDebug:
-      debugEcho "Freeing pointer ", bufPtrPtr.repr
-    dealloc bufPtrPtr
-  else:
-    # in case of string, need to determine size. use:
-    # in case of existence, read the data and return
-    let string_len = H5Aget_storage_size(attr.attr_id)
-    var buf_string = newString(string_len)
-    let err = H5Aread(attr.attr_id, nativeType, addr buf_string[0])
-    result = buf_string
+  let string_len = H5Aget_storage_size(attr.attr_id)
+  var buf_string = newString(string_len)
+  let err = H5Aread(attr.attr_id, nativeType, addr buf_string[0])
+  result = buf_string
 
 proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
   ## now implement reading of attributes
@@ -386,31 +385,16 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
     elif T is seq:
       # determine number of elements in seq
       let npoints = H5Sget_simple_extent_npoints(attr.attr_dspace_id)
-      # return correct type based on base kind
-      var buf_seq: T = @[]
-      buf_seq.setLen(npoints)
-
-      # given number of elements in seq attribute, check what user desired
-      # basetype is
-      type TT = type(buf_seq[0])
-
+      type TT = type(result[0])
       # in case it's a string, do things differently..
       when TT is string:
         # get string attribute as single string first
-        let s = readStringAttribute attr
-        # now split the attribute into a seq of correct length each
-        let strLength = s.len div npoints
-        for i in 0 ..< npoints:
-          # iterate over each substring and append a string w/o additional
-          # null-terminators (if substring shorter max length)
-          let
-            start = i * strLength
-            stop = (i + 1) * strLength
-          result.add s[start ..< stop].strip(chars = {'\0'})
+        result = readStringArrayAttribute(attr, npoints)
       else:
         # read data
-        err = H5Aread(attr.attr_id, attr.dtype_c, addr buf_seq[0])
-        result = buf_seq
+        # return correct type based on base kind
+        result.setLen(npoints)
+        err = H5Aread(attr.attr_id, attr.dtype_c, addr result[0])
     elif T is string:
       # case of single string attribute
       result = readStringAttribute attr
