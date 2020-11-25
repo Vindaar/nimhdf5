@@ -417,14 +417,13 @@ proc getDtypeString*(dset_id: hid_t): string =
   let t = H5Dget_type(dset_id)
   result = anyTypeToString(h5ToNimType(t))
 
-template special_type*(dtype: typedesc): untyped =
+proc special_type*(dtype: typedesc): hid_t =
   ## calls the H5Tvlen_create() to create a special datatype
   ## for variable length data
   when dtype isnot string:
-    H5Tvlen_create(nimToH5type(dtype))
+    result = H5Tvlen_create(nimToH5type(dtype))
   else:
-    echo "Currently not implemented to create variable string datatype"
-
+    doAssert false, "Currently not implemented to create variable string datatype"
 
 proc parseH5rw_type*(rw_type: string, exists: bool): cuint =
   ## this proc simply acts as a parser for the read/write
