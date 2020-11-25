@@ -1,3 +1,17 @@
+* v0.3.11
+- change usage of =csize= to =csize_t= in full wrapper / library. For
+  most use cases this did not have any effect (=csize= was an int,
+  instead of unsigned). But for =H5T_VARIABLE = csize.high= this
+  caused problems, because the value was not the one expected
+  (=csize_t.high=)
+- add support for =seq[string]= attributes
+- reorder =datasets.nim= and clean up =[]= logic
+- add =[]= accessor from a =H5Group=
+- add =isVlen= helper to check if dataset is variable length
+- make =special_type= usage optional when reading datasets
+* v0.3.10
+- change =dtypeAnyKind= definition when creating dataset
+- improve iteration over subgroups / datasets
 * v0.3.9
 - fix mapping of H5 types to Nim types, see PR #36.
 
