@@ -249,7 +249,9 @@ proc close*(id: hid_t, kind: ObjectKind): herr_t =
 
 proc close*(h5f: H5FileObj): herr_t =
   ## this procedure closes all known datasets, dataspaces, groups and the HDF5 file
-  ## itself to clean up
+  ## itself to clean up.
+  ## The return value will be non negative if the closing was successful and negative
+  ## otherwise.
   ## inputs:
   ##    h5f: H5FileObj = file object which to close
   ## outputs:
