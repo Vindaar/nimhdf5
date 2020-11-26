@@ -344,6 +344,14 @@ proc h5ToNimType*(dtype_id: hid_t): DtypeKind =
   else:
     raise newException(KeyError, "Warning: the following H5 type could not be converted: $# of class $#" % [$dtype_id, $H5Tget_class(dtype_id)])
 
+proc special_type*(dtype: typedesc): hid_t =
+  ## calls the H5Tvlen_create() to create a special datatype
+  ## for variable length data
+  when dtype isnot string:
+    result = H5Tvlen_create(nimToH5type(dtype))
+  else:
+    doAssert false, "Currently not implemented to create variable string datatype"
+
 template insertType(res, nameStr, name, val: untyped): untyped =
   H5Tinsert(res, nameStr.cstring, offsetOf(val, name).csize_t, nimToH5type(typeof(val.name)))
 
@@ -434,6 +442,8 @@ proc nimToH5type*(dtype: typedesc): hid_t =
     var tmpH5: dtype
     result = H5Tcreate(H5T_COMPOUND, sizeof(dtype).csize_t)
     walkObjectAndInsert(tmpH5, result)
+  elif dtype is seq:
+    result = special_type(getInnerType(dtype))
 
 template anyTypeToString*(dtype: DtypeKind): string =
   ## return a datatype string from an DtypeKind object
@@ -444,14 +454,6 @@ proc getDtypeString*(dset_id: hid_t): string =
   ## to the H5 library to get the datatype of that dataset
   let t = H5Dget_type(dset_id)
   result = anyTypeToString(h5ToNimType(t))
-
-proc special_type*(dtype: typedesc): hid_t =
-  ## calls the H5Tvlen_create() to create a special datatype
-  ## for variable length data
-  when dtype isnot string:
-    result = H5Tvlen_create(nimToH5type(dtype))
-  else:
-    doAssert false, "Currently not implemented to create variable string datatype"
 
 proc parseH5rw_type*(rw_type: string, exists: bool): cuint =
   ## this proc simply acts as a parser for the read/write
