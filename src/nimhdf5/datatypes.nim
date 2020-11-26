@@ -270,6 +270,8 @@ proc typeMatches*(dtype: typedesc, dstr: string): bool =
                true
              else:
                false
+  of dkObject:
+    result = dtype is object
   else:
     # no size check necessary
     result = if dAnyKind == dstrAnyKind: true else: false
@@ -335,8 +337,27 @@ proc h5ToNimType*(dtype_id: hid_t): DtypeKind =
   elif H5Tget_class(dtype_id) == H5T_VLEN:
     # represent vlen types as sequence for any kind
     result = dkSequence
+  elif H5Tget_class(dtype_id) == H5T_COMPOUND:
+    result = dkObject
   else:
     raise newException(KeyError, "Warning: the following H5 type could not be converted: $# of class $#" % [$dtype_id, $H5Tget_class(dtype_id)])
+
+template insertType(res, nameStr, name, val: untyped): untyped =
+  H5Tinsert(res, nameStr.cstring, offsetOf(val, name).csize_t, nimToH5type(typeof(val.name)))
+
+macro walkObjectAndInsert(dtype: typed,
+                          res: untyped): untyped =
+  ## simple macro similar to `fieldPairs` which walks an object type. It creates
+  ## an `discard insertType(`res`, `nStr`, `n`, `dtype`)` line for each field
+  ## in an object to construct a compound datatype for the object
+  result = newStmtList()
+  let typ = dtype.getTypeImpl
+  expectKind(typ, nnkObjectTy)
+  for ch in typ[2]:
+    let nStr = ch[0].strVal
+    let n = ch[0]
+    result.add quote do:
+      discard insertType(`res`, `nStr`, `n`, `dtype`)
 
 proc nimToH5type*(dtype: typedesc): hid_t =
   ## given a typedesc, we return a corresponding
@@ -406,6 +427,10 @@ proc nimToH5type*(dtype: typedesc): hid_t =
     # -> call string_dataspace(str: string, dtype: hid_t) with
     # `result` as the second argument and the string you wish to
     # write as 1st after the call to this fn
+  elif dtype is object:
+    var tmpH5: dtype
+    result = H5Tcreate(H5T_COMPOUND, sizeof(dtype).csize_t)
+    walkObjectAndInsert(tmpH5, result)
 
 template anyTypeToString*(dtype: DtypeKind): string =
   ## return a datatype string from an DtypeKind object
