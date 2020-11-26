@@ -165,7 +165,9 @@ type
     # here we store H5P_GROUP_CREATE property list
     gcpl_id*: hid_t
 
-  H5FileObj* = ref object
+  H5FileObj* {.deprecated: "Use `H5File` instead. This is a leftover naming scheme " &
+    "from when the H5 objects were not ref objects. This is an alias for H5File.".} = H5File
+  H5File* = ref object
     name*: string
     # the file_id is the unique identifier of the opened file. Each
     # low level C call uses this file_id to idenfity the file to work
