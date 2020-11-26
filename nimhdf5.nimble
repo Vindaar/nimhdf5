@@ -11,7 +11,7 @@ skipExt       = @["nim~"]
 # Dependencies
 
 requires "nim >= 1.0.0"
-requires "https://github.com/vindaar/seqmath >= 0.1.5"
+requires "https://github.com/vindaar/seqmath >= 0.1.12"
 
 task test, "Runs all tests":
   exec "nim c -r tests/tbasic.nim"
