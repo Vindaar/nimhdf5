@@ -369,7 +369,8 @@ proc create_dataset*[T: (tuple | int | seq)](
   ##           `int`: for 1D datasets
   ##           `tuple` / `seq`: for N dim. datasets
   ##    dtype = typedesc = a Nim typedesc (e.g. int, float, etc.) for that
-  ##            dataset. vlen not yet supported
+  ##            dataset. If a sequence type is given it will create a variable length
+  ##            dataset.
   ##    chunksize: seq[int] = a sequence containing the chunksize, the dataset should be
   ##            should be chunked in (if any). Empty seq: no chunking (but no resizing either!)
   ##    maxshape: seq[int] = a sequence containing the maxmimum sizes for each
