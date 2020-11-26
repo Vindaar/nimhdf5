@@ -16,7 +16,7 @@ type
     dkEnum,        ## represents an enum
     dkArray,       ## represents an array
     dkObject,      ## represents an object
-    dkTuple,       ## represents a tuple
+    dkTuple,       ## represents a tuple ``NOTE``: not used. Tuples are represented as dkObject!
     dkSet,         ## represents a set
     dkRange,       ## represents a range
     dkPtr,         ## represents a ptr
@@ -273,7 +273,7 @@ proc typeMatches*(dtype: typedesc, dstr: string): bool =
              else:
                false
   of dkObject:
-    result = dtype is object
+    result = dtype is object or dtype is tuple
   else:
     # no size check necessary
     result = if dAnyKind == dstrAnyKind: true else: false
@@ -354,8 +354,9 @@ macro walkObjectAndInsert(dtype: typed,
   ## in an object to construct a compound datatype for the object
   result = newStmtList()
   let typ = dtype.getTypeImpl
-  expectKind(typ, nnkObjectTy)
-  for ch in typ[2]:
+  doAssert typ.kind in {nnkObjectTy, nnkTupleTy}
+  let implNode = if typ.kind == nnkObjectTy: typ[2] else: typ
+  for ch in implNode:
     let nStr = ch[0].strVal
     let n = ch[0]
     result.add quote do:
@@ -429,7 +430,7 @@ proc nimToH5type*(dtype: typedesc): hid_t =
     # -> call string_dataspace(str: string, dtype: hid_t) with
     # `result` as the second argument and the string you wish to
     # write as 1st after the call to this fn
-  elif dtype is object:
+  elif dtype is object or dtype is tuple:
     var tmpH5: dtype
     result = H5Tcreate(H5T_COMPOUND, sizeof(dtype).csize_t)
     walkObjectAndInsert(tmpH5, result)
