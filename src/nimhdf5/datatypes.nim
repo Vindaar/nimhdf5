@@ -372,7 +372,7 @@ proc nimToH5type*(dtype: typedesc): hid_t =
   else:
     if dtype is int:
       result = H5T_NATIVE_INT
-  if dtype is int64:
+  when dtype is int64:
     result = H5T_NATIVE_LONG
   elif dtype is uint8:
     # for 8 bit int we take the STD LE one, since there is no
