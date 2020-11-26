@@ -1131,36 +1131,42 @@ proc read*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T], indices: seq[int]):
   for idx in indices:
     result.add dset.read(t, dtype, idx)
 
-proc read*[T](dset: H5DataSet, t: typedesc[T],
-              allowVlen = false): seq[T] =
+proc read*[T](dset: H5DataSet, t: typedesc[T], allowVlen = false): seq[T] =
   ## procedure to read the data of an existing dataset and return it as a 1D sequence.
   ## inputs:
   ##    dset: var H5DataSet = the dataset which contains the necessary information
   ##         about dataset shape, dtype etc. to read from
-  ##    t: typedesc[T] = the Nim datatype of the dataset to be read
+  ##    t: typedesc[T] = the Nim datatype of the dataset to be read. If type is given
+  ##         as a `seq[seq[T]]` the dataset has to be variable length.
   ##    allowVlen: bool = if true it allows to read variable length data. Note this
   ##         means the vlen data will be flattened to 1D!
   ## outputs:
   ##    seq[T]: a flattened sequence of the data in the (potentially) multidimensional
-  ##         dataset
-  ##         TODO: return the correct data shape!
+  ##         dataset or a `seq[seq[T]]` for variable length data.
   ## throws:
   ##     ValueError: in case the given typedesc t is different than
   ##         the datatype of the dataset
-  if dset.isVlen and allowVlen:
-    result = dset.readVlen(t).flatten
+  when T is seq:
+    if dset.isVlen:
+      result = dset.readVlen(getInnerType(t))
+    else:
+      raise newException(ValueError, "Can only read variable length data into " &
+        "a seq[seq[T]]. Uniform data has to be read into a 1D seq[T] currently.")
   else:
-    if not typeMatches(t, dset.dtype):
-      raise newException(ValueError, "Wrong datatype as arg to `[]`. " &
-        "Given `$#`, dset is `$#`" % [$t, $dset.dtype])
-    # create a flat sequence of the size of the dataset in the H5 file, then read data
-    # cannot use the result sequence, since we need to hand the address of the sequence to
-    # the H5 library
-    let
-      shape = dset.shape
-      n_elements = foldl(shape, a * b)
-    result = newSeq[T](n_elements)
-    dset.read(result)
+    if dset.isVlen and allowVlen:
+      result = dset.readVlen(t).flatten
+    else:
+      if not typeMatches(t, dset.dtype):
+        raise newException(ValueError, "Wrong datatype as arg to `[]`. " &
+          "Given `$#`, dset is `$#`" % [$t, $dset.dtype])
+      # create a flat sequence of the size of the dataset in the H5 file, then read data
+      # cannot use the result sequence, since we need to hand the address of the sequence to
+      # the H5 library
+      let
+        shape = dset.shape
+        n_elements = foldl(shape, a * b)
+      result = newSeq[T](n_elements)
+      dset.read(result)
 
 proc `[]`*[T](dset: H5DataSet, t: typedesc[T]): seq[T] =
   ## Reads the given dataset into a `seq[T]`. If the given datatype does not
