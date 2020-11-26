@@ -4,11 +4,23 @@
   instead of unsigned). But for =H5T_VARIABLE = csize.high= this
   caused problems, because the value was not the one expected
   (=csize_t.high=)
+- add support for compound datatypes. Creating a dataset / writing and
+  reading data works for any objects `T` which have fields that can be
+  stored in HDF5 files currently. 
+  Objects and tuples are treated the same!
 - add support for =seq[string]= attributes
 - reorder =datasets.nim= and clean up =[]= logic
 - add =[]= accessor from a =H5Group=
 - add =isVlen= helper to check if dataset is variable length
 - make =special_type= usage optional when reading datasets
+- fix branching in =nimToH5type= to be fully compile time
+- add =H5File= to replace =H5FileObj= (latter is kept as deprecated
+  typedef)
+- variable lenght data is created automatically if user gives =seq[T]=
+  type in =create_dataset=
+- =read= can automatically read variable length data if =seq[T]=
+  datatype is given
+- add tests for compound data and =seq[string]= attributes
 * v0.3.10
 - change =dtypeAnyKind= definition when creating dataset
 - improve iteration over subgroups / datasets

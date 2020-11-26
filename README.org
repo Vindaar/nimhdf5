@@ -188,6 +188,12 @@ know.
   - writing / reading static sized N-D arrays of any type
   - writing / reading variable length data
   - chunked storage
+- data types:
+  - any basic nim type, that is:
+    - SomeNumber (all ints and floats)
+    - string (not for datasets atm)
+  - compound datatypes of objects / tuples, where the fields have to
+    be of the above mentioned basic types.
 - hyperslabs
   - writing / reading hyperslabs using H5 notation
 - compression / filters
@@ -217,8 +223,3 @@ know.
   - datasets
   - attributes
 
-** Major missing HDF5 features
-Most major HDF5 features are now supported (although they may not be
-perfectly stable yet, due to limited testing). The major exception
-is the following:
-- support for compound data types
