@@ -47,6 +47,42 @@ proc attrsToJson*[T: H5Group | H5DataSet](h5o: T, withType = false): JsonNode =
   for key, jval in h5o.attrsJson(withType = withType):
     result[key] = jval
 
+proc pretty*(att: H5Attr, indent = 0, full = false): string =
+  result = repeat(' ', indent) & "{\n"
+  let fieldInd = repeat(' ', indent + 2)
+  result.add &"{fieldInd}opened: {att.opened},\n"
+  result.add &"{fieldInd}dtypeAnyKind: {att.dtypeAnyKind}"
+  if full:
+    result.add &",\n{fieldInd}attr_id: {att.attr_id},\n"
+    result.add &"{fieldInd}dtype_c: {att.dtype_c},\n"
+    result.add &"{fieldInd}dtypeBaseKind: {att.dtypeBaseKind},\n"
+    result.add &"{fieldInd}attr_dspace_id: {att.attr_dspace_id}"
+  result.add repeat(' ', indent) & "\n}"
+
+proc `$`*(att: H5Attr): string =
+  result = pretty(att)
+
+proc pretty*(attrs: H5Attributes, indent = 2, full = false): string =
+  ## For now this just prints the H5Attributes all as JSON
+  result = repeat(' ', indent) & "{\n"
+  let fieldInd = repeat(' ', indent + 2)
+  result.add &"{fieldInd}num_attrs: {attrs.num_attrs},\n"
+  result.add &"{fieldInd}parent_name: {attrs.parent_name},\n"
+  result.add &"{fieldInd}parent_type: {attrs.parent_type}"
+  if full:
+    result.add &",\n{fieldInd}parent_id: {attrs.parent_id}"
+  if attrs.num_attrs > 0:
+    result.add &"{fieldInd}attributes: " & "{"
+  for name, attr in attrs.attrsJson:
+    result.add &"{fieldInd}{name}: {attr},\n"
+  if attrs.num_attrs > 0:
+    result.add &"{fieldInd}" & "}"
+  result.add repeat(' ', indent) & "\n}"
+
+proc `$`*(attrs: H5Attributes): string =
+  ## to string conversion for a `H5Attributes` for pretty printing
+  result = pretty(attrs, full = false)
+
 proc pretty*(dset: H5DataSet, indent = 0, full = false): string =
   result = repeat(' ', indent) & "{\n"
   let fieldInd = repeat(' ', indent + 2)
@@ -102,42 +138,6 @@ proc pretty*(grp: H5Group, indent = 2, full = false): string =
 proc `$`*(grp: H5Group): string =
   ## to string conversion for a `H5Group` for pretty printing
   result = pretty(grp, full = false)
-
-proc pretty*(att: H5Attr, indent = 0, full = false): string =
-  result = repeat(' ', indent) & "{\n"
-  let fieldInd = repeat(' ', indent + 2)
-  result.add &"{fieldInd}opened: {att.opened},\n"
-  result.add &"{fieldInd}dtypeAnyKind: {att.dtypeAnyKind}"
-  if full:
-    result.add &",\n{fieldInd}attr_id: {att.attr_id},\n"
-    result.add &"{fieldInd}dtype_c: {att.dtype_c},\n"
-    result.add &"{fieldInd}dtypeBaseKind: {att.dtypeBaseKind},\n"
-    result.add &"{fieldInd}attr_dspace_id: {att.attr_dspace_id}"
-  result.add repeat(' ', indent) & "\n}"
-
-proc `$`*(att: H5Attr): string =
-  result = pretty(att)
-
-proc pretty*(attrs: H5Attributes, indent = 2, full = false): string =
-  ## For now this just prints the H5Attributes all as JSON
-  result = repeat(' ', indent) & "{\n"
-  let fieldInd = repeat(' ', indent + 2)
-  result.add &"{fieldInd}num_attrs: {attrs.num_attrs},\n"
-  result.add &"{fieldInd}parent_name: {attrs.parent_name},\n"
-  result.add &"{fieldInd}parent_type: {attrs.parent_type}"
-  if full:
-    result.add &",\n{fieldInd}parent_id: {attrs.parent_id}"
-  if attrs.num_attrs > 0:
-    result.add &"{fieldInd}attributes: " & "{"
-  for name, attr in attrs.attrsJson:
-    result.add &"{fieldInd}{name}: {attr},\n"
-  if attrs.num_attrs > 0:
-    result.add &"{fieldInd}" & "}"
-  result.add repeat(' ', indent) & "\n}"
-
-proc `$`*(attrs: H5Attributes): string =
-  ## to string conversion for a `H5Attributes` for pretty printing
-  result = pretty(attrs, full = false)
 
 proc pretty*(h5f: H5FileObj, indent = 2, full = false): string =
   result = repeat(' ', indent) & "{\n"
