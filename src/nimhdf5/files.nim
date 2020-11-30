@@ -99,7 +99,7 @@ proc nameExistingObjectOrParent(h5f: H5FileObj, name: string): string =
         # else return empty string, nothing found in file object
         result = ""
 
-proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
+proc H5open*(name, rw_type: string): H5File =
   ## this procedure is the main creating / opening procedure
   ## for HDF5 files.
   ## inputs:
@@ -160,6 +160,10 @@ proc H5file*(name, rw_type: string): H5FileObj = #{.raises = [IOError].} =
   # after having opened / created the given file, we get the datasets etc.
   # which are stored in the file
   result.attrs = initH5Attributes(result.file_id, "/", "H5FileObj")
+
+proc H5file*(name, rw_type: string): H5File {.deprecated: "Use `H5open` instead of " &
+    "H5file. The datatype was renamed from `H5FileObj` to `H5File`.".} =
+  result = H5open(name, rw_type)
 
 proc printOpenObjects*(h5f: H5FileObj) =
   let
