@@ -105,12 +105,19 @@ proc getNumAttrs(h5attr: H5Attributes): int =
       debugEcho "getNumAttrs(): ", h5attr
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getNumAttr` when reading $#" % $h5attr.parent_name)
 
-proc setAttrAnyKind(attr: H5Attr) =
+proc setAttrAnyKind[T](attr: H5Attr, dtype: typedesc[T]) =
   ## proc which sets the AnyKind fields of a H5Attr
-  let npoints = H5Sget_simple_extent_npoints(attr.attr_dspace_id)
-  if npoints > 1:
+  when dtype is void:
+    # use heuristics
+    let npoints = H5Sget_simple_extent_npoints(attr.attr_dspace_id)
+    if npoints > 1:
+      attr.dtypeAnyKind = dkSequence
+      # set the base type based on what's contained in the sequence
+      attr.dtypeBaseKind = h5ToNimType(attr.dtype_c)
+    else:
+      attr.dtypeAnyKind = h5ToNimType(attr.dtype_c)
+  elif dtype is seq:
     attr.dtypeAnyKind = dkSequence
-    # set the base type based on what's contained in the sequence
     attr.dtypeBaseKind = h5ToNimType(attr.dtype_c)
   else:
     attr.dtypeAnyKind = h5ToNimType(attr.dtype_c)
@@ -134,7 +141,7 @@ proc readAttributeInfo(h5attr: H5Attributes,
   #echo "Encoding is native ", H5Tget_cset(attr.dtype_c)
   attr.attr_dspace_id = H5Aget_space(attr.attr_id)
   # now set the attribute any kind fields (checks whether attr is a sequence)
-  attr.setAttrAnyKind
+  attr.setAttrAnyKind(void)
   # add to this attribute object
   h5attr.attr_tab[name] = attr
 
@@ -208,7 +215,6 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
   ## - write attribute
   ## - add attribute to h5attr
   ## - later close attribute when closing parent of h5attr
-
   var attr_exists = false
   # the first check is done, since we may be calling this function KNOWING that
   # the attribute does not exist. This should normally not be done by a user,
@@ -243,7 +249,7 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
       attr.dtype_c = dtype
       attr.attr_dspace_id = attr_dspace_id
       # set any kind fields (check whether is sequence)
-      attr.setAttrAnyKind
+      attr.setAttrAnyKind(T)
 
     elif T is seq or T is string:
       # NOTE:
@@ -288,7 +294,7 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
       attr.dtype_c = dtype
       attr.attr_dspace_id = attr_dspace_id
       # set any kind fields (check whether is sequence)
-      attr.setAttrAnyKind
+      attr.setAttrAnyKind(T)
     elif T is bool:
       # NOTE: in order to support booleans, we need to use HDF5 enums, since HDF5 does not support
       # a native boolean type. H5 enums not supported yet though...
@@ -325,14 +331,16 @@ proc readStringArrayAttribute(attr: H5Attr, npoints: hssize_t): seq[string] =
   ## proc to read an array of strings attribute from a H5 file, for an existing
   ## `H5Attr`. This proc is only used in the `read_attribute` proc
   ## for users after checking of attribute is done.
-  doAssert attr.dtypeAnyKind == dkSequence, "`readStringArrayAttribute` called for " &
-    "a non string attribute. Attribute is kind " & $attr.dtypeAnyKind & "!"
-  doAssert attr.dtypeBaseKind == dkString, "Base kind of attribute has to be string!"
+  doAssert (attr.dtypeAnyKind == dkSequence and attr.dtypeBaseKind == dkString) or
+    (attr.dtypeAnyKind == dkString and npoints == 1.hssize_t),
+     "`readStringArrayAttribute` called for a non string attribute. Attribute " &
+     "is kind " & $attr.dtypeAnyKind & "!"
   # create a void pointer equivalent
   let nativeType = H5Tcopy(H5T_C_S1)
   discard H5Tset_size(nativeType, H5T_VARIABLE)
   var buf = newSeq[cstring](npoints.int)
-  let err2 = H5Aread(attr.attr_id, nativeType, buf[0].addr)
+  let err = H5Aread(attr.attr_id, nativeType, buf[0].addr)
+  doAssert err >= 0
   # cast the void pointer to a ptr on a ptr of an unchecked array
   # and dereference it to get a ptr to an unchecked char array
   result = newSeq[string](npoints)
@@ -347,12 +355,21 @@ proc readStringAttribute(attr: H5Attr): string =
     "string attribute. Attribute is kind " & $attr.dtypeAnyKind & "!"
   # in case of string, need to determine size. use:
   # in case of existence, read the data and return
-  attr.attr_dspace_id = H5Aget_space(attr.attr_id)
-  let nativeType = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
-  let string_len = H5Aget_storage_size(attr.attr_id)
-  var buf_string = newString(string_len)
-  let err = H5Aread(attr.attr_id, nativeType, addr buf_string[0])
-  result = buf_string
+  if isVariableString(attr.dtype_c):
+    let nativeType = H5Tcopy(H5T_C_S1)
+    discard H5Tset_size(nativeType, H5T_VARIABLE)
+    var buf: cstring
+    let err = H5Aread(attr.attr_id, nativeType, buf.addr)
+    doAssert err >= 0
+    result = $buf
+  else:
+    attr.attr_dspace_id = H5Aget_space(attr.attr_id)
+    let nativeType = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
+    let string_len = H5Aget_storage_size(attr.attr_id)
+    var buf_string = newString(string_len)
+    let err = H5Aread(attr.attr_id, nativeType, addr buf_string[0])
+    doAssert err >= 0
+    result = buf_string
 
 proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
   ## now implement reading of attributes

@@ -208,6 +208,7 @@ type
   # raised if the user tries to change to write to a file opened with read only access
   ReadOnlyError* = object of Exception
   # raised if some part of code that is not yet implemented (but planned) is being called
+  ## TODO: replace by compile time error if this is even being used!
   NotImplementedError* = object of Exception
 
   # enum which determines how the given H5 object should be flushed
@@ -524,3 +525,19 @@ proc vlenToSeq*[T](data: seq[hvl_t]): seq[seq[T]] =
     # now assign each element of the unckecked array to our sequence
     for j in 0 ..< elem_len:
       result[i][j] = data_seq[j]
+
+proc isVariableString*(dtype: hid_t): bool =
+  ## checks whether the datatype given by `hid_t` is in the string class of
+  ## types and a variable length string.
+  ## Returns true if the string is a variable length string, false if it's a
+  ## static length string. Raises if it's neither a string (ValueError) or
+  ## if the library call fails (HDF5LibraryError).
+  let class = H5Tget_class(dtype)
+  if class != H5T_STRING:
+    raise newException(ValueError, "Given `dtype` is not a string, but of class " &
+      $class & "!")
+  let res = H5Tis_variable_str(dtype)
+  if res < 0:
+    raise newException(HDF5LibraryError, "Call to `H5Tis_variable_str` failed in " &
+      "`isVariableString`!")
+  result = res > 0
