@@ -26,6 +26,11 @@ import nimhdf5/dataspaces
 import nimhdf5/datasets
 export datasets
 
+# if we do not export seqmath the usage of `shape` will cause compilation errors
+# in the users code when procs (not templates!) that use `shape` internally!
+import seqmath
+export seqmath
+
 # compression / filter support
 import nimhdf5/filters
 export filters
