@@ -202,10 +202,7 @@ know.
   - blosc compression (external)
     User needs to compile / install:
     - https://github.com/Blosc/c-blosc
-    - https://github.com/Skrylar/nblosc
-
-      (Note: if [[https://github.com/Skrylar/nblosc/pull/1][PR#1]] is not merged yet, install
-      [[https://github.com/Vindaar/nblosc]] instead)
+      [[https://github.com/Vindaar/nblosc]]
     Note: Windows / OSX not yet supported, due to wrong name of
     =libblosc.so= in [[https://github.com/Vindaar/nblosc/blob/master/blosc.nim#L6][blosc.nim#L6]]. Change it appropriately.
   - _sort of soon:_ fletcher32, shuffle, nbits
@@ -222,4 +219,14 @@ know.
   - groups
   - datasets
   - attributes
+
+** Blosc support
+
+To use blosc as a filter you need to import:
+#+begin_src nim
+import nimhdf5/blosc
+#+end_src
+Before =v0.3.12= this was done automatically if the =nblosc= library
+is installed.
+
 

@@ -4,8 +4,7 @@ import hdf5_wrapper
 import datatypes
 import H5nimtypes
 
-
-import blosc/blosc_plugin
+import blosc_filter
 
 const SzipPixPerBlockSeq = toSeq(0'u8 .. 32'u8).filterIt(it mod 2 == 0)
 const ZlibCompressionLevel = {0 .. 9}
