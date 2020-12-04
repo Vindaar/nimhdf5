@@ -2,6 +2,9 @@
 - =H5File= as a proc is deprecated and replaced by =H5open=!
 - reading of string attributes now takes care to check if they are
   variable length or fixed length strings
+- import of =blosc= plugin is not automatic anymore, but needs to be
+  done manually by compiling with =-d:blosc= 
+- remove a lot old comments and imports from days past...
 * v0.3.11
 - change usage of =csize= to =csize_t= in full wrapper / library. For
   most use cases this did not have any effect (=csize= was an int,

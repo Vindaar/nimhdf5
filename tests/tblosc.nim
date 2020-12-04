@@ -1,4 +1,4 @@
-import sequtils, os, strformat
+import sequtils, os, strformat, seqmath
 
 import nimhdf5/hdf5_wrapper
 import nimhdf5
@@ -8,15 +8,15 @@ const dataShape = @[100, 100]
 const chunkSize = @[20, 20]
 
 when isMainModule:
+  assert H5Zfilter_avail(FILTER_BLOSC) == 1
 
   # first test whether we can register the blosc plugin
   var
     version: string
     date: string
-  # TODO: put this into the set filter?
+  # the following is not required for a user! This is done automatically in
+  # blosc_plugin! We do this here to echo the version and string
   let r = registerBlosc(version, date)
-  assert H5Zfilter_avail(FILTER_BLOSC) == 1
-
   echo "Blosc version: ", version
   echo "Blosc date: ", date
 
