@@ -1,3 +1,14 @@
+* v0.3.13
+- =visit_file= now does not open all groups and datasets anymore. Only
+  recognizes which groups / files actually exist
+- adds =close= for dataset / groups. Both are now aware if they are
+  open or not
+- add a string conversion for =H5Attr=
+- fix accessing a dataset from a group. Now uses the path of the group
+  as the base
+- fix error message in =read_hyperslab_vlen=
+- turn some templates into procs
+- make =blosc= an optional import
 * v0.3.12
 - =H5File= as a proc is deprecated and replaced by =H5open=!
 - reading of string attributes now takes care to check if they are
