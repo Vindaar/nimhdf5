@@ -1610,7 +1610,7 @@ proc read_hyperslab_vlen*[T](dset: H5DataSet, dtype: typedesc[T],
   if not typeMatches(dtype, dset.dtypeBaseKind.anyTypeToString):
     raise newException(ValueError,
                        "Wrong datatype as arg to `read_hyperslab`. Given " &
-                       "`$#`, dset is `$#`" % [$dtype, $dset.dtype])
+                       "`$#`, dset is `$#`" % [$dtype, $dset.dtypeBaseKind])
 
   let (memspace_id,
        hyperslab_id,
