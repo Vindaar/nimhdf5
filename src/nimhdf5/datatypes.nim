@@ -85,6 +85,8 @@ type
   # an HDF5 dataspace and dataset id (contains both of them)
   H5DataSet* = ref object
     name*: string
+    # datasets may not be open (in that case only the name is really valid!)
+    opened*: bool
     # we store the shape information internally as a seq, so that we do
     # not have to know about it at compile time
     shape*: seq[int]
@@ -133,6 +135,8 @@ type
   # an object to store information about a HDF5 group
   H5Group* = ref object
     name*: string
+    # groups may not be open (in that case only the name is really valid!)
+    opened*: bool
     # # parent string, which contains the name of the group in which the
     # # dataset is located
     parent*: string

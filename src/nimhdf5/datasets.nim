@@ -38,6 +38,7 @@ proc newH5DataSet*(name: string = ""): H5DataSet =
   let attrs = newH5Attributes()
   result = new H5DataSet
   result.name = name
+  result.opened = false
   result.shape = shape
   result.maxshape = maxshape
   result.dtype = ""
@@ -59,6 +60,37 @@ proc flush*(dset: H5DataSet, flushKind: FlushKind) =
   if err < 0:
     raise newException(HDF5LibraryError, "Trying to flush dataset " & dset.name &
       " as " & $flushKind & " failed!")
+
+proc close*(dset: H5DataSet) =
+  if dset.opened:
+    # close the dataset creation property list, important if filters are used
+    var err = H5Pclose(dset.dcpl_id)
+    if err < 0:
+      raise newException(HDF5LibraryError, "Error closing property list of dataset " & $(dset.name) & "!")
+    withDebug:
+      # by calling flush here, depending on the status of the library
+      # this might be the place where the actual writing to file takes place
+      echo "Flushing dataset ", dset.name
+    # flush the dataset before we close it
+    err = H5Fflush(dset.dataset_id, H5F_SCOPE_LOCAL)
+    if err < 0:
+      raise newException(HDF5LibraryError, "Error flush dataset " & $(dset.name) & " during closing!")
+    withDebug:
+      echo "...done"
+    err = H5Sclose(dset.dataspace_id)
+    if err < 0:
+      raise newException(HDF5LibraryError, "Error closing dataspace of dataset " & $(dset.name) & "!")
+    err = H5Dclose(dset.dataset_id)
+    if err < 0:
+      raise newException(HDF5LibraryError, "Error closing dataset " & $(dset.name) & "!")
+    dset.opened = false
+
+proc isOpen*(h5f: H5File, name: dset_str): bool =
+  ## returns if the given dataset is known and open. Returns false
+  ## both if the dataset is not known as well as if it's known but closed.
+  let n = name.string
+  result = if h5f.datasets.hasKey(n): h5f.datasets[n].opened
+           else: false
 
 proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
   ## convenience proc to return the dataset with name dset_name
@@ -157,10 +189,10 @@ proc get(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
   var status: cint
 
   let dset_name = formatName(string(dset_in))
-  let dset_exist = hasKey(h5f.datasets, dset_name)
+  let dset_open = isOpen(h5f, dset_in)
 
   result = newH5DataSet(dset_name)
-  if dset_exist == false:
+  if not dset_open:
     # before we raise an exception, because the dataset does not yet exist,
     # check whether such a dataset exists in the file we're not aware of yet
     withDebug:
@@ -169,6 +201,9 @@ proc get(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
     let dsetInFile = h5f.isDataset(result.name)
     if dsetInFile:
       result.dataset_id   = H5Dopen2(h5f.file_id, result.name, H5P_DEFAULT)
+      if result.dataset_id < 0:
+        raise newException(HDF5LibraryError, "Failed to open the dataset " & $result.name & "!")
+      result.opened = true
       # get the dataspace id of the dataset
       let dataspace_id = result.dataspace_id
       # does exist, add to H5FileObj
@@ -213,13 +248,10 @@ proc get(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
         #TODO: replace by exception
         echo "Status of H5Tclose() returned non-negative value."
         echo "H5 will probably complain now..."
-
       # now that we have created the group fully (including IDs), we can add it to the file and
       # the parent
-      var dset_ref = new H5DataSet
-      dset_ref = result
-      parent.datasets[result.name] = dset_ref
-      h5f.datasets[result.name] = dset_ref
+      parent.datasets[result.name] = result
+      h5f.datasets[result.name] = result
     else:
       # check whether there exists a group of same name?
       let groupOfName = h5f.isGroup(result.name)
@@ -232,6 +264,7 @@ proc get(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
           " not found in file " & h5f.name)
   else:
     result = h5f.datasets[dset_name]
+    doAssert result.opened
     # in this case we still need to update e.g. shape
     # TODO: think about what else we might have to update!
     let dataspace_id = result.dataset_id.dataspace_id
@@ -449,7 +482,6 @@ proc create_dataset*[T: (tuple | int | seq)](
     if status >= 0:
       # potentially apply filters
       dset.setFilters(filter)
-
       # check whether there already exists a dataset with the given name
       # first in H5FileObj:
       var exists = hasKey(h5f.datasets, dset_name)
@@ -484,6 +516,7 @@ proc create_dataset*[T: (tuple | int | seq)](
       else:
         # else the dataset is already known and in the table, get it
         dset = h5f[dset.name.dset_str]
+        doAssert dset.opened
     else:
       raise newException(UnkownError, "Unkown error occured due to call to " &
         "`parseChunkSizeAndMaxhShape` returning with status = $#" % $status)
