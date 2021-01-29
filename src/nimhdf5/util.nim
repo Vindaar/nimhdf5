@@ -10,8 +10,6 @@
 # and does not make use of any datatypes defined for H5 interop.
 
 import strutils
-import algorithm
-import sequtils
 import macros
 
 template withDebug*(actions: untyped) =
@@ -24,7 +22,7 @@ template withDebug*(actions: untyped) =
     actions
 
 proc formatName*(name: string): string =
-  # this procedure formats a given group / dataset namy by prepending
+  # this procedure formats a given group / dataset name by prepending
   # a potentially missing root / and removing a potential trailing /
   # do this by trying to strip any leading and trailing / from name (plus newline,
   # whitespace, if any) and then prepending a leading /
