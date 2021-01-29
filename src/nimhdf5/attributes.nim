@@ -14,6 +14,9 @@ import datatypes
 import dataspaces
 import util
 
+proc `$`*(h5attr: H5Attributes): string =
+  result = $(h5attr[])
+
 # forward declare procs, which we need to read the attributes from file
 proc read_all_attributes*(h5attr: H5Attributes)
 proc getNumAttrs(h5attr: H5Attributes): int
