@@ -273,7 +273,6 @@ proc close*(h5f: H5FileObj): herr_t =
       echo("Closing dset ", name, " with dset id ", dset.dataset_id)
     # close attributes
     for attr in values(dset.attrs.attr_tab):
-      result = attr.close()
     # close the dataset creation property list, important if filters are used
     result = H5Pclose(dset.dcpl_id)
     withDebug:
@@ -286,22 +285,19 @@ proc close*(h5f: H5FileObj): herr_t =
       echo "...done"
     result = H5Sclose(dset.dataspace_id)
     result = H5Dclose(dset.dataset_id)
-
+      attr.close()
 
   for name, group in pairs(h5f.groups):
     withDebug:
       echo("Closing group ", name, " with id ", group.group_id)
-    # close attributes
+    # close remaining attributes
     for attr in values(group.attrs.attr_tab):
-      result = attr.close()
     result = H5Gclose(group.group_id)
+      attr.close()
 
-  # close attributes
+  # close remaining open attributes
   for attr in values(h5f.attrs.attr_tab):
-    result = H5Aclose(attr.attr_id)
-    withDebug:
-      echo "Closed attribute with status ", result
-    result = H5Sclose(attr.attr_dspace_id)
+    attr.close()
 
   withDebug:
     h5f.printOpenObjects()

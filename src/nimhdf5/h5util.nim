@@ -35,7 +35,7 @@ iterator attrsJson*(attrs: H5Attributes, withType = false): (string, JsonNode) =
           "value" : attr,
           "type" : att.dtypeAnyKind
         })
-    discard att.close()
+    att.close()
 
 iterator attrsJson*[T: H5FileObj | H5Group | H5DataSet](h5o: T, withType = false): (string, JsonNode) =
   for key, val in attrsJson(h5o.attrs, withType = withType):
