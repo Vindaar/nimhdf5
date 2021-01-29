@@ -20,6 +20,7 @@ proc newH5Group*(name: string = ""): H5Group =
   let attrs = newH5Attributes()
   result = new H5Group
   result.name = name
+  result.opened = false
   result.parent = ""
   result.parent_id = -1.hid_t
   result.file = ""
@@ -41,6 +42,20 @@ proc flush*(group: H5Group, flushKind: FlushKind) =
     raise newException(HDF5LibraryError, "Trying to flush group " & group.name &
       " as " & $flushKind & " failed!")
 
+proc close*(group: H5Group) =
+  if group.opened:
+    let err = H5Gclose(group.group_id)
+    if err != 0:
+      raise newException(HDF5LibraryError, "Failed to close group " & group.name & "!")
+    group.opened = false
+
+proc isOpen*(h5f: H5File, name: grp_str): bool =
+  ## returns if the given group is known and open. Returns false
+  ## both if the group is not known as well as if it's known but closed.
+  let n = name.string
+  result = if h5f.groups.hasKey(n): h5f.groups[n].opened
+           else: false
+
 proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
   ## convenience proc to return the group with name grp_name
   ## if it does not exist, KeyError is thrown
@@ -58,7 +73,7 @@ proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
   else:
     result = some(h5f.groups[grp_name])
 
-proc isGroup*(h5f: H5FileObj, name: string): bool =
+proc isGroup*(h5f: H5File, name: string): bool =
   ## checks for existence of object in file. If it exists checks whether
   ## object is a group or not
   let target = formatName name
@@ -66,7 +81,7 @@ proc isGroup*(h5f: H5FileObj, name: string): bool =
     let objType = getObjectTypeByName(h5f.file_id, target)
     result = if objType == H5O_TYPE_GROUP: true else: false
 
-template get(h5f: H5FileObj, group_in: grp_str): H5Group =
+template get(h5f: H5File, group_in: grp_str): H5Group =
   ## convenience proc to return the group with name group_name
   ## if it does not exist, KeyError is thrown
   ## inputs:
@@ -78,9 +93,9 @@ template get(h5f: H5FileObj, group_in: grp_str): H5Group =
   ##    KeyError: if group could not be found
   let
     group_name = string(group_in)
-    group_known = hasKey(h5f.groups, group_name)
+    group_open = h5f.isOpen(group_in)
   var result: H5Group
-  if group_known == false:
+  if not group_open:
     # if group not known (potentially the case if:
     # - no call to visit_file (read all grps / dsets)
     # - not created individually directly / indirectly
@@ -94,8 +109,8 @@ template get(h5f: H5FileObj, group_in: grp_str): H5Group =
       raise newException(KeyError, "Group with name: " & group_name & " not found in file " & h5f.name)
   else:
     result = h5f.groups[group_name]
+    doAssert result.opened
   result
-
 
 template isGroup(h5_object: typed): bool =
   # procedure to check whether object is a H5Group
@@ -145,7 +160,7 @@ proc createGroupFromParent[T](h5f: T, group_name: string): H5Group =
     raise newException(HDF5LibraryError, "call to H5 library failed in " &
       "`createGroupFromParent` trying to create group: " & group_name &
       ". Such a group exists? " & $exists)
-
+  result.opened = true # either we have raised or the group is now open
   # since we know that the parent exists, we can simply use the (recursive!) getParentId
   # to get the id of the parent, without worrying about receiving a parent id of an
   # object, which is in reality not a parent
@@ -171,15 +186,10 @@ proc createGroupFromParent[T](h5f: T, group_name: string): H5Group =
     # else use the ref of the parent creating this object
     result.file_ref = h5f.file_ref
 
-  # now that we have created the group fully (including IDs), we can add it
-  # to the H5FileObj
-  var grp = new H5Group
-  grp = result
   withDebug:
     debugEcho "Adding element to h5f groups ", group_name
-  h5f.groups[group_name] = grp
-  grp.groups = h5f.groups
-
+  h5f.groups[result.name] = result
+  result.groups = h5f.groups
 
 proc create_group*[T](h5f: T, group_name: string): H5Group =
   ## checks whether the given group name already exists or not.
@@ -210,8 +220,8 @@ proc create_group*[T](h5f: T, group_name: string): H5Group =
   else:
     let group_path = formatName group_name
 
-  let exists = hasKey(h5f.groups, group_path)
-  if exists == true:
+  let isOpen = h5f.isOpen(group_path.grp_str)
+  if isOpen:
     # then we return the object
     result = h5f.groups[group_path]
   else:

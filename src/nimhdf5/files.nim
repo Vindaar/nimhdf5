@@ -16,9 +16,9 @@ import dataspaces
 # from files import visit_files statement in groups.nim
 proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t)
 
-from datasets import `[]`
+from datasets import `[]`, close, isOpen, newH5DataSet
 import attributes
-from groups import create_group, `[]`
+from groups import create_group, `[]`, close, isOpen, newH5Group
 import h5util
 import util
 
@@ -118,7 +118,6 @@ proc H5open*(name, rw_type: string): H5File =
   ##            for the C functions
   ## throws:
   ##     IOError: in case file is opened without write access, but does not exist
-
   # create a new H5File object with default settings (i.e. no opened file etc)
   result = newH5File()
   # set the name of the file to be accessed
@@ -273,27 +272,16 @@ proc close*(h5f: H5FileObj): herr_t =
       echo("Closing dset ", name, " with dset id ", dset.dataset_id)
     # close attributes
     for attr in values(dset.attrs.attr_tab):
-    # close the dataset creation property list, important if filters are used
-    result = H5Pclose(dset.dcpl_id)
-    withDebug:
-      # by calling flush here, depending on the status of the library
-      # this might be the place where the actual writing to file takes place
-      echo "Flushing dataset ", dset.name
-    # flush the dataset before we close it
-    result = H5Fflush(dset.dataset_id, H5F_SCOPE_LOCAL)
-    withDebug:
-      echo "...done"
-    result = H5Sclose(dset.dataspace_id)
-    result = H5Dclose(dset.dataset_id)
       attr.close()
+    dset.close()
 
   for name, group in pairs(h5f.groups):
     withDebug:
       echo("Closing group ", name, " with id ", group.group_id)
     # close remaining attributes
     for attr in values(group.attrs.attr_tab):
-    result = H5Gclose(group.group_id)
       attr.close()
+    group.close()
 
   # close remaining open attributes
   for attr in values(h5f.attrs.attr_tab):
@@ -428,12 +416,12 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
       # h5f.get(grp_str) such that it checks in the file for existence
       # or rather create a open group from file proc, where we know that
       # the file exists and we open it by id
-      discard h5f.create_group(name)
+      h5f.groups[name] = newH5Group(name)
     elif h5info.`type` == H5O_TYPE_DATASET:
       # misuse `[]` proc for now.
       # TODO: write proc which opens and reads dataset from file by id...
       # see, I'm going to where the HDF5 library is in the first place...
-      discard h5f[name.dset_str]
+      h5f.datasets[name] = newH5DataSet(name)
 
 proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t) =
   ## this proc iterates over the whole file and reads the complete content
