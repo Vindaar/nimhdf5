@@ -708,7 +708,7 @@ template write*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
   else:
     dset.write_norm(coord, data)
 
-template write*[T: (SomeNumber | bool | char | string), U](dset: H5DataSet,
+proc write*[T: (SomeNumber | bool | char | string), U](dset: H5DataSet,
                                                            coord: seq[T],
                                                            data: seq[U]) =
   ## template around both write fns for normal and vlen data in case
@@ -730,7 +730,7 @@ template write*[T: (SomeNumber | bool | char | string), U](dset: H5DataSet,
       # in case of 1D data, need to separate each element into 1 element
       dset.write_norm(mapIt(coord, @[it, 0]), data)
 
-template write*[T: (seq | SomeNumber | bool | char | string)](dset: H5DataSet,
+proc write*[T: (seq | SomeNumber | bool | char | string)](dset: H5DataSet,
                                                               ind: int,
                                                               data: T,
                                                               column = false) =
