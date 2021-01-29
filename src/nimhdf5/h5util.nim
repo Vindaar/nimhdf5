@@ -284,6 +284,16 @@ proc delete*[T](h5o: T, name: string): bool =
   ## a relative name is valid. Else if `h5o` is the file itself, `name` needs
   ## to be the full path. Returns `true` if deletion successful
   let h5id = getH5Id(h5o)
+  case h5id.getObjectTypeByName(name)
+  of H5O_TYPE_UNKNOWN, H5O_TYPE_NAMED_DATATYPE, H5O_TYPE_NTYPES:
+    raise newException(HDF5LibraryError, "Object with name " & $name & " is neither " &
+      "a dataset nor a group! Cannot be deleted!")
+  of H5O_TYPE_GROUP:
+    if name in h5o.groups:
+      h5o.groups.del(name)
+  of H5O_TYPE_DATASET:
+    if name in h5o.datasets:
+      h5o.datasets.del(name)
   result = if H5Ldelete(h5id, name, H5P_DEFAULT) >= 0: true else: false
 
 proc copy*[T](h5in: H5FileObj, h5o: T,
