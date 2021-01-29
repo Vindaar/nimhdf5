@@ -59,13 +59,17 @@ proc openAttribute(h5attr: H5Attributes, key: string): hid_t =
   # we read by creation order, increasing from 0
   result = H5Aopen(h5attr.parent_id, key.cstring, H5P_DEFAULT)
 
-proc close*(attr: H5Attr): herr_t =
+proc close*(attr: H5Attr) =
   ## closes the attribute and the corresponding dataspace
   if attr.opened:
-    result = H5Aclose(attr.attr_id)
+    var err = H5Aclose(attr.attr_id)
+    if err < 0:
+      raise newException(HDF5LibraryError, "Error closing attribute with id " & $(attr.attr_id) & "!")
     withDebug:
-      echo "Closed attribute with status ", result
-    result = H5Sclose(attr.attr_dspace_id)
+      echo "Closed attribute with status ", err
+    err = H5Sclose(attr.attr_dspace_id)
+    if err < 0:
+      raise newException(HDF5LibraryError, "Error closing dataspace of attribute with id" & $(attr.attr_id) & "!")
     attr.opened = false
 
 proc getAttrName*[T: SomeInteger](attr_id: hid_t, buf_space: T = 200): string =
@@ -306,10 +310,7 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
 
     # add H5Attr tuple to H5Attributes table
     h5attr.attr_tab[name] = attr
-
-    if h5attr.attr_tab[name].close() < 0:
-      raise newException(HDF5LibraryError, "Error closing attribute " & $name &
-                         " after writing")
+    h5attr.attr_tab[name].close()
   else:
     # if it does exist, we delete the attribute and call this function again, with
     # exists = true, i.e. without checking again whether element exists. Saves us
@@ -416,9 +417,7 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
       # case of single string attribute
       result = readStringAttribute attr
     # close attribute again after reading
-    if h5attr.attr_tab[name].close() < 0:
-      raise newException(HDF5LibraryError, "Error closing attribute " & $name &
-                         " after reading")
+    h5attr.attr_tab[name].close()
   else:
     raise newException(KeyError, "No attribute `$#` exists in object `$#`" % [name, h5attr.parent_name])
 
@@ -540,4 +539,4 @@ proc copy_attributes*[T: H5Group | H5DataSet](h5o: T, attrs: H5Attributes) =
       # use injected read attribute value to write it
       h5o.attrs[key] = attr
     # close attr again to avoid memory leaking
-    doAssert value.close() >= 0, "error closing attribute " & $value
+    value.close()

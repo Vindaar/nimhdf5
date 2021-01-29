@@ -10,19 +10,19 @@
 ##  If you do not have access to either file, you may request a copy from     *
 ##  help@hdfgroup.org.                                                        *
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-## 
+##
 ##  This is the main public HDF5 include file.  Put further information in
 ##  a particular header file and include that here, don't fill this file with
 ##  lots of gunk...
 ##
 
 
-#[ NOTE: in a few files (H5Tpublic, H5Epublic and H5Ppublic) we need to define 
+#[ NOTE: in a few files (H5Tpublic, H5Epublic and H5Ppublic) we need to define
    several variables (regarding type ids), which can only be set after the HDF5
-   library has been 'opened' (= initialized). Thus we include H5initialize 
+   library has been 'opened' (= initialized). Thus we include H5initialize
    in these libraries, which (at the moment) simply calls the H5open() function
    which does exactly that. Then we can use the variables, like e.g.
-   H5T_NATIVE_INTEGER 
+   H5T_NATIVE_INTEGER
    in the Nim progams as function arguments without getting any weird errors.
 ]#
 
