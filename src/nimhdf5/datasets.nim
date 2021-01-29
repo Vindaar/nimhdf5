@@ -1272,9 +1272,9 @@ proc `[]`*[T](h5f: H5FileObj, name: string, t: hid_t, dtype: typedesc[T]):
   ## name
   result = h5f.get(name.dset_str).read(t, dtype)
 
-template `[]`*(grp: H5Group, name: dset_str): H5DataSet =
+template `[]`*(grp: H5Group, dsetName: dset_str): H5DataSet =
   ## Accessor relative from a basegroup to a dataset
-  grp.file_ref[name]
+  grp.file_ref[(grp.name / dsetName.string).dset_str]
 
 template withDset*(h5dset: H5DataSet, actions: untyped) =
   ## convenience template to read a dataset from the file and perform actions
