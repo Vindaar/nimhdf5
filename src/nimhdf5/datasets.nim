@@ -11,7 +11,7 @@ template tryExport(body: untyped): untyped =
   when compiles(body):
     discard
 
-import options
+import options, os
 import tables
 import strutils
 tryExport:
