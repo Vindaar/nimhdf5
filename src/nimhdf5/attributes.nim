@@ -428,7 +428,7 @@ template `[]`*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
   # convenience access to read_attribute
   h5attr.read_attribute(name, dtype)
 
-template `[]`*(h5attr: H5Attributes, name: string): AnyKind =
+template `[]`*(h5attr: H5Attributes, name: string): DtypeKind =
   # accessing H5Attributes by string simply returns the datatype of the stored
   # attribute as an AnyKind value
   h5attr.attr_tab[name].dtypeAnyKind

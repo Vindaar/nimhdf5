@@ -219,12 +219,12 @@ proc read_some() =
   # where the value describes the data type of the attribute
   # so if we want to read some attribute now, simply
   case attr["Counter"]
-  of akInt, akInt64:
+  of dkInt, dkInt64:
     let val = g1.attrs["Counter", int]
     echo "Counter is int with val = ", val
-  of akFloat:
+  of dkFloat:
     let val = g1.attrs["Counter", float]
-    echo "Counter is is float with val = ", val    
+    echo "Counter is is float with val = ", val
   else:
     echo "Datatype $# not covered here" % $attr["Counter"]
     discard
@@ -243,9 +243,9 @@ proc read_some() =
   # or even another way: create a case based on the AnyKind field of the.
   # dataset like so (this is what the withDset template does internally):
   case dataset.dtypeAnyKind
-  of akFloat64:
+  of dkFloat64:
     echo dataset[float64]
-  of akInt64:
+  of dkInt64:
     echo dataset[int64]
   else:
     # whatever else you may think is in this dataset
