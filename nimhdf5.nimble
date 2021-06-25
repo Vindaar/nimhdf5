@@ -1,3 +1,4 @@
+
 # Package
 
 version       = "0.3.13"
@@ -37,3 +38,5 @@ task test, "Runs all tests":
   exec "nim c -r tests/tint64_dset.nim"
   exec "nim c -r tests/t17.nim"
   exec "nim c -r tests/tIntegerTypes.nim"
+  # at least run the high level examples to avoid regressions
+  exec "nim c -r examples/h5_high_level_example.nim"
