@@ -5,8 +5,6 @@ import nimhdf5
 # wrapper is normally not needed to be imported, here only
 # to showcase
 import nimhdf5/hdf5_wrapper
-import typetraits
-import typeinfo
 import sequtils
 import tables
 import strutils
