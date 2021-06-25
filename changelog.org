@@ -1,3 +1,8 @@
+* v0.3.14
+- fix =H5Attributes= return values for =[]= template returning
+  =AnyKind=
+- change =[]=, ~[]=~ templates for =H5Attribtutes= into procs
+- fix the high level example to at least make it compile  
 * v0.3.13
 - =visit_file= now does not open all groups and datasets anymore. Only
   recognizes which groups / files actually exist
