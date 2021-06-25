@@ -1,5 +1,5 @@
 * nimhdf5
-[[https://travis-ci.com/Vindaar/nimhdf5][https://travis-ci.com/Vindaar/nimhdf5.svg?branch=master]]
+[[https://github.com/Vindaar/nimhdf5/workflows/nimhdf5%20CI/badge.svg]]
 
 This repository contains thin high-level bindings for the [[https://www.hdfgroup.org/HDF5/][HDF5 data
 format]] for the Nim programming language. It also provides a wrapper of
