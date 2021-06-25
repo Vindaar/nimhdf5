@@ -643,6 +643,7 @@ proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
     msg = msg % [$length, $dset.name, $dset.shape]
     raise newException(ValueError, msg)
 
+proc select_elements[T](dset: H5DataSet, coord: seq[T]): hid_t {.inline, discardable.}
 proc write_vlen*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
   ## check whether we have data for each coordinate
 
