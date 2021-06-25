@@ -130,8 +130,9 @@ proc write_some() =
   # g1.attrs["HODL"] = true
   # g1.attrs["UnsupportedType"] = [1, 2, 3]
 
-  echo g1.attrs
-  
+  ## For some reason the `$` for `H5Attributes` doesn't work anymore
+  echo g1.attrs.repr
+
   # close datasets, groups and file
   status = h5f.close()
   echo "Status of file closing is ", status
