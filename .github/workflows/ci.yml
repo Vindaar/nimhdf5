@@ -1,0 +1,88 @@
+name: nimhdf5 CI
+on:
+  push:
+    paths:
+      - 'tests/**'
+      - 'src/**'
+      - 'docs/**'
+      - 'nimhdf5.nimble'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'tests/**'
+      - 'src/**'
+      - 'docs/**'
+      - 'nimhdf5.nimble'
+      - '.github/workflows/ci.yml'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [version-1-2, version-1-4, devel]
+        target: [linux] #, macos, windows]
+        include:
+          - target: linux
+            builder: ubuntu-18.04
+          #- target: macos
+          #  builder: macos-10.15
+          #- target: windows
+          #  builder: windows-2019
+    name: '${{ matrix.target }} (${{ matrix.branch }})'
+    runs-on: ${{ matrix.builder }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          path: nimhdf5
+
+      - name: Setup Nim
+        uses: alaviss/setup-nim@0.1.1
+        with:
+          path: nim
+          version: ${{ matrix.branch }}
+
+      - name: Install dependencies (Ubuntu)
+        if: ${{matrix.target == 'linux'}}
+        run: |
+          sudo apt-get update
+          sudo apt-get install pandoc libhdf5-100 libhdf5-dev
+
+      - name: Setup nimble & deps
+        shell: bash
+        run: |
+          cd nimhdf5
+          nimble refresh -y
+          nimble install -y
+
+      - name: Run tests
+        shell: bash
+        run: |
+          cd nimhdf5
+          nimble -y test
+
+      #- name: Build docs
+      #  if: >
+      #    github.event_name == 'push' && github.ref == 'refs/heads/master' &&
+      #    matrix.target == 'linux' && matrix.branch == 'devel'
+      #  shell: bash
+      #  run: |
+      #    cd nimhdf5
+      #    # **HAVE** to call `develop`, cuz we're getting screwed by
+      #    # logic otherwise
+      #    nimble develop -y
+      #    nimble gen_docs
+      #    # TODO: fix this, need to iterate over all files, do similar to arraymancer docs
+      #    # Ignore failures for older Nim
+      #    cp docs/{the,}index.html || true
+      #
+      #- name: Publish docs
+      #  if: >
+      #    github.event_name == 'push' && github.ref == 'refs/heads/master' &&
+      #    matrix.target == 'linux' && matrix.branch == 'devel'
+      #  uses: crazy-max/ghaction-github-pages@v1
+      #  with:
+      #    build_dir: nimhdf5/docs
+      #  env:
+      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
