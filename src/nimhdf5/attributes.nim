@@ -327,7 +327,7 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
   # independent of previous attribute, refresh the number of attributes
   h5attr.num_attrs = h5attr.getNumAttrs
 
-template `[]=`*[T](h5attr: H5Attributes, name: string, val: T) =
+proc `[]=`*[T](h5attr: H5Attributes, name: string, val: T) =
   ## convenience access to write_attribue
   h5attr.write_attribute(name, val)
 
@@ -424,11 +424,11 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
   else:
     raise newException(KeyError, "No attribute `$#` exists in object `$#`" % [name, h5attr.parent_name])
 
-template `[]`*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
+proc `[]`*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
   # convenience access to read_attribute
   h5attr.read_attribute(name, dtype)
 
-template `[]`*(h5attr: H5Attributes, name: string): DtypeKind =
+proc `[]`*(h5attr: H5Attributes, name: string): DtypeKind =
   # accessing H5Attributes by string simply returns the datatype of the stored
   # attribute as an AnyKind value
   h5attr.attr_tab[name].dtypeAnyKind
