@@ -14,11 +14,11 @@ import strformat
 
 const FILE = "dset.h5"
 
-proc write_some() = 
+proc write_some() =
   var
     # identifiers
     status: herr_t
-  
+
   # Create a new file using default properties.
   var h5f = H5file(FILE, "rw")
 
@@ -40,14 +40,15 @@ proc write_some() =
   # the H5FileObj
   var g1 = h5f[g1_name.grp_str]
   # print type and group itself
-  echo name(type(g1))
+  echo type(g1)
   echo g1
 
   # create another nested group
   var g2 = h5f.create_group("/test/another/group")
   # and create groups based on the just created group relative
   # from its location in the file
-  var h = g2.create_group("/more/branches")
+  ## NOTE: I broke `create_group` from a group apparently
+  #var h = g2.create_group("/more/branches")
   echo "\n\n"
   echo "file ", h5f
   echo "\n\n\nnew group", g2
@@ -71,8 +72,8 @@ proc write_some() =
                   @[6'f64, 7, 8, 9, 10],
                   @[11'f64, 12, 13, 14, 15],
                   @[16'f64, 17, 18, 19, 20, 21, 22, 22, 23, 24, 25] ]
-  
-  
+
+
   # if we simply want to write over the whole dataset, use the .all field of
   # the H5DataSet object. It's a simple enum, used to differentiate between
   # this and using indices (which ironically isn't implemented...)
@@ -88,25 +89,25 @@ proc write_some() =
 
   # write values for multiple coordinates by handing sequences of coordinates and
   # one sequence of the values to write
-  dset3D.write(@[@[0, 0, 2], @[1, 1, 3]], @[3'f64, 123'f64])
+  #dset3D.write(@[@[0, 0, 2], @[1, 1, 3]], @[3'f64, 123'f64])
   # write single value by handing sequence of single coordinate and sequence of single
   # value
-  dset3D.write(@[0, 1, 2], @[1337'f64])
+  #dset3D.write(@[0, 1, 2], @[1337'f64])
 
   # write whole row by broadcasting one index
-  dset_broadcast.write(0, @[9, 9, 9])
-  # overwrite last column
-  dset_broadcast.write(2, @[7, 7, 7], column = true)
-  
+  #dset_broadcast.write(0, @[9, 9, 9])
+  ## overwrite last column
+  #dset_broadcast.write(2, @[7, 7, 7], column = true)
+
   # write 2 values into 1D data by handing sequence of indices to write
-  dset1D.write(@[2, 4], @[8'f64, 21e9])
-  # write single value to 1D dataset
-  dset1D.write(0, 299792458'f64)
-  
+  #dset1D.write(@[2, 4], @[8'f64, 21e9])
+  ## write single value to 1D dataset
+  #dset1D.write(0, 299792458'f64)
+
   # write single or more elements of VLEN data
-  dset_vlen.write(@[1], @[8'f64, 3, 12, 3, 3, 555, 23234234])
+  #dset_vlen.write(@[1], @[8'f64, 3, 12, 3, 3, 555, 23234234])
   # write single element into single index
-  dset_vlen.write(3, 1337'f64)
+  #dset_vlen.write(3, 1337'f64)
 
   # now resize the dsetresize dataset and write additional data to it
   dset_resize.resize((9, 9))
@@ -142,7 +143,7 @@ proc read_some() =
   #
 
   echo "Read some back from file"
-  
+
   var file = H5File("dset.h5", "r")
 
   # first visit all elements in the file, for fun. Could skip this however and
@@ -154,7 +155,7 @@ proc read_some() =
     echo "Dset ", dset
   for grp in keys(file.groups):
     echo "Group ", grp
-  
+
   # Open "dset" dataset in the nested groups
   # done using distinct string type dset_str, to differentiate between groups
   # and dataset
@@ -175,7 +176,7 @@ proc read_some() =
   # error instead of a Nim custom one. TODO...), since we only opened
   # the file with 'r', instead of 'rw'. Opening the file properly
   # and writing to the dataset also works
-  
+
   withDset(dataset):
     # this allows us to work with the dataset without
     # explicitly performing a type check. So as long as we wish
@@ -199,7 +200,7 @@ proc read_some() =
   # one may use the convenience template `reshape` and give the shape as an array
   let data_reshaped_alt = dataset[float64].reshape([2,2,5])
   echo &"data_reshape:\n\t{data_reshaped_alt}\nhas shape:\n\t{data_reshaped_alt.shape}"
-  
+
   # read variable length data
   let vlen_type = special_type(float)
   var dset_vlen = file["/group1/dset_vlen".dset_str]
@@ -240,7 +241,7 @@ proc read_some() =
   let time = g1.attrs["Time", string]
   echo "Time val is = ", time
 
-  # or even another way: create a case based on the AnyKind field of the. 
+  # or even another way: create a case based on the AnyKind field of the.
   # dataset like so (this is what the withDset template does internally):
   case dataset.dtypeAnyKind
   of akFloat64:
@@ -266,7 +267,7 @@ proc read_some() =
   let data_hyper = dset_hyper.read_hyperslab(int64, offset = @[6, 6], count = @[3, 3], full_output = false)
   echo data_hyper
 
-  proc echo_in_file[T](file: var T, name: string) = 
+  proc echo_in_file[T](file: var T, name: string) =
     if name in file:
       echo "There is a group or dataset called $# in $#" % [$name, $file.name]
     else:
@@ -286,14 +287,14 @@ proc read_some() =
   doAssert "/group1/group2" in g1 == true
   doAssert "group2" in g1 == true
   doAssert "/group2" in g1 == true
-    
+
   # close the file again
   discard file.close()
 
-  
+
 proc main() =
   write_some()
   read_some()
-  
+
 when isMainModule:
   main()
