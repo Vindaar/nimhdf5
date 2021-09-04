@@ -397,13 +397,9 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
   ## h5info struct and add it to the h5f file object. Needs to be
   ## a pointer here, since it's handed to C
   ## this proc is only called in the case where the start from the root group
-
+  doAssert not h5f_p.isNil, "Memory corruption detected. Pointer to H5 file is nil!" # this should really never happen
   # cast the H5FileObj pointer back
-  # NOTE: in `visit_file` we use `unsafeAddr` to hand the address of the `h5f` to
-  # the HDF5 library. For some reason we have to cast to a `var H5FileObj` here,
-  # because otherwise we get a segfault! I assume that is because how `let` and `var`
-  # is handled?
-  var h5f = cast[var H5FileObj](h5f_p)
+  var h5f = cast[H5File](h5f_p)
   if name_c == ".":
     # in case the location is `.`, we are simply at our starting point (currently
     # means root group), we don't want to do anything here, so continue
@@ -411,16 +407,8 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
   else:
     let name = formatName($name_c)
     if h5info.`type` == H5O_TYPE_GROUP:
-      # we discard the returned group object, don't need it here
-      # TODO: change to h5f[name.grp_str], but for that need to modify
-      # h5f.get(grp_str) such that it checks in the file for existence
-      # or rather create a open group from file proc, where we know that
-      # the file exists and we open it by id
       h5f.groups[name] = newH5Group(name)
     elif h5info.`type` == H5O_TYPE_DATASET:
-      # misuse `[]` proc for now.
-      # TODO: write proc which opens and reads dataset from file by id...
-      # see, I'm going to where the HDF5 library is in the first place...
       h5f.datasets[name] = newH5DataSet(name)
 
 proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t) =
@@ -440,23 +428,20 @@ proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t) =
   ## throws:
   ##   IOError: in case the object visit fails. This is most likely due to
   ##     a corrupted H5 file.
-
   # TODO: add version which uses `name` as a starting location?
-
   # TODO: write an iterator which makes use of this?
   var err: herr_t
   if h5id != 0:
     err = H5Ovisit(h5id, H5_INDEX_NAME, H5_ITER_NATIVE,
                    cast[H5O_iterate_t](addH5Object),
-                   cast[pointer](unsafeAddr h5f))
+                   cast[pointer](h5f))
   else:
     err = H5Ovisit(h5f.file_id, H5_INDEX_NAME, H5_ITER_NATIVE,
                    cast[H5O_iterate_t](addH5ObjectFromRoot),
-                   cast[pointer](unsafeAddr h5f))
+                   cast[pointer](h5f))
   if err < 0:
     raise newException(IOError, "Visiting the H5 file failed with an error." &
       "File is possibly corrupted. See the H5 stacktrace.")
-
   # now set visited flag
   h5f.visited = true
 
