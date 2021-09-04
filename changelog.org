@@ -1,3 +1,5 @@
+* v0.3.15
+- fix segmentation fault in =visit_file= for C++ backend
 * v0.3.14
 - fix =H5Attributes= return values for =[]= template returning
   =AnyKind=
