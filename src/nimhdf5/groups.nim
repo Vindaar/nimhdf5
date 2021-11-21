@@ -81,7 +81,8 @@ proc isGroup*(h5f: H5File, name: string): bool =
     let objType = getObjectTypeByName(h5f.file_id, target)
     result = if objType == H5O_TYPE_GROUP: true else: false
 
-template get(h5f: H5File, group_in: grp_str): H5Group =
+proc create_group*[T](h5f: T, group_name: string): H5Group
+proc get(h5f: H5File, group_in: grp_str): H5Group =
   ## convenience proc to return the group with name group_name
   ## if it does not exist, KeyError is thrown
   ## inputs:
@@ -94,7 +95,6 @@ template get(h5f: H5File, group_in: grp_str): H5Group =
   let
     group_name = string(group_in)
     group_open = h5f.isOpen(group_in)
-  var result: H5Group
   if not group_open:
     # if group not known (potentially the case if:
     # - no call to visit_file (read all grps / dsets)
@@ -110,16 +110,13 @@ template get(h5f: H5File, group_in: grp_str): H5Group =
   else:
     result = h5f.groups[group_name]
     doAssert result.opened
-  result
 
-template isGroup(h5_object: typed): bool =
+func isGroup[T: H5File | H5Group | H5DataSet](h5_object: T): bool =
   # procedure to check whether object is a H5Group
-  result: bool = false
   if h5_object is H5Group:
     result = true
   else:
     result = false
-  result
 
 proc createGroupFromParent[T](h5f: T, group_name: string): H5Group =
   ## procedure to create a group within a H5F
