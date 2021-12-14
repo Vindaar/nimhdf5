@@ -10,26 +10,6 @@ import attributes
 import h5util
 import util
 
-# get visit_file from files.nim for dataset iterator
-from files import visit_file
-
-proc newH5Group*(name: string = ""): H5Group =
-  ## default constructor for a H5Group object, for internal use
-  let datasets = newTable[string, H5DataSet]()
-  let groups = newTable[string, H5Group]()
-  let attrs = newH5Attributes()
-  result = new H5Group
-  result.name = name
-  result.opened = false
-  result.parent = ""
-  result.parent_id = -1.hid_t
-  result.file = ""
-  result.file_id = -1.hid_t
-  result.file_ref = nil
-  result.datasets = datasets
-  result.groups = groups
-  result.attrs = attrs
-
 proc flush*(group: H5Group, flushKind: FlushKind) =
   ## wrapper around H5Fflush for convenience
   var err: herr_t

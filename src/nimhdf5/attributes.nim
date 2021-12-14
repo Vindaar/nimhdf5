@@ -19,27 +19,6 @@ proc `$`*(h5attr: H5Attributes): string =
 
 # forward declare procs, which we need to read the attributes from file
 proc read_all_attributes*(h5attr: H5Attributes)
-proc getNumAttrs(h5attr: H5Attributes): int
-
-proc newH5Attributes*(): H5Attributes =
-  let attr = newTable[string, H5Attr]()
-  result = H5Attributes(attr_tab: attr,
-                        num_attrs: -1,
-                        parent_name: "",
-                        parent_id: -1.hid_t,
-                        parent_type: "")
-
-proc initH5Attributes*(p_id: hid_t, p_name: string = "", p_type: string = ""): H5Attributes =
-  let attr = newTable[string, H5Attr]()
-  doAssert p_id > 0, "parent id must exist!"
-  var h5attr = H5Attributes(attr_tab: attr,
-                            num_attrs: -1,
-                            parent_name: p_name,
-                            parent_id: p_id,
-                            parent_type: p_type)
-  h5attr.num_attrs = h5attr.getNumAttrs
-  # read_all_attributes(h5attr)
-  result = h5attr
 
 proc openAttrByIdx(h5attr: H5Attributes, idx: int): hid_t =
   ## proc to open an attribute by its id in the H5 file and returns
@@ -93,24 +72,6 @@ proc getAttrName*[T: SomeInteger](attr_id: hid_t, buf_space: T = 200): string =
     result.setLen(length)
   else:
     result = getAttrName(attr_id, length)
-
-proc getNumAttrs(h5attr: H5Attributes): int =
-  ## proc to get the number of attributes of the parent
-  ## uses H5Oget_info, which returns a struct containing the
-  ## metadata of the object (incl type etc.). Might be useful
-  ## at other places too?
-  ## reserve space for the info object
-  var h5info: H5O_info_t
-  let err = H5Oget_info(h5attr.parent_id, addr(h5info))
-  if err >= 0:
-    # successful
-    withDebug:
-      debugEcho "getNumAttrs(): ", h5attr
-    result = int(h5info.num_attrs)
-  else:
-    withDebug:
-      debugEcho "getNumAttrs(): ", h5attr
-    raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getNumAttr` when reading $#" % $h5attr.parent_name)
 
 proc setAttrAnyKind[T](attr: H5Attr, dtype: typedesc[T]) =
   ## proc which sets the AnyKind fields of a H5Attr

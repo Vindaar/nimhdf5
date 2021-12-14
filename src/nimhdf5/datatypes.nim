@@ -227,6 +227,79 @@ const
 # add an invalid rw code to handle wrong inputs in parseH5rw_type
 const H5F_INVALID_RW*    = cuint(0x00FF)
 
+proc newH5Attributes*(): H5Attributes =
+  let attr = newTable[string, H5Attr]()
+  result = H5Attributes(attr_tab: attr,
+                        num_attrs: -1,
+                        parent_name: "",
+                        parent_id: -1.hid_t,
+                        parent_type: "")
+
+proc getNumAttrs*(h5attr: H5Attributes): int =
+  ## proc to get the number of attributes of the parent
+  ## uses H5Oget_info, which returns a struct containing the
+  ## metadata of the object (incl type etc.). Might be useful
+  ## at other places too?
+  ## reserve space for the info object
+  var h5info: H5O_info_t
+  let err = H5Oget_info(h5attr.parent_id, addr(h5info))
+  if err >= 0:
+    # successful
+    withDebug:
+      debugEcho "getNumAttrs(): ", h5attr
+    result = int(h5info.num_attrs)
+  else:
+    withDebug:
+      debugEcho "getNumAttrs(): ", h5attr
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getNumAttr` when reading $#" % $h5attr.parent_name)
+
+proc initH5Attributes*(p_id: hid_t, p_name: string = "", p_type: string = ""): H5Attributes =
+  let attr = newTable[string, H5Attr]()
+  doAssert p_id > 0, "parent id must exist!"
+  var h5attr = H5Attributes(attr_tab: attr,
+                            num_attrs: -1,
+                            parent_name: p_name,
+                            parent_id: p_id,
+                            parent_type: p_type)
+  h5attr.num_attrs = h5attr.getNumAttrs
+  # read_all_attributes(h5attr)
+  result = h5attr
+
+proc newH5DataSet*(name: string = ""): H5DataSet =
+  ## default constructor for a H5File object, for internal use
+  let shape: seq[int] = @[]
+  let maxshape: seq[int] = @[]
+  let attrs = newH5Attributes()
+  result = new H5DataSet
+  result.name = name
+  result.opened = false
+  result.shape = shape
+  result.maxshape = maxshape
+  result.dtype = ""
+  result.dtype_c = -1.hid_t
+  result.parent = ""
+  result.file = ""
+  result.dataset_id = -1.hid_t
+  result.all = RW_ALL
+  result.attrs = attrs
+
+proc newH5Group*(name: string = ""): H5Group =
+  ## default constructor for a H5Group object, for internal use
+  let datasets = newTable[string, H5DataSet]()
+  let groups = newTable[string, H5Group]()
+  let attrs = newH5Attributes()
+  result = new H5Group
+  result.name = name
+  result.opened = false
+  result.parent = ""
+  result.parent_id = -1.hid_t
+  result.file = ""
+  result.file_id = -1.hid_t
+  result.file_ref = nil
+  result.datasets = datasets
+  result.groups = groups
+  result.attrs = attrs
+
 template getH5Id*(h5o: typed): hid_t =
   ## this template returns the correct location id of either
   ## - a H5FileObj
