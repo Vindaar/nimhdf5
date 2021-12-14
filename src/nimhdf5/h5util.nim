@@ -267,13 +267,28 @@ proc getObjectTypeByName*(h5id: hid_t, name: string): H5O_type_t =
   else:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getObjectTypeByName`")
 
-proc contains*(h5f: H5FileObj, name: string): bool =
-  ## Faster version of `contains` below, simply making use of
-  ## `H5Lexists` using `existsInFile`. Does not require us to
-  ## traverse our tables
-  # format the given name
+proc contains*(h5f: H5File, name: string): bool =
+  ## Checks if the given `name` is contained in the H5 file.
+  ##
+  ## Uses `H5Lexists` using `existsInFile`. Does not require us to traverse our tables.
   # existsInFile will properly format the name
-  result = if existsInFile(h5f.file_id, name) > 0: true else: false
+  let fileId = h5f.file_id
+  result = existsInFile(fileId, name) > 0
+
+proc contains*(grp: H5Group, name: string): bool =
+  ## Checks if the given `name` is a subgroup or dataset in `grp` or its groups.
+  ## nIt takes a parent-child relationship for groups into account, i.e. if called
+  ## on a group, it's only true, if the element is a child of the group (or of a subgroup).
+  ##
+  ## Uses `H5Lexists` using `existsInFile`. Does not require us to traverse our tables.
+  let fileId = grp.file_ref.file_id
+  if name.startsWith(grp.name):
+    # is subgroup, just check on file
+    result = existsInFile(fileId, name) > 0
+  else:
+    # treated as relative, prepend the groups name
+    let name = formatName(grp.name / name)
+    result = existsInFile(fileId, name) > 0
 
 proc delete*[T](h5o: T, name: string): bool =
   ## Deletes the object with `name` from the H5 file
