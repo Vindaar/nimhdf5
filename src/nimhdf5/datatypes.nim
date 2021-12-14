@@ -149,7 +149,7 @@ type
     # reference to the file object, in which group resides. Important to perform checks
     # in procs, which should not depend explicitly on H5FileObj, but necessarily depend
     # implicitly on it, e.g. create_group, iterator items etc.
-    file_ref*: H5FileObj
+    file_ref*: H5File
     # the id of the HDF5 group (its location id)
     group_id*: hid_t
     # TODO: think, should H5Group contain a table about its dataspaces? Or should
