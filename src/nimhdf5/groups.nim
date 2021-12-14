@@ -152,6 +152,7 @@ proc createGroupFromParent[T](h5f: T, group_name: string): H5Group =
     debugEcho "Adding element to h5f groups ", group_name
   h5f.groups[result.name] = result
   result.groups = h5f.groups
+  result.datasets = h5f.datasets
 
 proc create_group*[T](h5f: T, group_name: string): H5Group =
   ## checks whether the given group name already exists or not.
