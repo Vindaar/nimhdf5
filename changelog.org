@@ -1,3 +1,13 @@
+* v0.3.16
+- refactor out pretty printing, iterators, some attribute related code
+  into their own files
+- move constructors into =datatypes.nim=, as they don't depend on
+  other things and are often useful in other modules (better
+  separation, less recursive imports)
+- move a lot of features into =h5util= that may be used commonly
+  between modules
+- fixes issue with iterator for groups, which could cause to not find
+  any datasets in a group, despite them existing
 * v0.3.15
 - fix segmentation fault in =visit_file= for C++ backend
 * v0.3.14
