@@ -31,23 +31,6 @@ import h5util
 
 from groups import create_group, isGroup
 
-proc newH5DataSet*(name: string = ""): H5DataSet =
-  ## default constructor for a H5File object, for internal use
-  let shape: seq[int] = @[]
-  let maxshape: seq[int] = @[]
-  let attrs = newH5Attributes()
-  result = new H5DataSet
-  result.name = name
-  result.opened = false
-  result.shape = shape
-  result.maxshape = maxshape
-  result.dtype = ""
-  result.dtype_c = -1.hid_t
-  result.parent = ""
-  result.file = ""
-  result.dataset_id = -1.hid_t
-  result.all = RW_ALL
-  result.attrs = attrs
 
 proc flush*(dset: H5DataSet, flushKind: FlushKind) =
   ## wrapper around H5Fflush for convenience
