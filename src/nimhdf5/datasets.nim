@@ -176,101 +176,6 @@ proc readMaxShape(dspace_id: hid_t): seq[int] =
   let (shape, maxshape) = readShape(dspace_id)
   result = maxshape
 
-proc get(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
-  ## convenience proc to return the dataset with name dset_name
-  ## if it does not exist, KeyError is thrown
-  ## inputs:
-  ##    h5f: H5FileObj = the file object from which to get the dset
-  ##    obj_name: string = name of the dset to get
-  ## outputs:
-  ##    H5DataSet = if dataset is found
-  ## throws:
-  ##    KeyError: if dataset could not be found
-  var status: cint
-
-  let dset_name = formatName(string(dset_in))
-  let dset_open = isOpen(h5f, dset_in)
-
-  result = newH5DataSet(dset_name)
-  if not dset_open:
-    # before we raise an exception, because the dataset does not yet exist,
-    # check whether such a dataset exists in the file we're not aware of yet
-    withDebug:
-      echo "file id is ", h5f.file_id
-      echo "name is ", result.name
-    let dsetInFile = h5f.isDataset(result.name)
-    if dsetInFile:
-      result.dataset_id   = H5Dopen2(h5f.file_id, result.name, H5P_DEFAULT)
-      if result.dataset_id < 0:
-        raise newException(HDF5LibraryError, "Failed to open the dataset " & $result.name & "!")
-      result.opened = true
-      # get the dataspace id of the dataset
-      let dataspace_id = result.dataspace_id
-      # does exist, add to H5FileObj
-      let datatype_id = H5Dget_type(result.dataset_id)
-      let f = h5ToNimType(datatype_id)
-      if f == dkSequence:
-        # dkSequence == VLEN type
-        # in this case this only determines dtypeAnyKind, but we don't
-        # know the basetype. Set that by another call of the super of
-        # the datatype
-        result.dtypeBaseKind = h5ToNimType(H5Tget_super(datatype_id))
-        result.dtype = "vlen"
-      else:
-        # get the dtype string from AnyKind
-        result.dtype = anyTypeToString(f)
-      result.dtypeAnyKind = f
-      result.dtype_c = H5Tget_native_type(datatype_id, H5T_DIR_ASCEND)
-      result.dtype_class = H5Tget_class(datatype_id)
-
-      # get the dataset access property list
-      result.dapl_id = H5Dget_access_plist(result.dataset_id)
-      # get the dataset create property list
-      result.dcpl_id = H5Dget_create_plist(result.dataset_id)
-      withDebug:
-        echo "ACCESS PROPERTY LIST IS ", result.dapl_id
-        echo "CREATE PROPERTY LIST IS ", result.dcpl_id
-        echo H5Tget_class(datatype_id)
-
-      (result.shape, result.maxshape) = readShape(dataspace_id)
-      # still need to determine the parents of the dataset
-      result.parent = getParent(result.name)
-      var parent = create_group(h5f, result.parent)
-      result.parent_id = getH5Id(parent)
-      result.file = h5f.name
-
-      # create attributes field
-      result.attrs = initH5Attributes(result.dataset_id, result.name, "H5DataSet")
-
-      # need to close the datatype again, otherwise cause resource leak
-      status = H5Tclose(datatype_id)
-      if status < 0:
-        #TODO: replace by exception
-        echo "Status of H5Tclose() returned non-negative value."
-        echo "H5 will probably complain now..."
-      # now that we have created the group fully (including IDs), we can add it to the file and
-      # the parent
-      parent.datasets[result.name] = result
-      h5f.datasets[result.name] = result
-    else:
-      # check whether there exists a group of same name?
-      let groupOfName = h5f.isGroup(result.name)
-      if groupOfName:
-        raise newException(ValueError, "Dataset with name: " & dset_name &
-          " not found in file " & h5f.name & ". Instead found a group " &
-          "of the same name")
-      else:
-        raise newException(KeyError, "Dataset with name: " & dset_name &
-          " not found in file " & h5f.name)
-  else:
-    result = h5f.datasets[dset_name]
-    doAssert result.opened
-    # in this case we still need to update e.g. shape
-    # TODO: think about what else we might have to update!
-    let dataspace_id = result.dataset_id.dataspace_id
-    (result.shape, result.maxshape) = readShape(dataspace_id)
-    # TODO: also read maxshape and chunksize if any
-
 template isDataSet(h5_object: typed): bool =
   ## procedure to check whether object is a H5DataSet
   result: bool = false
@@ -1290,10 +1195,6 @@ proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   ## reads a whole variable length dataset, wrapper around `read`
   result = read(dset, t, dtype)
 
-template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
-  ## a simple wrapper around get for datasets
-  h5f.get(name)
-
 proc `[]`*[T](h5f: H5FileObj, name: string, dtype: typedesc[T]): seq[T] =
   ## reads data from the H5file without an intermediate return of a `H5DataSet`
   result = h5f.get(name.dset_str).read(dtype)
@@ -1758,3 +1659,102 @@ proc high*(dset: H5DataSet, axis = 0): int =
 proc isVlen*(dset: H5Dataset): bool =
   ## Returns true if the dataset is a variable length dataset
   result = dset.dtype_class == H5T_VLEN
+
+proc get*(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
+  ## convenience proc to return the dataset with name dset_name
+  ## if it does not exist, KeyError is thrown
+  ## inputs:
+  ##    h5f: H5FileObj = the file object from which to get the dset
+  ##    obj_name: string = name of the dset to get
+  ## outputs:
+  ##    H5DataSet = if dataset is found
+  ## throws:
+  ##    KeyError: if dataset could not be found
+  var status: cint
+
+  let dset_name = formatName(string(dset_in))
+  let dset_open = isOpen(h5f, dset_in)
+
+  result = newH5DataSet(dset_name)
+  if not dset_open:
+    # before we raise an exception, because the dataset does not yet exist,
+    # check whether such a dataset exists in the file we're not aware of yet
+    withDebug:
+      echo "file id is ", h5f.file_id
+      echo "name is ", result.name
+    let dsetInFile = h5f.isDataset(result.name)
+    if dsetInFile:
+      result.dataset_id   = H5Dopen2(h5f.file_id, result.name, H5P_DEFAULT)
+      if result.dataset_id < 0:
+        raise newException(HDF5LibraryError, "Failed to open the dataset " & $result.name & "!")
+      result.opened = true
+      # get the dataspace id of the dataset
+      let dataspace_id = result.dataspace_id
+      # does exist, add to H5FileObj
+      let datatype_id = H5Dget_type(result.dataset_id)
+      let f = h5ToNimType(datatype_id)
+      if f == dkSequence:
+        # dkSequence == VLEN type
+        # in this case this only determines dtypeAnyKind, but we don't
+        # know the basetype. Set that by another call of the super of
+        # the datatype
+        result.dtypeBaseKind = h5ToNimType(H5Tget_super(datatype_id))
+        result.dtype = "vlen"
+      else:
+        # get the dtype string from AnyKind
+        result.dtype = anyTypeToString(f)
+      result.dtypeAnyKind = f
+      result.dtype_c = H5Tget_native_type(datatype_id, H5T_DIR_ASCEND)
+      result.dtype_class = H5Tget_class(datatype_id)
+
+      # get the dataset access property list
+      result.dapl_id = H5Dget_access_plist(result.dataset_id)
+      # get the dataset create property list
+      result.dcpl_id = H5Dget_create_plist(result.dataset_id)
+      withDebug:
+        echo "ACCESS PROPERTY LIST IS ", result.dapl_id
+        echo "CREATE PROPERTY LIST IS ", result.dcpl_id
+        echo H5Tget_class(datatype_id)
+
+      (result.shape, result.maxshape) = readShape(dataspace_id)
+      # still need to determine the parents of the dataset
+      result.parent = getParent(result.name)
+      var parent = create_group(h5f, result.parent)
+      result.parent_id = getH5Id(parent)
+      result.file = h5f.name
+
+      # create attributes field
+      result.attrs = initH5Attributes(result.dataset_id, result.name, "H5DataSet")
+
+      # need to close the datatype again, otherwise cause resource leak
+      status = H5Tclose(datatype_id)
+      if status < 0:
+        #TODO: replace by exception
+        echo "Status of H5Tclose() returned non-negative value."
+        echo "H5 will probably complain now..."
+      # now that we have created the group fully (including IDs), we can add it to the file and
+      # the parent
+      parent.datasets[result.name] = result
+      h5f.datasets[result.name] = result
+    else:
+      # check whether there exists a group of same name?
+      let groupOfName = h5f.isGroup(result.name)
+      if groupOfName:
+        raise newException(ValueError, "Dataset with name: " & dset_name &
+          " not found in file " & h5f.name & ". Instead found a group " &
+          "of the same name")
+      else:
+        raise newException(KeyError, "Dataset with name: " & dset_name &
+          " not found in file " & h5f.name)
+  else:
+    result = h5f.datasets[dset_name]
+    doAssert result.opened
+    # in this case we still need to update e.g. shape
+    # TODO: think about what else we might have to update!
+    let dataspace_id = result.dataset_id.dataspace_id
+    (result.shape, result.maxshape) = readShape(dataspace_id)
+    # TODO: also read maxshape and chunksize if any
+
+template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
+  ## a simple wrapper around get for datasets
+  h5f.get(name)
