@@ -92,11 +92,11 @@ proc isOpen*(h5f: H5File, name: dset_str): bool =
   result = if h5f.datasets.hasKey(n): h5f.datasets[n].opened
            else: false
 
-proc getDset(h5f: H5FileObj, dset_name: string): Option[H5DataSet] =
+proc getDset(h5f: H5File, dset_name: string): Option[H5DataSet] =
   ## convenience proc to return the dataset with name dset_name
   ## if it does not exist, KeyError is thrown
   ## inputs:
-  ##    h5f: H5FileObj = the file object from which to get the dset
+  ##    h5f: H5File = the file object from which to get the dset
   ##    obj_name: string = name of the dset to get
   ## outputs:
   ##    H5DataSet = if dataset is found
@@ -290,7 +290,7 @@ proc create_dataset_in_file(h5file_id: hid_t, dset: H5DataSet): hid_t =
                          H5P_DEFAULT, dset.dcpl_id, H5P_DEFAULT)
 
 proc create_dataset*[T: (tuple | int | seq)](
-    h5f: H5FileObj,
+    h5f: H5File,
     dset_raw: string,
     shape_raw: T,
     dtype: (typedesc | hid_t),
@@ -301,7 +301,7 @@ proc create_dataset*[T: (tuple | int | seq)](
   ## procedure to create a dataset given a H5file object. The shape of
   ## that type is given as a tuple, the datatype as a typedescription
   ## inputs:
-  ##    h5file: H5FileObj = the H5FileObj received by H5file() into which the data
+  ##    h5file: H5File = the H5File received by H5file() into which the data
   ##                   set belongs
   ##    shape: T = the shape of the dataset, given as:
   ##           `int`: for 1D datasets
@@ -388,7 +388,7 @@ proc create_dataset*[T: (tuple | int | seq)](
       # potentially apply filters
       dset.setFilters(filter)
       # check whether there already exists a dataset with the given name
-      # first in H5FileObj:
+      # first in H5File:
       var exists = hasKey(h5f.datasets, dset_name)
       if exists == false or overwrite:
         # then check the actual file for a dataset with the given name
@@ -460,7 +460,7 @@ proc create_dataset*[T: (tuple | int | seq)](
   result = dset
 
 proc create_dataset*[T: (tuple | int | seq)](
-    h5f: H5FileObj,
+    h5f: H5File,
     dset_raw: string,
     shape_raw: T,
     dtype: (typedesc | hid_t),
@@ -478,7 +478,7 @@ proc create_dataset*[T: (tuple | int | seq)](
                               filter,
                               overwrite = overwrite)
 
-proc write_dataset*[TT](h5f: H5FileObj, name: string, data: TT): H5DataSet =
+proc write_dataset*[TT](h5f: H5File, name: string, data: TT): H5DataSet =
   ## convenience proc to create a dataset and write data it immediately
   type T = getInnerType(TT)
   result = h5f.create_dataset(name, data.shape, T)
@@ -490,11 +490,11 @@ proc write_dataset*[TT](h5f: H5FileObj, name: string, data: TT): H5DataSet =
   # TODO: problematic to implement atm, because the function still needs access to the file object
   # Solutions:
   #  - either redefine the code in create_datasets to work on both groups or file object
-  #  - or give the H5Group each a reference to the H5FileObj, so that it can access it
+  #  - or give the H5Group each a reference to the H5File, so that it can access it
   #    by itself. This one feels rather ugly though...
   # Alternative solution:
   #  Instead of being able to call create_dataset on a group, we may simply define an
-  #  active group in the H5FileObj, so that we can use relative paths from the last
+  #  active group in the H5File, so that we can use relative paths from the last
   #  accessed group. This would complicate the code however, since we'd always have
   #  to check whether a path is relative or not!
   #elif maxshape.len == 0 and chunksize.len == 0:
@@ -960,7 +960,7 @@ proc readAs*[T: SomeNumber](dset: H5DataSet, dtype: typedesc[T]): seq[dtype] =
       name(dtype)
     result = @[]
 
-proc readAs*[T: SomeNumber](h5f: H5FileObj, dset: string, dtype: typedesc[T]): seq[dtype] =
+proc readAs*[T: SomeNumber](h5f: H5File, dset: string, dtype: typedesc[T]): seq[dtype] =
   ## reads data from the H5file without an intermediate return of a `H5DataSet`
   let dset = h5f.get(dset.dset_str)
   result = dset.readAs(dtype)
@@ -1195,11 +1195,11 @@ proc `[]`*[T](dset: H5DataSet, t: hid_t, dtype: typedesc[T]): seq[seq[T]] =
   ## reads a whole variable length dataset, wrapper around `read`
   result = read(dset, t, dtype)
 
-proc `[]`*[T](h5f: H5FileObj, name: string, dtype: typedesc[T]): seq[T] =
+proc `[]`*[T](h5f: H5File, name: string, dtype: typedesc[T]): seq[T] =
   ## reads data from the H5file without an intermediate return of a `H5DataSet`
   result = h5f.get(name.dset_str).read(dtype)
 
-proc `[]`*[T](h5f: H5FileObj, name: string, t: hid_t, dtype: typedesc[T]):
+proc `[]`*[T](h5f: H5File, name: string, t: hid_t, dtype: typedesc[T]):
                 seq[seq[T]] =
   ## reads variable length data from the H5file without an intermediate return
   ## of a `H5DataSet`
@@ -1660,11 +1660,11 @@ proc isVlen*(dset: H5Dataset): bool =
   ## Returns true if the dataset is a variable length dataset
   result = dset.dtype_class == H5T_VLEN
 
-proc get*(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
+proc get*(h5f: H5File, dset_in: dset_str): H5DataSet =
   ## convenience proc to return the dataset with name dset_name
   ## if it does not exist, KeyError is thrown
   ## inputs:
-  ##    h5f: H5FileObj = the file object from which to get the dset
+  ##    h5f: H5File = the file object from which to get the dset
   ##    obj_name: string = name of the dset to get
   ## outputs:
   ##    H5DataSet = if dataset is found
@@ -1690,7 +1690,7 @@ proc get*(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
       result.opened = true
       # get the dataspace id of the dataset
       let dataspace_id = result.dataspace_id
-      # does exist, add to H5FileObj
+      # does exist, add to H5File
       let datatype_id = H5Dget_type(result.dataset_id)
       let f = h5ToNimType(datatype_id)
       if f == dkSequence:
@@ -1755,6 +1755,6 @@ proc get*(h5f: H5FileObj, dset_in: dset_str): H5DataSet =
     (result.shape, result.maxshape) = readShape(dataspace_id)
     # TODO: also read maxshape and chunksize if any
 
-template `[]`*(h5f: H5FileObj, name: dset_str): H5DataSet =
+template `[]`*(h5f: H5File, name: dset_str): H5DataSet =
   ## a simple wrapper around get for datasets
   h5f.get(name)
