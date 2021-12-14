@@ -17,156 +17,153 @@ import H5nimtypes
 import util
 import datatypes
 
-import attributes
+proc contains*(h5f: H5File, name: string): bool
+proc contains*(grp: H5Group, name: string): bool
+proc getObjectTypeByName*(h5id: hid_t, name: string): H5O_type_t
 
-import json
-func `%`(c: char): JsonNode = % $c # for `withAttr` returning a char
-iterator attrsJson*(attrs: H5Attributes, withType = false): (string, JsonNode) =
-  ## yields all attribute keys and their values as `JsonNode`. This way
-  ## we can actually return all values to the user with one iterator.
-  ## And for attributes the variant object overhead does not matter anyways.
-  attrs.read_all_attributes
-  for key, att in pairs(attrs.attr_tab):
-    attrs.withAttr(key):
-      if not withType:
-        yield (key, % attr)
-      else:
-        yield (key, %* {
-          "value" : attr,
-          "type" : att.dtypeAnyKind
-        })
-    att.close()
+proc addH5Object*(location_id: hid_t, name_c: cstring, h5info: H5O_info_t, h5f_p: pointer): herr_t {.cdecl.} =
+  ## similar proc to processH5ObjectFromRoot, except we do /not/ start at root
+  ## important distinction to be able to deal with the root group itself
+  ## Does this make sense? If '.' is handed to us on first call to H5Ovisit anyways,
+  ## do we ever want to add the object at point? Should this not always already
+  ## be part of the h5 object, or rather even if it is not, adding it will be
+  ## difficult anyways, because we only have the location id. Well, we can
+  ## simply open the object then and there, I suppose...
+  ## NEED a proper openObjectById function...!
+  discard
 
-iterator attrsJson*[T: H5FileObj | H5Group | H5DataSet](h5o: T, withType = false): (string, JsonNode) =
-  for key, val in attrsJson(h5o.attrs, withType = withType):
-    yield (key, val)
+proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_t, h5f_p: pointer): herr_t {.cdecl.} =
+  ## this proc is called for each object iterated over in visitFile.
+  ## we basically just extract the information we want to have from the
+  ## h5info struct and add it to the h5f file object. Needs to be
+  ## a pointer here, since it's handed to C
+  ## this proc is only called in the case where the start from the root group
+  doAssert not h5f_p.isNil, "Memory corruption detected. Pointer to H5 file is nil!" # this should really never happen
+  # cast the H5FileObj pointer back
+  var h5f = cast[H5File](h5f_p)
+  if name_c == ".":
+    # in case the location is `.`, we are simply at our starting point (currently
+    # means root group), we don't want to do anything here, so continue
+    result = 0
+  else:
+    let name = formatName($name_c)
+    if h5info.`type` == H5O_TYPE_GROUP:
+      h5f.groups[name] = newH5Group(name)
+    elif h5info.`type` == H5O_TYPE_DATASET:
+      echo "visiting dataset ", name
+      h5f.datasets[name] = newH5DataSet(name)
 
-proc attrsToJson*[T: H5Group | H5DataSet](h5o: T, withType = false): JsonNode =
-  ## returns all attributes as a json node of kind `JObject`
-  result = newJObject()
-  for key, jval in h5o.attrsJson(withType = withType):
-    result[key] = jval
+proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t) =
+  ## this proc iterates over the whole file and reads the complete content
+  ## optionally only visits all elements below hid_t
+  ## H5Ovisit recursively visits any object (group or dataset + a couple specific
+  ## types) and calls a callback function. Depending on the return value of that
+  ## callback function, it either continues (proc returns 0), stops early and
+  ## returns the value of the callback (proc returns value > 0), stops early
+  ## and returns error (proc returns value < 0)
+  ## inputs:
+  ##   h5f: H5FileObj = file object, which will be visited. The
+  ##     object's group information will be updated.
+  ##   name: string = name of the starting location from which to visit the file
+  ##   h5id: hid_t = optional identifier id, from which to start visiting the
+  ##     file
+  ## throws:
+  ##   IOError: in case the object visit fails. This is most likely due to
+  ##     a corrupted H5 file.
+  # TODO: add version which uses `name` as a starting location?
+  # TODO: write an iterator which makes use of this?
+  var err: herr_t
+  if h5id != 0:
+    err = H5Ovisit(h5id, H5_INDEX_NAME, H5_ITER_NATIVE,
+                   cast[H5O_iterate_t](addH5Object),
+                   cast[pointer](h5f))
+  else:
+    err = H5Ovisit(h5f.file_id, H5_INDEX_NAME, H5_ITER_NATIVE,
+                   cast[H5O_iterate_t](addH5ObjectFromRoot),
+                   cast[pointer](h5f))
+  if err < 0:
+    raise newException(IOError, "Visiting the H5 file failed with an error." &
+      "File is possibly corrupted. See the H5 stacktrace.")
+  # now set visited flag
+  h5f.visited = true
 
-proc pretty*(att: H5Attr, indent = 0, full = false): string =
-  result = repeat(' ', indent) & "{\n"
-  let fieldInd = repeat(' ', indent + 2)
-  result.add &"{fieldInd}opened: {att.opened},\n"
-  result.add &"{fieldInd}dtypeAnyKind: {att.dtypeAnyKind}"
-  if full:
-    result.add &",\n{fieldInd}attr_id: {att.attr_id},\n"
-    result.add &"{fieldInd}dtype_c: {att.dtype_c},\n"
-    result.add &"{fieldInd}dtypeBaseKind: {att.dtypeBaseKind},\n"
-    result.add &"{fieldInd}attr_dspace_id: {att.attr_dspace_id}"
-  result.add repeat(' ', indent) & "\n}"
+#proc contains*[T: (H5FileObj | H5Group)](h5f: T, name: string): bool =
+#  ## proc to check whehther an element named `name` is contained in the
+#  ## HDF5 file. Checks for both groups and datasets!
+#  ## For groups either a full path or a relative path (relative to the name
+#  ## of the group on which `contains` is called) is possible. Note that
+#  ## lookups with a depth of more than 1 (subgroups or datasets of groups
+#  ## in the group we check) is currently not supported. Call on H5FileObj
+#  ## instead.
+#  ## Note: we first check for the existence of a group of this name,
+#  ## and only if no group of `name` is found, do we check the dataset names
+#  ## inputs:
+#  ##   h5f: H5FileObj = H5 file to check
+#  ##   name: string = the name of the dataset / group to check
+#  ## outputs:
+#  ##   bool = true if contained, false else
+#  ## throws:
+#  ##   HDF5LibraryError = in case the call to visit_file fails (only called
+#  ##     if the file wasn't visited before)
+#
+#  # if file not visited yet, do that now
+#  when T is H5FileObj:
+#    if h5f.visited == false:
+#      h5f.visit_file
+#  else:
+#    if h5f.file_ref.visited == false:
+#      visit_file(h5f.file_ref)
+#
+#  result = false
+#  if name in h5f.groups:
+#    result = true
+#  else:
+#    # if no group of said name, check datasets
+#    if name in h5f.datasets:
+#      result = true
+#
+#  if result == false:
+#    # in case we're checking a group, we should also check whether the given name
+#    # is relative to this groups basename
+#    when T is H5Group:
+#      # check whether `name` contains h5f's name
+#      if h5f.name notin name:
+#        # then create full name and call this proc again
+#        let full_name = h5f.name / name
+#        result = h5f.contains(full_name)
 
-proc `$`*(att: H5Attr): string =
-  result = pretty(att)
+proc isOpen*(h5f: H5File, name: dset_str): bool =
+  ## returns if the given dataset is known and open. Returns false
+  ## both if the dataset is not known as well as if it's known but closed.
+  let n = name.string
+  result = if h5f.datasets.hasKey(n): h5f.datasets[n].opened
+           else: false
 
-proc pretty*(attrs: H5Attributes, indent = 2, full = false): string =
-  ## For now this just prints the H5Attributes all as JSON
-  result = repeat(' ', indent) & "{\n"
-  let fieldInd = repeat(' ', indent + 2)
-  result.add &"{fieldInd}num_attrs: {attrs.num_attrs},\n"
-  result.add &"{fieldInd}parent_name: {attrs.parent_name},\n"
-  result.add &"{fieldInd}parent_type: {attrs.parent_type}"
-  if full:
-    result.add &",\n{fieldInd}parent_id: {attrs.parent_id}"
-  if attrs.num_attrs > 0:
-    result.add &"{fieldInd}attributes: " & "{"
-  for name, attr in attrs.attrsJson:
-    result.add &"{fieldInd}{name}: {attr},\n"
-  if attrs.num_attrs > 0:
-    result.add &"{fieldInd}" & "}"
-  result.add repeat(' ', indent) & "\n}"
+proc isOpen*(h5f: H5File, name: grp_str): bool =
+  ## returns if the given group is known and open. Returns false
+  ## both if the group is not known as well as if it's known but closed.
+  let n = name.string
+  result = if h5f.groups.hasKey(n): h5f.groups[n].opened
+           else: false
 
-proc `$`*(attrs: H5Attributes): string =
-  ## to string conversion for a `H5Attributes` for pretty printing
-  result = pretty(attrs, full = false)
+proc isDataset*(h5f: H5FileObj, name: string): bool =
+  ## checks for existence of object in file. If it exists checks whether
+  ## object is a dataset or not
+  let target = formatName name
+  echo "Checking if target ", name, " in file"
+  if target in h5f:
+    let objType = getObjectTypeByName(h5f.file_id, target)
+    result = if objType == H5O_TYPE_DATASET: true else: false
+  #else:
+  #  echo "it's not in the file what"
 
-proc pretty*(dset: H5DataSet, indent = 0, full = false): string =
-  result = repeat(' ', indent) & "{\n"
-  let fieldInd = repeat(' ', indent + 2)
-  result.add &"{fieldInd}name: {dset.name},\n"
-  result.add &"{fieldInd}file: {dset.file},\n"
-  result.add &"{fieldInd}parent: {dset.parent},\n"
-  result.add &"{fieldInd}shape: {dset.shape},\n"
-  result.add &"{fieldInd}dtype: {dset.dtype}"
-  if full:
-    result.add &",\n{fieldInd}maxshape: {dset.maxshape},\n"
-    result.add &"{fieldInd}parent_id: {dset.parent_id},\n"
-    result.add &"{fieldInd}chunksize: {dset.chunksize},\n"
-    result.add &"{fieldInd}dtypeAnyKind: {dset.dtypeAnyKind},\n"
-    result.add &"{fieldInd}dtypeBaseKind: {dset.dtypeBaseKind},\n"
-    result.add &"{fieldInd}dtype_c: {dset.dtype_c},\n"
-    result.add &"{fieldInd}dtype_class: {dset.dtype_class},\n"
-    result.add &"{fieldInd}dataset_id: {dset.dataset_id},\n"
-    result.add &"{fieldInd}num_attrs: {dset.attrs.num_attrs},\n"
-    result.add &"{fieldInd}dapl_id: {dset.dapl_id},\n"
-    result.add &"{fieldInd}dcpl_id: {dset.dcpl_id}"
-  result.add repeat(' ', indent) & "\n}"
-
-proc `$`*(dset: H5DataSet): string =
-  ## to string conversion for a `H5DataSet` for pretty printing
-  result = pretty(dset, full = false)
-
-proc pretty*(grp: H5Group, indent = 2, full = false): string =
-  result = repeat(' ', indent) & "{\n"
-  let fieldInd = repeat(' ', indent + 2)
-  result.add &"{fieldInd}name: {grp.name},\n"
-  result.add &"{fieldInd}file: {grp.file},\n"
-  result.add &"{fieldInd}parent: {grp.parent}"
-  if full:
-    result.add &",\n{fieldInd}file_id: {grp.file_id},\n"
-    result.add &"{fieldInd}group_id: {grp.group_id},\n"
-    result.add &"{fieldInd}parent_id: {grp.parent_id},\n"
-    result.add &"{fieldInd}gapl_id: {grp.gapl_id},\n"
-    result.add &"{fieldInd}gcpl_id: {grp.gcpl_id}"
-  if grp.datasets.len > 0:
-    result.add &",\n{fieldInd}datasets: " & "{"
-  for name, dset in grp.datasets:
-    result.add &"{fieldInd}{name}:  " & dset.pretty(indent = indent + 4)
-  if grp.datasets.len > 0:
-    result.add &"{fieldInd}" & "}"
-  if grp.groups.len > 0:
-    result.add &",\n{fieldInd}groups: " & "{"
-  for name, subgrp in grp.groups:
-    result.add &"{fieldInd}{name},\n"
-  if grp.groups.len > 0:
-    result.add &"{fieldInd}" & "}"
-  result.add repeat(' ', indent) & "\n}"
-
-proc `$`*(grp: H5Group): string =
-  ## to string conversion for a `H5Group` for pretty printing
-  result = pretty(grp, full = false)
-
-proc pretty*(h5f: H5FileObj, indent = 2, full = false): string =
-  result = repeat(' ', indent) & "{\n"
-  let fieldInd = repeat(' ', indent + 2)
-  result.add &"{fieldInd}name: {h5f.name},\n"
-  result.add &"{fieldInd}rw_type: {h5f.rw_type},\n"
-  result.add &"{fieldInd}visited: {h5f.visited}"
-  if full:
-    result.add &",\n{fieldInd}nfile_id: {h5f.file_id},\n"
-    result.add &"{fieldInd}err: {h5f.err},\n"
-    result.add &"{fieldInd}status: {h5f.status}"
-  if h5f.datasets.len > 0:
-    result.add &",\n{fieldInd}datasets: " & "{"
-  for name, dset in h5f.datasets:
-    result.add &"{fieldInd}{name}: " & dset.pretty(indent = indent + 4)
-  if h5f.datasets.len > 0:
-    result.add &"{fieldInd}" & "}"
-  if h5f.groups.len > 0:
-    result.add &",\n{fieldInd}groups: " & "{"
-  for name, subGrp in h5f.groups:
-    result.add &"{fieldInd}{name}: " & subGrp.pretty(indent = indent + 4)
-  if h5f.groups.len > 0:
-    result.add fieldInd & "}"
-  result.add &",\n{fieldInd}attrs: {h5f.attrs}"
-  result.add repeat(' ', indent) & "\n}"
-
-proc `$`*(grp: H5FileObj): string =
-  ## to string conversion for a `H5FileObj` for pretty printing
-  result = pretty(grp, full = false)
+proc isGroup*(h5f: H5File, name: string): bool =
+  ## checks for existence of object in file. If it exists checks whether
+  ## object is a group or not
+  let target = formatName name
+  if target in h5f:
+    let objType = getObjectTypeByName(h5f.file_id, target)
+    result = if objType == H5O_TYPE_GROUP: true else: false
 
 proc isInH5Root*(name: string): bool =
   ## this procedure returns whether the given group or dataset is in a group

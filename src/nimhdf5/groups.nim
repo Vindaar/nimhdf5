@@ -29,13 +29,6 @@ proc close*(group: H5Group) =
       raise newException(HDF5LibraryError, "Failed to close group " & group.name & "!")
     group.opened = false
 
-proc isOpen*(h5f: H5File, name: grp_str): bool =
-  ## returns if the given group is known and open. Returns false
-  ## both if the group is not known as well as if it's known but closed.
-  let n = name.string
-  result = if h5f.groups.hasKey(n): h5f.groups[n].opened
-           else: false
-
 proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
   ## convenience proc to return the group with name grp_name
   ## if it does not exist, KeyError is thrown
@@ -52,14 +45,6 @@ proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
     result = none(H5Group)
   else:
     result = some(h5f.groups[grp_name])
-
-proc isGroup*(h5f: H5File, name: string): bool =
-  ## checks for existence of object in file. If it exists checks whether
-  ## object is a group or not
-  let target = formatName name
-  if target in h5f:
-    let objType = getObjectTypeByName(h5f.file_id, target)
-    result = if objType == H5O_TYPE_GROUP: true else: false
 
 proc create_group*[T](h5f: T, group_name: string): H5Group
 proc get(h5f: H5File, group_in: grp_str): H5Group =
@@ -231,76 +216,3 @@ template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
 # let's try to implement some iterators for H5FileObj and H5Groups
 
 # for H5Groups first implement relative create_group
-
-iterator groups*(group: H5Group, start_path = ".", depth = 1): H5Group =
-  ## iterator to return groups below the given group. By default we do not
-  ## return groups in subgroups of the given ``group``
-  ## NOTE: make sure the file is visited via `files.visit_file` before calling
-  ## this iterator!
-  var mstart_path = start_path
-  # now make sure the start_path is properly formatted
-  if start_path != ".":
-    mstart_path = formatName start_path
-  else:
-    # else take this groups name as the starting path, since the table storing the
-    # datasets uses full paths as keys!
-    mstart_path = group.name
-  # number of `/` in start path, needed to calculate at which
-  # depth we are from start path
-  let n_start = mstart_path.count('/')
-  # now loop over all groups, checking for start_path in each group name
-  for grp in keys(group.groups):
-    if grp.startsWith(mstart_path) == true and grp != mstart_path:
-      if depth != 0:
-        let n_current = grp.count('/')
-        if n_current - n_start > depth:
-          # in this case continue without yielding
-          continue
-      yield group.groups[grp]
-
-iterator items*(group: H5Group, start_path = "."): H5DataSet =
-  ## iterator, which returns a non mutable dataset object starting from `start_path` in the
-  ## H5 group
-  ## TODO: currently start_path has no effect, unless it's the groups name, because
-  ## group is only aware of all datasets directly in it, not of any subgroups
-  ## -> need to iterate over subgroups and yield those group names as well!
-  ## Note: many procs working on datasets need a mutable object!
-  ## TODO: mutability often not needed in those procs.. change!
-  ## inputs:
-  ##    group: H5Group = the H5 group object, over which to iterate
-  ##    start_path: string = optional starting location from which to iterate
-  ##      default starts at location of group "."
-  ## yields:
-  ##    H5DataSet, which resides below `start_path`
-  ## throws:
-  ##    HDF5LibraryError = raised in case a call to the H5 library fails
-  var mstart_path = start_path
-
-  # TODO:
-  # - iterate over subgroups
-  #   - for each subgroup, we might call this proc?
-  # - should we include recursive option? only if set iterate over all subgroups as well?
-  #   could work together with start_path
-
-  # first check whether we visited the whole file yet
-  # how to do that for groups?
-  #if h5f.visited == false:
-  #  h5f.visit_file
-
-  if group.file_ref.visited == false:
-    # call visit file to get info about all groups and dsets
-    visit_file(group.file_ref)
-
-  # now make sure the start_path is properly formatted
-  if start_path != ".":
-    mstart_path = formatName start_path
-  else:
-    # else take this groups name as the starting path, since the table storing the
-    # datasets uses full paths as keys!
-    mstart_path = group.name
-
-  # now loop over all groups, checking for start_path in each group name
-  for dset in keys(group.datasets):
-    if dset.startsWith(mstart_path) == true and dset != mstart_path:
-      # means we're reading a fitting dataset, yield
-      yield group.datasets[dset]
