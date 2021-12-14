@@ -3,9 +3,7 @@ import tables
 import strformat
 import macros
 
-import hdf5_wrapper
-import H5nimtypes
-import util
+import hdf5_wrapper, H5nimtypes, util
 
 type
   # based on `typeinfo.AnyKind` enum

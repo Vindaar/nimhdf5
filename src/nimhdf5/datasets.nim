@@ -29,8 +29,7 @@ import filters
 import util
 import h5util
 
-from groups import create_group, isGroup
-
+from groups import create_group
 
 proc flush*(dset: H5DataSet, flushKind: FlushKind) =
   ## wrapper around H5Fflush for convenience
@@ -68,13 +67,6 @@ proc close*(dset: H5DataSet) =
       raise newException(HDF5LibraryError, "Error closing dataset " & $(dset.name) & "!")
     dset.opened = false
 
-proc isOpen*(h5f: H5File, name: dset_str): bool =
-  ## returns if the given dataset is known and open. Returns false
-  ## both if the dataset is not known as well as if it's known but closed.
-  let n = name.string
-  result = if h5f.datasets.hasKey(n): h5f.datasets[n].opened
-           else: false
-
 proc getDset(h5f: H5File, dset_name: string): Option[H5DataSet] =
   ## convenience proc to return the dataset with name dset_name
   ## if it does not exist, KeyError is thrown
@@ -91,14 +83,6 @@ proc getDset(h5f: H5File, dset_name: string): Option[H5DataSet] =
     result = none(H5DataSet)
   else:
     result = some(h5f.datasets[dset_name])
-
-proc isDataset*(h5f: H5FileObj, name: string): bool =
-  ## checks for existence of object in file. If it exists checks whether
-  ## object is a dataset or not
-  let target = formatName name
-  if target in h5f:
-    let objType = getObjectTypeByName(h5f.file_id, target)
-    result = if objType == H5O_TYPE_DATASET: true else: false
 
 proc readShape(dspace_id: hid_t): tuple[shape, maxshape: seq[int]] =
   ## read the shape and maxshape of a dataset

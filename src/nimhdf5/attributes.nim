@@ -8,11 +8,7 @@ import typeinfo
 import tables
 import strutils, sequtils
 
-import hdf5_wrapper
-import H5nimtypes
-import datatypes
-import dataspaces
-import util
+import hdf5_wrapper, h5util, H5nimtypes, datatypes, dataspaces, util
 
 proc `$`*(h5attr: H5Attributes): string =
   result = $(h5attr[])
