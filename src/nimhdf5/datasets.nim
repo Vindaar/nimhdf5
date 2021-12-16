@@ -618,7 +618,7 @@ proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
   let shape = dset.shape
   withDebug:
     echo "shape is ", shape, " of dset ", dset.name
-    echo "data is of " type(data).name, " and length = ", length
+    echo "data is of ", type(data).name, " and length = ", length
 
   # only write pointer data if shorter than size of dataset
   if dset.shape.foldl(a * b) <= length:
@@ -634,7 +634,7 @@ proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
                      data)
       if err < 0:
         withDebug:
-          echo "Trying to write data_write ", data_write
+          echo "Trying to write data_write ", data.repr
         raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
           "while calling `H5Dwrite` in `unsafeWrite`")
   else:
