@@ -1,3 +1,19 @@
+* v0.4.0
+- *major* change: introduce multiple different distinct types for the
+  different usages of =hid_t= in the HDF5 library. This gives us more
+  readability, type safety etc. We can write proper type aware =close=
+  procedures etc.
+- also adds ~=destroy~ hooks for all relevant types, so manual closing
+  is not required anymore (unless one wishes to close early)
+- *breaking*: iterators taking a =depth= argument now treat it
+  differently. A depth of 0 now means *only the same level* where
+  previously it meant *all levels*. The previous behavior is available
+  via ~depth = -1~. The default behavior has not changed though.
+- *breaking*: renames the =shape_raw= and =dset_raw= arguments of =create_dataset= to
+  simply =shape= and =dset=. The purpose of the =_raw= suffix is completely
+  unimportant for a user of the library.
+- improve output of pretty printing of datasets, groups and files
+- add tests for iterators and =contains= procedure
 * v0.3.16
 - refactor out pretty printing, iterators, some attribute related code
   into their own files
