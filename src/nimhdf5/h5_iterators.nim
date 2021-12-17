@@ -48,7 +48,7 @@ iterator items*(h5f: H5File, start_path = "/", depth = -1): H5Group =
                                          # with a similar name
       # in this case we're neither visiting the group at which we start
       # nor a group, which is not a subgroup
-      if depth != 0:
+      if depth >= 0:
         # check if max search depth reached
         let n_current = grp.count('/')
         if n_current - n_start > depth:
@@ -127,9 +127,7 @@ iterator items*(group: H5Group, start_path = ".", depth = 1): H5DataSet =
   n_start = mstart_path.count('/')
 
   # now loop over all groups, checking for start_path in each group name
-  echo "Datasets: ", group.datasets
   for dset in keys(group.datasets):
-    echo "Dset: ", dset, " starts with ", mstart_path, " ? ", dset.startsWith(mstart_path), " and != ", dset != mstart_path
     if dset.startsWith(mstart_path) and dset != mstart_path: # and
       #not (mstart_path != "/" and # if not start at root
       #     dset.len > mstart_path.len and # check dset longer than start path
@@ -140,7 +138,7 @@ iterator items*(group: H5Group, start_path = ".", depth = 1): H5DataSet =
       #                                   # with a similar name
       # in this case we're neither visiting the group at which we start
       # nor a group, which is not a subgroup
-      if depth != 0:
+      if depth >= 0:
         # check if max search depth reached
         let n_current = dset.count('/')
         if n_current - n_start > depth:
@@ -148,7 +146,6 @@ iterator items*(group: H5Group, start_path = ".", depth = 1): H5DataSet =
           continue
       # means we're reading a fitting dataset, yield
       let dsetObj = group.datasets[dset]
-      echo "going to yield ", dsetObj.name
       if dsetObj.opened:
         yield dsetObj
       else:
