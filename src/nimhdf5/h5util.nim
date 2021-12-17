@@ -139,10 +139,14 @@ proc isOpen*(h5f: H5File, name: dset_str): bool =
   result = if h5f.datasets.hasKey(n): h5f.datasets[n].opened
            else: false
 
-proc isOpen*(h5f: H5File, name: grp_str): bool =
+proc isOpen*[T: H5Group | H5File](h5o: T, name: grp_str): bool =
   ## returns if the given group is known and open. Returns false
   ## both if the group is not known as well as if it's known but closed.
   let n = name.string
+  when T is H5Group:
+    let h5f = h5o.file_ref
+  else:
+    let h5f = h5o
   result = if h5f.groups.hasKey(n): h5f.groups[n].opened
            else: false
 

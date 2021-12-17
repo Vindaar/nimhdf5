@@ -125,8 +125,40 @@ proc createGroupFromParent[T: H5Group | H5File](h5o: T, group_name: string): H5G
   withDebug:
     debugEcho "Adding element to h5f groups ", group_name
 
+proc open*[T: H5Group | H5File](h5o: T, group_name: grp_str) =
+  ## Opens the given `group_name` and adds it to the table of opened groups.
+  ##
+  ## Raises `KeyError` if the given group does not exist.
+  let file_ref = h5o.getFileRef()
+  let name = formatName(groupName.string)
+  let exists = name in h5o
+  if exists and not h5o.isOpen(group_name):
+    # since we know that the parent exists, we can simply use the (recursive!) getParentId
+    # to get the id of the parent, without worrying about receiving a parent id of an
+    # object, which is in reality not the actual parent
+    let parent_id = getParentId(h5o, name)
+    var group = newH5Group(name, file_ref = file_ref,
+                           parentID = parent_id)
+    group.group_id = h5o.openGroup(name) # simply open the group
+    group.opened = true # either we have raised or the group is now open
+    # create attributes field
+    group.attrs = initH5Attributes(ParentID(kind: okGroup,
+                                             gid: group.group_id),
+                                    group.name, "H5Group")
+    h5o.groups[name] = group
+  elif not exists:
+    raise newException(KeyError, "The group " & $(name) & " does " &
+      "not exist in the file " & $(h5o.getFilename()) & ".")
+
 #proc getGroup[T: H5Group | H5File](h5o: T, group_name: string): H5Group =
 
+proc openAndGetGroup(h5f: H5File, name: string): H5Group =
+  ## Opens and returns the group `name` if it exists in the HDF5 file.
+  ##
+  ## Throws a `KeyError` if it does not exist.
+  let nameStr = formatName name
+  h5f.open(nameStr.grp_str) # try to open (will fail if it does not exist)
+  h5f.groups[nameStr]
 
 proc create_group*[T](h5f: T, group_name: string): H5Group =
   ## checks whether the given group name already exists or not.
@@ -157,10 +189,9 @@ proc create_group*[T](h5f: T, group_name: string): H5Group =
   else:
     let group_path = formatName group_name
 
-  let isOpen = h5f.isOpen(group_path.grp_str)
-  if isOpen:
-    # then we return the object
-    result = h5f.groups[group_path]
+  let exists = h5f.isGroup(group_path)
+  if exists:
+    result = h5f.openAndGetGroup(group_path) # just return it
   else:
     # we need to create it. But first check whether the parent
     # group already exists
@@ -173,21 +204,7 @@ proc create_group*[T](h5f: T, group_name: string): H5Group =
       result = createGroupFromParent(h5f, group_path)
 
 proc `[]`*(h5f: H5File, name: grp_str): H5Group =
-  # a simple wrapper around get for groups
-  h5f.get(name)
-
-# proc openGroupById(h5f: H5File, locaction_id: hid_t, name: string): H5Group =
-#   # proc which opens an existing group by its ID
-#   var group = newH5Group(name)
-#   group.group_id = H5Gopen2(locaction_id, name, H5P_DEFAULT)
-#   group.parent = getParent(name)
-#   group.parent_id = h5f.getParentId(group)
-#   group.file = h5f.name
-#   group.file_id = h5f.file_id
-#   # create attributes field
-#   group.attrs = initH5Attributes(group.name, group.group_id, "H5Group")
-
-
-# let's try to implement some iterators for H5File and H5Groups
-
-# for H5Groups first implement relative create_group
+  ## Opens and returns the group `name` if it exists in the HDF5 file.
+  ##
+  ## Throws a `KeyError` if it does not exist.
+  h5f.openAndGetGroup(name.string)
