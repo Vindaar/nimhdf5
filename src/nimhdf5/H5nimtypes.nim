@@ -60,6 +60,25 @@ proc `$`*(x: GroupCreatePropertyListID  ): string {.borrow.}
 proc `$`*(x: DatasetAccessPropertyListID): string {.borrow.}
 proc `$`*(x: DatasetCreatePropertyListID): string {.borrow.}
 
+
+## unary minus to write `-1.FileID` etc.
+proc `-`*(x: hid_t): hid_t {.borrow.}
+proc `-`*(x: FileID): FileID {.borrow.}
+proc `-`*(x: DatasetID): DatasetID {.borrow.}
+proc `-`*(x: GroupID): GroupID {.borrow.}
+proc `-`*(x: AttributeID): AttributeID {.borrow.}
+proc `-`*(x: DataspaceID): DataspaceID {.borrow.}
+proc `-`*(x: DatatypeID): DatatypeID {.borrow.}
+proc `-`*(x: MemspaceID): MemspaceID {.borrow.}
+proc `-`*(x: HyperslabID): HyperslabID {.borrow.}
+
+proc `-`*(x: FileAccessPropertyListID   ): FileAccessPropertyListID {.borrow.}
+proc `-`*(x: FileCreatePropertyListID   ): FileCreatePropertyListID {.borrow.}
+proc `-`*(x: GroupAccessPropertyListID  ): GroupAccessPropertyListID {.borrow.}
+proc `-`*(x: GroupCreatePropertyListID  ): GroupCreatePropertyListID {.borrow.}
+proc `-`*(x: DatasetAccessPropertyListID): DatasetAccessPropertyListID {.borrow.}
+proc `-`*(x: DatasetCreatePropertyListID): DatasetCreatePropertyListID {.borrow.}
+
 proc `<`*(x, y: hid_t): bool {.borrow.}
 proc `<`*(x: hid_t, y: int): bool =
   result = x < y.hid_t
