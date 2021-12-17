@@ -2,11 +2,11 @@ import std / [strutils, tables]
 
 import datatypes, h5util, util, groups, datasets, pretty_printing
 
-iterator items*(h5f: H5FileObj, start_path = "/", depth = 0): H5Group =
+iterator items*(h5f: H5File, start_path = "/", depth = -1): H5Group =
   ## iterator, which returns a non mutable group objects starting from `start_path` in the
   ## H5 file
   ## inputs:
-  ##    h5f: H5FileObj = the H5 file object, over which to iterate
+  ##    h5f: H5File = the H5 file object, over which to iterate
   ##    start_path: string = optional starting location from which to iterate
   ##        default starts at root group `/`
   ##    depth: int = depth of subgroups to be returned. Default 0 returns

@@ -4,13 +4,12 @@
 # library, e.g. to get the shape of a nested sequence.
 # Others are more specific, but still not restricted to the H5
 # library, e.g. formatName(), which formats a string handed to
-# the `[]`(H5FileObj) proc to a format suitable for parsing.
+# the `[]`(H5File) proc to a format suitable for parsing.
 # read: any proc, whose understanding does not require knowledge
 # of the H5 library (although the purpose of the function might)
 # and does not make use of any datatypes defined for H5 interop.
 
-import strutils
-import macros
+import std / [strutils, macros, os]
 
 template withDebug*(actions: untyped) =
   ## a debugging template, which can be used to e.g. output
