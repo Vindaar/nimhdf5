@@ -361,48 +361,49 @@ proc close*(dset: var H5DataSetObj) =
 
 proc close*(dset: H5DataSet) = dset[].close()
 
-proc `=destroy`*(attr: var H5AttrObj) =
-  ## Closes the given attribute.
-  attr.close()
+when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
+  proc `=destroy`*(attr: var H5AttrObj) =
+    ## Closes the given attribute.
+    attr.close()
 
-proc `=destroy`*(attrs: var H5AttributesObj) =
-  ## Closes all attributes that are stored in this `H5Attributes` table.
-  for name, attr in mpairs(attrs.attr_tab):
-    `=destroy`(attr)
-  attrs.parent_id = ParentID(kind: okNone)
+  proc `=destroy`*(attrs: var H5AttributesObj) =
+    ## Closes all attributes that are stored in this `H5Attributes` table.
+    for name, attr in mpairs(attrs.attr_tab):
+      `=destroy`(attr)
+    attrs.parent_id = ParentID(kind: okNone)
 
-proc `=destroy`*(dset: var H5DataSetObj) =
-  ## Closes the dataset and resets all references to nil.
-  dset.close() # closes its dataspace etc. as well
-  dset.opened = false
+  proc `=destroy`*(dset: var H5DataSetObj) =
+    ## Closes the dataset and resets all references to nil.
+    dset.close() # closes its dataspace etc. as well
+    dset.opened = false
 
-proc `=destroy`*(grp: var H5GroupObj) =
-  ## Closes the group and resets all references to nil.
-  grp.file_ref = nil
-  grp.file_id = -1.FileID
-  grp.parent_id = ParentID(kind: okNone)
-  grp.close()
-  grp.opened = false
+  proc `=destroy`*(grp: var H5GroupObj) =
+    ## Closes the group and resets all references to nil.
+    grp.file_ref = nil
+    grp.file_id = -1.FileID
+    grp.parent_id = ParentID(kind: okNone)
+    grp.close()
+    grp.opened = false
 
-#proc `=destroy`*(grp: var H5Group) =
-#  ## Closes the group and resets all references to nil.
-#  grp.file_ref = nil
-#  grp.file_id = -1.FileID
-#  grp.parent_id = ParentID(kind: okNone)
-#  grp.close()
-#  grp.opened = false
+  #proc `=destroy`*(grp: var H5Group) =
+  #  ## Closes the group and resets all references to nil.
+  #  grp.file_ref = nil
+  #  grp.file_id = -1.FileID
+  #  grp.parent_id = ParentID(kind: okNone)
+  #  grp.close()
+  #  grp.opened = false
 
-when false:
-  ## currently these are problematic, as we're allowed to just copy these IDs in Nim land,
-  ## and for each copy going out of scope `=destroy` would be called. Can cause double free.
-  ## We could wrap them in a `ref` or disallow `=copy`.
-  proc `=destroy`*(dspace_id: var DataspaceID) =
-    ## Closes the dataspace when it goes out of scope
-    dspace_id.close()
+  when false:
+    ## currently these are problematic, as we're allowed to just copy these IDs in Nim land,
+    ## and for each copy going out of scope `=destroy` would be called. Can cause double free.
+    ## We could wrap them in a `ref` or disallow `=copy`.
+    proc `=destroy`*(dspace_id: var DataspaceID) =
+      ## Closes the dataspace when it goes out of scope
+      dspace_id.close()
 
-  proc `=destroy`*(mspace_id: var MemspaceID) =
-    ## Closes the memspace when it goes out of scope
-    mspace_id.close()
+    proc `=destroy`*(mspace_id: var MemspaceID) =
+      ## Closes the memspace when it goes out of scope
+      mspace_id.close()
 
 proc to_hid_t*(p: ParentID): hid_t =
   case p.kind
