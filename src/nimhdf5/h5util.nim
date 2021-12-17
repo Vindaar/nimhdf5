@@ -10,6 +10,7 @@ import strutils, strformat
 import ospaths
 import options
 import tables
+from sequtils import filterIt
 
 # nimhdf5 related libraries
 import hdf5_wrapper
@@ -19,7 +20,7 @@ import datatypes
 
 proc contains*(h5f: H5File, name: string): bool
 proc contains*(grp: H5Group, name: string): bool
-proc getObjectTypeByName*(h5id: hid_t, name: string): H5O_type_t
+proc getObjectTypeByName*(h5id: FileID | GroupID | DatasetID, name: string): H5O_type_t
 
 proc addH5Object*(location_id: hid_t, name_c: cstring, h5info: H5O_info_t, h5f_p: pointer): herr_t {.cdecl.} =
   ## similar proc to processH5ObjectFromRoot, except we do /not/ start at root
@@ -78,7 +79,7 @@ proc visit_file*(h5f: H5File, h5id: hid_t = 0.hid_t) =
                    cast[H5O_iterate_t](addH5Object),
                    cast[pointer](h5f))
   else:
-    err = H5Ovisit(h5f.file_id, H5_INDEX_NAME, H5_ITER_NATIVE,
+    err = H5Ovisit(h5f.file_id.hid_t, H5_INDEX_NAME, H5_ITER_NATIVE,
                    cast[H5O_iterate_t](addH5ObjectFromRoot),
                    cast[pointer](h5f))
   if err < 0:
@@ -162,6 +163,20 @@ proc isGroup*(h5f: H5File, name: string): bool =
     let objType = getObjectTypeByName(h5f.file_id, target)
     result = if objType == H5O_TYPE_GROUP: true else: false
 
+proc getFilename*[T: H5Group | H5File](h5o: T): string =
+  ## Returns the filename of the file the group is in / the name of the given file.
+  when T is H5Group:
+    result = h5o.file
+  else:
+    result = h5o.name
+
+proc getFileRef*[T: H5Group | H5File](h5o: T): H5File =
+  ## Returns the file ref of the given group or the file itself
+  when T is H5Group:
+    result = h5o.file_ref
+  else:
+    result = h5o
+
 proc isInH5Root*(name: string): bool =
   ## this procedure returns whether the given group or dataset is in a group
   ## or in the root of the HDF5 file.
@@ -174,7 +189,7 @@ proc isInH5Root*(name: string): bool =
   elif n_slash == 1:
     result = true
 
-proc existsInFile*(h5id: hid_t, name: string): hid_t =
+proc existsInFile*(h5id: FileID, name: string): hid_t =
   ## convenience function to check whether a given object `name` exists
   ## in another H5 object given by the id `h5id`
   if name == "/":
@@ -195,22 +210,13 @@ proc existsInFile*(h5id: hid_t, name: string): hid_t =
       continue
     # need to convert result of H5Lexists to hid_t, because return type is
     # `htri_t` from the H5 wrapper
-    result = H5Lexists(h5id, toCheck, H5P_DEFAULT).hid_t
+    result = H5Lexists(h5id.hid_t, toCheck, H5P_DEFAULT).hid_t
     if result == 0:
       # does not exist, so break, even if we're not at the deepest level
       break
     elif result < 0:
       raise newException(HDF5LibraryError, "Call to `H5Lexists` failed " &
         "in `existsFile`!")
-
-template getParent*(dset_name: string): string =
-  ## given a `dset_name` after formating (!), return the parent name,
-  ## simly done by a call to parentDir from ospaths
-  var result: string
-  result = parentDir(dset_name)
-  if result == "":
-    result = "/"
-  result
 
 proc firstExistingParent*[T](h5f: T, name: string): Option[H5Group] =
   ## proc to find the first existing parent of a given object in H5F
@@ -233,36 +239,82 @@ proc firstExistingParent*[T](h5f: T, name: string): Option[H5Group] =
     # no parent found, first existing parent is root
     result = none(H5Group)
 
-proc getParentId*[T: (H5FileObj | H5Group), U: (H5DataSet | H5Group)](h5f: T, h5o: U): hid_t =
-  ## returns the id of the first existing parent of `h5o` contained in the file
+proc getParentId*[T: (H5File | H5Group)](h5f: T, name: string): ParentID =
+  ## returns the id of the first existing parent of `name` contained in the file
   ## or group `h5f` (f refers to the fact that the object contains the file id
   ## inputs:
-  ##  h5f: (H5FileObj | H5Group) = any object that contains the file_id in which
+  ##  h5f: (H5File | H5Group) = any object that contains the file_id in which
   ##    the `h5o` is contained
-  ##  h5o: (H5Group | H5DataSet) = object for which to check the parent id
+  ##  name: Name to check the parent for.
   ## outputs:
   ##   hid_t = object id of the parent or the file id, if no parent exists besides
   ##     the file root
-  let
-    parent = getParent(h5o.name)
-    p = firstExistingParent(h5f, h5o.name)
+  let p = firstExistingParent(h5f, name)
   if isSome(p) == true:
     result = getH5Id(unsafeGet(p))
   else:
     # this means the only existing parent is root
-    result = h5f.file_id
+    result = ParentID(kind: okFile, fid: h5f.file_id)
 
-proc getObjectTypeByName*(h5id: hid_t, name: string): H5O_type_t =
+proc getParentId*[T: (H5File | H5Group), U: (H5DataSet | H5Group)](h5f: T, h5o: U): ParentID =
+  ## Overload of `getParentID` taking a `string` for the second argument for convenience when
+  ## already having a dataset or group.
+  result = getParentID(h5f, h5o.name)
+
+proc getObjectTypeByName*(h5id: FileID | GroupID | DatasetID, name: string): H5O_type_t =
   ## proc to retrieve the type of an object (dataset or group etc) based on
   ## a location in the HDF5 file and a relative name from there
   var h5info: H5O_info_t
-  let err = H5Oget_info_by_name(h5id, name, addr(h5info), H5P_DEFAULT)
+  let err = H5Oget_info_by_name(h5id.hid_t, name, addr(h5info), H5P_DEFAULT)
   withDebug:
     echo "Getting Type of object ", name
   if err >= 0:
     result = h5info.`type`
   else:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getObjectTypeByName`")
+
+proc getObjectTypeByName*(h5id: ParentID, name: string): H5O_type_t =
+  case h5id.kind
+  of okFile: result = getObjectTypeByName(h5id.fid, name)
+  of okGroup: result = getObjectTypeByName(h5id.gid, name)
+  of okDataset: result = getObjectTypeByName(h5id.did, name)
+  #of okAttr: result = getObjectTypeByName(h5id.attrId, name)
+  #of okType: result = getObjectTypeByName(h5id.typId, name)
+  else:
+    raise newException(ValueError, "Cannot determine object type of an " & $h5id.kind &
+      " id!")
+
+proc printOpenObjects*(h5f: H5File) =
+  ## Prints all objects that are still open in the given H5 file.
+  let
+    filesOpen = H5Fget_obj_count( h5f.file_id.hid_t, H5F_OBJ_FILE)
+    dsetsOpen = H5Fget_obj_count( h5f.file_id.hid_t, H5F_OBJ_DATASET)
+    groupsOpen = H5Fget_obj_count(h5f.file_id.hid_t, H5F_OBJ_GROUP)
+    typesOpen = H5Fget_obj_count( h5f.file_id.hid_t, H5F_OBJ_DATATYPE)
+    attrsOpen = H5Fget_obj_count( h5f.file_id.hid_t, H5F_OBJ_ATTR)
+  # always printing, regardless of debug
+  echo "\t objects open:"
+  echo "\t\t files open: ", filesOpen
+  echo "\t\t dsets open: ", dsetsOpen
+  echo "\t\t groups open: ", groupsOpen
+  echo "\t\t types open: ", typesOpen
+  echo "\t\t attrs open: ", attrsOpen
+
+proc getOpenObjectIds*(h5f: H5File, kind: ObjectKind,
+                       bufSize = 1000): seq[hid_t] =
+  ## Return all IDs of objects of `kind` that are still open in the file.
+  ##
+  ## This will fail if there are more than `bufSize` elements open!
+  ##
+  ## Returns a sequence of `hid_t` as we haven't checked what object types they are
+  ## nor can we return a sequence of different types.
+  let h5Kind = parseObjectKindToH5(kind)
+  # create buffer size of `bufSize`. Should be plenty for open ids
+  # if not, something is wrong anyways (I'd assume?)
+  var objList = newSeq[hid_t](bufSize)
+  let objsOpen = H5Fget_obj_ids(h5f.file_id.hid_t,
+                                h5Kind.cuint, bufSize.csize_t, addr objList[0])
+  result = objList.filterIt(it > 0)
 
 proc contains*(h5f: H5File, name: string): bool =
   ## Checks if the given `name` is contained in the H5 file.
@@ -303,7 +355,7 @@ proc delete*[T](h5o: T, name: string): bool =
   of H5O_TYPE_DATASET:
     if name in h5o.datasets:
       h5o.datasets.del(name)
-  result = if H5Ldelete(h5id, name, H5P_DEFAULT) >= 0: true else: false
+  result = if H5Ldelete(h5id.to_hid_t, name, H5P_DEFAULT) >= 0: true else: false
 
 proc copy*[T](h5in: H5File, h5o: T,
               target: Option[string] = none[string](),

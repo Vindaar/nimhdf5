@@ -9,7 +9,7 @@ from groups import create_group, `[]`
 proc newH5File*(): H5File =
   ## default constructor for a H5File object, for internal use
   let dset = newTable[string, H5DataSet]()
-  let dspace = initTable[string, hid_t]()
+  let dspace = initTable[string, DataspaceID]()
   let groups = newTable[string, H5Group]()
   let attrs = newH5Attributes()
   result = H5File(name: "",
@@ -18,7 +18,6 @@ proc newH5File*(): H5File =
                      err: -1,
                      status: -1.hid_t,
                      datasets: dset,
-                     dataspaces: dspace,
                      groups: groups,
                      attrs: attrs)
 
@@ -125,7 +124,7 @@ proc H5open*(name, rw_type: string): H5File =
       # properties (...somehwat unclear to me so far...)
       withDebug:
         echo "exists and read only"
-      result.file_id = H5Fopen(name, rw, H5P_DEFAULT)
+      result.file_id = H5Fopen(name, rw, H5P_DEFAULT).FileID
     else:
       # cannot open a non existing file with read only properties
       raise newException(IOError, getH5read_non_exist_file(name))
@@ -134,104 +133,51 @@ proc H5open*(name, rw_type: string): H5File =
     # then use open call
     withDebug:
       echo "exists and read write"
-    result.file_id = H5Fopen(name, rw, H5P_DEFAULT)
+    result.file_id = H5Fopen(name, rw, H5P_DEFAULT).FileID
   elif rw == H5F_ACC_EXCL:
     # use create call
     withDebug:
       echo "rw is  ", rw
-    result.file_id = H5Fcreate(name, rw, H5P_DEFAULT, H5P_DEFAULT)
+    result.file_id = H5Fcreate(name, rw, H5P_DEFAULT, H5P_DEFAULT).FileID
   # after having opened / created the given file, we get the datasets etc.
   # which are stored in the file
-  result.attrs = initH5Attributes(result.file_id, "/", "H5FileObj")
+  result.attrs = initH5Attributes(ParentID(kind: okFile,
+                                           fid: result.file_id),
+                                  "/",
+                                  "H5File")
 
 proc H5file*(name, rw_type: string): H5File {.deprecated: "Use `H5open` instead of " &
     "H5file. The datatype was renamed from `H5File` to `H5File`.".} =
   result = H5open(name, rw_type)
-
-proc printOpenObjects*(h5f: H5FileObj) =
-  let
-    filesOpen = H5Fget_obj_count(h5f.file_id, H5F_OBJ_FILE)
-    dsetsOpen = H5Fget_obj_count(h5f.file_id, H5F_OBJ_DATASET)
-    groupsOpen = H5Fget_obj_count(h5f.file_id, H5F_OBJ_GROUP)
-    typesOpen = H5Fget_obj_count(h5f.file_id, H5F_OBJ_DATATYPE)
-    attrsOpen = H5Fget_obj_count(h5f.file_id, H5F_OBJ_ATTR)
-  # always printing, regardless of debug
-  echo "\t objects open:"
-  echo "\t\t files open: ", filesOpen
-  echo "\t\t dsets open: ", dsetsOpen
-  echo "\t\t groups open: ", groupsOpen
-  echo "\t\t types open: ", typesOpen
-  echo "\t\t attrs open: ", attrsOpen
-
-type
-  ObjectKind* = enum
-    okFile, okDset, okGroup, okType, okAttr, okAll
-
-proc parseH5toObjectKind(h5Kind: int): ObjectKind =
-  if h5Kind == H5F_OBJ_FILE:
-    result = okFile
-  elif h5Kind == H5F_OBJ_DATASET:
-    result = okDset
-  elif h5Kind == H5F_OBJ_GROUP:
-    result = okGroup
-  elif h5Kind == H5F_OBJ_DATATYPE:
-    result = okType
-  elif h5Kind == H5F_OBJ_ATTR:
-    result = okAttr
-  elif h5Kind == H5F_OBJ_ALL:
-    result = okAll
-
-proc parseObjectKindToH5(kind: ObjectKind): int =
-  case kind
-  of okFile:
-    result = H5F_OBJ_FILE
-  of okDset:
-    result = H5F_OBJ_DATASET
-  of okGroup:
-    result = H5F_OBJ_GROUP
-  of okType:
-    result = H5F_OBJ_DATATYPE
-  of okAttr:
-    result = H5F_OBJ_ATTR
-  of okAll:
-    result = H5F_OBJ_ALL
-
-proc getOpenObjectIds*(h5f: H5FileObj, kind: ObjectKind): seq[hid_t] =
-  let h5Kind = parseObjectKindToH5(kind)
-  # create buffer size of 1000. Should be plenty for open ids
-  # if not, something is wrong anyways (I'd assume?)
-  const maxObjects = 1000
-  var objList = newSeq[hid_t](maxObjects)
-  let objsOpen = H5Fget_obj_ids(h5f.file_id, h5Kind.cuint, 1000, addr objList[0])
-  result = objList.filterIt(it > 0)
 
 proc flush*(h5f: H5File, flushKind: FlushKind = fkGlobal) =
   ## wrapper around H5Fflush for convenience
   var err: herr_t
   case flushKind
   of fkGlobal:
-      err = H5Fflush(h5f.file_id, H5F_SCOPE_GLOBAL)
+      err = H5Fflush(h5f.file_id.hid_t, H5F_SCOPE_GLOBAL)
   of fkLocal:
-      err = H5Fflush(h5f.file_id, H5F_SCOPE_LOCAL)
+      err = H5Fflush(h5f.file_id.hid_t, H5F_SCOPE_LOCAL)
   if err < 0:
     raise newException(HDF5LibraryError, "Trying to flush file " & h5f.name &
       " as " & $flushKind & " failed!")
 
 proc close*(id: hid_t, kind: ObjectKind): herr_t =
   ## calls the correct H5 `close` function for the given object kind
+  ##
+  ## Note: Ideally, this should not be used
   case kind
   of okFile:
     result = H5Fclose(id)
-  of okDset:
+  of okDataset:
     result = H5Dclose(id)
   of okGroup:
     result = H5Gclose(id)
   of okAttr:
     result = H5Aclose(id)
   of okType:
-    # no close function?
-    discard
-  of okAll:
+    result = H5Tclose(id)
+  of okAll, okNone:
     discard
 
 proc close*(h5f: H5File): herr_t =
@@ -277,6 +223,7 @@ proc close*(h5f: H5File): herr_t =
   # TODO: it seems we're missing some attributes. The rest is typically closed
   # find out where we miss them!
   for t in ObjectKind:
+    if t in {okAll, okNone}: continue
     let objsStillOpen = h5f.getOpenObjectIds(t)
     if objsStillOpen.len > 0:
       for id in objsStillOpen:
@@ -293,10 +240,10 @@ proc close*(h5f: H5File): herr_t =
     echo "Still open objects are ", objsYet
 
   # flush the file
-  result = H5Fflush(h5f.file_id, H5F_SCOPE_GLOBAL)
+  result = H5Fflush(h5f.file_id.hid_t, H5F_SCOPE_GLOBAL)
 
   # close the remaining attributes
-  result = H5Fclose(h5f.file_id)
+  result = H5Fclose(h5f.file_id.hid_t)
 
 template withH5*(h5file, rw_type: string, actions: untyped) =
   ## template to work with a H5 file, taking care of opening
@@ -314,7 +261,11 @@ template withH5*(h5file, rw_type: string, actions: untyped) =
 
 proc getObjectIdByName(h5file: H5File, name: string): hid_t =
   ## proc to retrieve the location ID of a H5 object based its relative path
-  ## to the given id
+  ## to the given id.
+  ##
+  ## Note: this proc throws out the type safety of the different ID types to
+  ## allow returning each type.
+  ## TODO: Better it should return an `Either`, a variant etc.
   let h5type = getObjectTypeByName(h5file.file_id, name)
   # get type
   withDebug:
@@ -329,9 +280,9 @@ proc getObjectIdByName(h5file: H5File, name: string): hid_t =
       # may not want to create such a group, if it does not exist
       # instead return a not found error!
       discard h5file.create_group(name)
-    result = h5file[name.grp_str].group_id
+    result = h5file[name.grp_str].group_id.hid_t
   elif h5type == H5O_TYPE_DATASET:
-    result = h5file[name.dset_str].dataset_id
+    result = h5file[name.dset_str].dataset_id.hid_t
 
 
 # TODO: should this remain in files.nim?
@@ -356,7 +307,11 @@ proc create_hardlink*(h5file: H5File, target: string, link_name: string) =
       # of the link
       # TODO: create parent groups of `link_name`
       let link_id   = getObjectIdByName(h5file, parent)
-      err = H5Lcreate_hard(h5file.file_id, target, link_id, link_name, H5P_DEFAULT, H5P_DEFAULT)
+      err = H5Lcreate_hard(h5file.file_id.hid_t,
+                           target,
+                           link_id,
+                           link_name,
+                           H5P_DEFAULT, H5P_DEFAULT)
       if err < 0:
         raise newException(HDF5LibraryError, "Call to HDF5 library failed in `create_hardlink` upon trying to link $# -> $#" % [link_name, target])
     else:

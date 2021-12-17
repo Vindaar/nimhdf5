@@ -16,48 +16,37 @@ proc `$`*(h5attr: H5Attributes): string =
 # forward declare procs, which we need to read the attributes from file
 proc read_all_attributes*(h5attr: H5Attributes)
 
-proc openAttrByIdx(h5attr: H5Attributes, idx: int): hid_t =
+proc openAttrByIdx(h5attr: H5Attributes, idx: int): AttributeID =
   ## proc to open an attribute by its id in the H5 file and returns
   ## attribute id if succesful
   ## need to hand H5Aopen_by_idx the location relative to the location_id,
   ## if I understand correctly
   let loc = "."
   # we read by creation order, increasing from 0
-  result = H5Aopen_by_idx(h5attr.parent_id,
+  result = H5Aopen_by_idx(h5attr.parent_id.to_hid_t,
                           loc,
                           H5_INDEX_CRT_ORDER,
                           H5_ITER_INC,
                           hsize_t(idx),
                           H5P_DEFAULT,
                           H5P_DEFAULT)
+    .AttributeID
 
-proc openAttribute(h5attr: H5Attributes, key: string): hid_t =
+proc openAttribute(h5attr: H5Attributes, key: string): AttributeID =
   ## proc to open an attribute by its name.
   ## NOTE: This assumes the caller already checked the attribute exists!
   # we read by creation order, increasing from 0
-  result = H5Aopen(h5attr.parent_id, key.cstring, H5P_DEFAULT)
+  result = H5Aopen(h5attr.parent_id.to_hid_t, key.cstring, H5P_DEFAULT)
+    .AttributeID
 
-proc close*(attr: H5Attr) =
-  ## closes the attribute and the corresponding dataspace
-  if attr.opened:
-    var err = H5Aclose(attr.attr_id)
-    if err < 0:
-      raise newException(HDF5LibraryError, "Error closing attribute with id " & $(attr.attr_id) & "!")
-    withDebug:
-      echo "Closed attribute with status ", err
-    err = H5Sclose(attr.attr_dspace_id)
-    if err < 0:
-      raise newException(HDF5LibraryError, "Error closing dataspace of attribute with id" & $(attr.attr_id) & "!")
-    attr.opened = false
-
-proc getAttrName*[T: SomeInteger](attr_id: hid_t, buf_space: T = 200): string =
+proc getAttrName*[T: SomeInteger](attr_id: AttributeID, buf_space: T = 200): string =
   ## proc to get the attribute name of the attribute with the given id
   ## reserves space for the name to be written to
   withDebug:
     debugEcho "Call to getAttrName! with size $#" % $buf_space
   var name = newString(buf_space)
   # read the name
-  let length = attr_id.H5Aget_name(len(name).csize_t, name)
+  let length = H5Aget_name(attr_id.hid_t, len(name).csize_t, name)
   # H5Aget_name returns the length of the name. In case the name
   # is longer than the given buffer, we call this function again with
   # a buffer with the correct length
@@ -73,7 +62,7 @@ proc setAttrAnyKind[T](attr: H5Attr, dtype: typedesc[T]) =
   ## proc which sets the AnyKind fields of a H5Attr
   when dtype is void:
     # use heuristics
-    let npoints = H5Sget_simple_extent_npoints(attr.attr_dspace_id)
+    let npoints = getNumberOfPoints(attr.attr_dspace_id)
     if npoints > 1:
       attr.dtypeAnyKind = dkSequence
       # set the base type based on what's contained in the sequence
@@ -86,9 +75,12 @@ proc setAttrAnyKind[T](attr: H5Attr, dtype: typedesc[T]) =
   else:
     attr.dtypeAnyKind = h5ToNimType(attr.dtype_c)
 
-proc attr_dspace_id(attr: H5Attr): hid_t =
+proc getAttrDataspaceID(attr_id: Attribute_ID): DataspaceID =
   ## returns a valid dataspace for the given attribute
-  result = H5Aget_space(attr.attr_id)
+  result = H5Aget_space(attr_id.hid_t).DataspaceID
+
+proc getAttributeType(attr_id: AttributeID): DatatypeID =
+  result = H5Aget_type(attr_id.hid_t).DatatypeID
 
 proc readAttributeInfo(h5attr: H5Attributes,
                        attr: H5Attr,
@@ -96,14 +88,14 @@ proc readAttributeInfo(h5attr: H5Attributes,
   withDebug:
     debugEcho "Found? ", attr.attr_id, " with name ", name
   # get dtypes and dataspace id
-  attr.dtype_c = H5Aget_type(attr.attr_id)
+  attr.dtype_c = getAttributeType(attr.attr_id)
 
   # TODO: remove debug
   withDebug:
-    debugEcho "attr ", name, " is vlen string ", H5Tis_variable_str(attr.dtype_c)
+    debugEcho "attr ", name, " is vlen string ", H5Tis_variable_str(attr.dtype_c.hid_t)
   #attr.dtype_c = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
   #echo "Encoding is native ", H5Tget_cset(attr.dtype_c)
-  attr.attr_dspace_id = H5Aget_space(attr.attr_id)
+  attr.attr_dspace_id = getAttrDataspaceID(attr.attr_id)
   # now set the attribute any kind fields (checks whether attr is a sequence)
   attr.setAttrAnyKind(void)
   # add to this attribute object
@@ -131,12 +123,12 @@ proc read_all_attributes*(h5attr: H5Attributes) =
     let name = getAttrName(attr.attr_id)
     readAttributeInfo(h5attr, attr, name)
 
-proc existsAttribute*(h5id: hid_t, name: string): bool =
+proc existsAttribute*(parent: ParentID, name: string): bool =
   ## simply check if the given attribute name corresponds to an attribute
   ## of the given object
   ## throws:
   ##   HDF5LibraryError = in case a call to the H5 library fails
-  let exists = H5Aexists(h5id, name)
+  let exists = H5Aexists(parent.to_hid_t, name)
   if exists > 0:
     result = true
   elif exists == 0:
@@ -150,7 +142,7 @@ template existsAttribute*[T: (H5File | H5Group | H5DataSet)](h5o: T, name: strin
   ## of the given object
   existsAttribute(h5o.getH5Id, name)
 
-proc deleteAttribute*(h5id: hid_t, name: string): bool =
+proc deleteAttribute*(h5id: ParentID, name: string): bool =
   ## deletes the given attribute `name` on the object defined by
   ## the H5 id `h5id`
   ## throws:
@@ -159,7 +151,7 @@ proc deleteAttribute*(h5id: hid_t, name: string): bool =
   withDebug:
     debugEcho "Deleting attribute $# on id $#" % [name, $h5id]
   if existsAttribute(h5id, name) == true:
-    let success = H5Adelete(h5id, name)
+    let success = H5Adelete(h5id.to_hid_t, name)
     result = if success >= 0: true else: false
   else:
     result = true
@@ -168,6 +160,22 @@ proc deleteAttribute*[T: (H5File | H5Group | H5DataSet)](h5o: T, name: string): 
   result = deleteAttribute(getH5Id(h5o), name)
   # if successful also lower the number of attributes
   h5o.attrs.num_attrs = h5o.attrs.getNumAttrs
+
+proc createAttribute(pid: ParentID, name: string, dtype: DatatypeID,
+                     dspace: DataspaceID): AttributeID =
+  ## Creates an attribute `name` under `pid` with default properties.
+  result = H5Acreate2(pid.to_hid_t, name.cstring, dtype.hid_t,
+                      dspace.hid_t, H5P_DEFAULT, H5P_DEFAULT).AttributeID
+
+proc writeAttribute(attr_id: AttributeID, dtype: DatatypeID, data: pointer) =
+  ## Writes the given daat to the attribute.
+  ##
+  ## Note: This proc is inherently unsafe. The callee needs to make sure the
+  ## data and dataspaces are prepared correctly.
+  let err = H5Awrite(attr_id.hid_t, dtype.hid_t, data)
+  if err < 0:
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+      "calling `H5Awrite` in `writeAttribute`.")
 
 proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check = false) =
   ## writes the attribute `name` of value `val` to the object `h5o`
@@ -198,15 +206,12 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
         # create dataspace for single element attribute
         attr_dspace_id = simple_dataspace(1)
         # create the attribute
-        attribute_id = H5Acreate2(h5attr.parent_id, name, dtype,
-                                  attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT)
+        attribute_id = createAttribute(h5attr.parent_id, name, dtype,
+                                       attr_dspace_id)
         # mutable copy for address
       var mval = val
       # write the value
-      let err = H5Awrite(attribute_id, dtype, addr(mval))
-      if err < 0:
-        raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
-          "calling `H5Awrite` in `write_attribute` to write " & $name)
+      writeAttribute(attribute_id, dtype, addr(mval))
       # write information to H5Attr tuple
       attr.attr_id = attribute_id
       attr.opened = true
@@ -240,18 +245,15 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
           # and reserve dataspace for string
           attr_dspace_id = string_dataspace(val, dtype)
       # create the attribute
-      let attribute_id = H5Acreate2(h5attr.parent_id, name, dtype, attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT)
+      let attribute_id = createAttribute(h5attr.parent_id, name, dtype, attr_dspace_id)
       # write the value
       if val.len > 0:
         # only write the value, if we have something to write
         when T is seq[string]:
           var cstringData = val.mapIt(it.cstring)
-          let err = H5Awrite(attribute_id, dtype, addr(cstringData[0]))
+          writeAttribute(attribute_id, dtype, addr(cstringData[0]))
         else:
-          let err = H5Awrite(attribute_id, dtype, unsafeAddr(val[0]))
-        if err < 0:
-          raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
-            "calling `H5Awrite` in `write_attribute` to write " & $name)
+          writeAttribute(attribute_id, dtype, unsafeAddr(val[0]))
       # write information to H5Attr tuple
       attr.attr_id = attribute_id
       attr.opened = true
@@ -300,7 +302,7 @@ proc readStringArrayAttribute(attr: H5Attr, npoints: hssize_t): seq[string] =
   let nativeType = H5Tcopy(H5T_C_S1)
   discard H5Tset_size(nativeType, H5T_VARIABLE)
   var buf = newSeq[cstring](npoints.int)
-  let err = H5Aread(attr.attr_id, nativeType, buf[0].addr)
+  let err = H5Aread(attr.attr_id.hid_t, nativeType, buf[0].addr)
   doAssert err >= 0
   # cast the void pointer to a ptr on a ptr of an unchecked array
   # and dereference it to get a ptr to an unchecked char array
@@ -320,15 +322,15 @@ proc readStringAttribute(attr: H5Attr): string =
     let nativeType = H5Tcopy(H5T_C_S1)
     discard H5Tset_size(nativeType, H5T_VARIABLE)
     var buf: cstring
-    let err = H5Aread(attr.attr_id, nativeType, buf.addr)
+    let err = H5Aread(attr.attr_id.hid_t, nativeType, buf.addr)
     doAssert err >= 0
     result = $buf
   else:
-    attr.attr_dspace_id = H5Aget_space(attr.attr_id)
-    let nativeType = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
-    let string_len = H5Aget_storage_size(attr.attr_id)
+    attr.attr_dspace_id = getAttrDataspaceID(attr.attr_id)
+    let nativeType = H5Tget_native_type(attr.dtype_c.hid_t, H5T_DIR_ASCEND)
+    let string_len = H5Aget_storage_size(attr.attr_id.hid_t)
     var buf_string = newString(string_len)
-    let err = H5Aread(attr.attr_id, nativeType, addr buf_string[0])
+    let err = H5Aread(attr.attr_id.hid_t, nativeType, addr buf_string[0])
     doAssert err >= 0
     result = buf_string
 
@@ -358,11 +360,11 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
     let attr = h5attr.attr_tab[name]
     when T is SomeNumber or T is char:
       var at_val: T
-      err = H5Aread(attr.attr_id, attr.dtype_c, addr(at_val))
+      err = H5Aread(hid_t(attr.attr_id), hid_t(attr.dtype_c), addr(at_val))
       result = at_val
     elif T is seq:
       # determine number of elements in seq
-      let npoints = H5Sget_simple_extent_npoints(attr.attr_dspace_id)
+      let npoints = getNumberOfPoints(attr.attr_dspace_id)
       type TT = type(result[0])
       # in case it's a string, do things differently..
       when TT is string:
@@ -372,7 +374,7 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
         # read data
         # return correct type based on base kind
         result.setLen(npoints)
-        err = H5Aread(attr.attr_id, attr.dtype_c, addr result[0])
+        err = H5Aread(hid_t(attr.attr_id), hid_t(attr.dtype_c), addr result[0])
     elif T is string:
       # case of single string attribute
       result = readStringAttribute attr
