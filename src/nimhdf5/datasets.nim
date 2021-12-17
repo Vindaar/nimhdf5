@@ -320,10 +320,7 @@ proc create_dataset*[T: (tuple | int | seq)](
 
   # given the full dataset name, we need to check whether the group in which the
   # dataset is supposed to be placed, already exists
-  let is_root = isInH5Root(dset_name)
-  var group: H5Group
-  if is_root == false:
-    group = create_group(h5f, dset.parent)
+  let group = create_group(h5f, dset.parent)
 
   withDebug:
     echo "Getting parent Id of ", dset.name
