@@ -27,6 +27,15 @@ proc formatName*(name: string): string =
   # whitespace, if any) and then prepending a leading /
   result = "/" & strip(name, chars = ({'/'} + Whitespace + NewLines))
 
+template getParent*(dset_name: string): string =
+  ## given a `dset_name` after formating (!), return the parent name,
+  ## simly done by a call to parentDir from ospaths
+  var result: string
+  result = parentDir(dset_name)
+  if result == "":
+    result = "/"
+  result
+
 proc traverseTree(input: NimNode): NimNode =
   # iterate children
   for i in 0 ..< input.len:

@@ -13,20 +13,19 @@ data on disk. A dataspace in memory providing space for these N elements needs
 to be provided in which the data is to be stored.
 ]#
 
-import sequtils
-import future
+import std / [sequtils, strutils]
 
 import hdf5_wrapper
 import H5nimtypes
 import util
 import datatypes
 
-proc set_chunk*(papl_id: hid_t, chunksize: seq[int]): hid_t =
+proc set_chunk*(papl_id: DatasetCreatePropertyListID, chunksize: seq[int]): hid_t =
   ## proc to set chunksize of the given object, should be a dataset,
   ## but we do not perform checks!
   var mchunksize = mapIt(chunksize, hsize_t(it))
   # convert return value of H5Pset_chunk to `hid_t`, because H5 wrapper returns `herr_t`
-  result = H5Pset_chunk(papl_id, cint(len(mchunksize)), addr(mchunksize[0])).hid_t
+  result = H5Pset_chunk(papl_id.hid_t, cint(len(mchunksize)), addr(mchunksize[0])).hid_t
 
 proc parseMaxShape(maxshape: seq[int]): seq[hsize_t] =
   ## this proc parses the maxshape given to simple_dataspace by taking into
@@ -39,7 +38,7 @@ proc parseMaxShape(maxshape: seq[int]): seq[hsize_t] =
   else:
     result = mapIt(maxshape, if it == int.high: H5S_UNLIMITED else: hsize_t(it))
 
-template simple_dataspace*[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): hid_t =
+func simple_dataspace*[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): DataspaceID =
   ## create a simple dataspace with max dimension == current_dimension
   ## TODO: rewrite this
   var m_maxshape: seq[hsize_t] = parseMaxShape(maxshape)
@@ -50,55 +49,80 @@ template simple_dataspace*[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): 
     # an address to hand it to C function as pointer)
     var mshape = mapIt(shape, hsize_t(it))
     if m_maxshape.len > 0:
-      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), addr(m_maxshape[0]))
+      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), addr(m_maxshape[0])).DataspaceID
     else:
-      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), nil)
+      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), nil).DataspaceID
   elif T is int:
     # in this case 1D
     var mshape = hsize_t(shape)
     # maxshape is still a sequence, so take `0` element as address
     if m_maxshape.len > 0:
-      H5Screate_simple(cint(1), addr(mshape), addr(m_maxshape[0]))
+      H5Screate_simple(cint(1), addr(mshape), addr(m_maxshape[0])).DataspaceID
     else:
-      H5Screate_simple(cint(1), addr(mshape), nil)
+      H5Screate_simple(cint(1), addr(mshape), nil).DataspaceID
 
-proc create_simple_memspace_1d*[T](coord: seq[T]): hid_t {.inline.} =
+func simple_memspace*[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): MemspaceID =
+  ## The `HDF5` library does not differentiate between a memspace and a dataspace it seems.
+  result = simple_dataspace(shape, maxshape).MemspaceID
+
+proc create_simple_memspace_1d*[T](coord: seq[T]): MemspaceID {.inline.} =
   ## TODO: apply naming convention camelCase (internal proc)
   ## convenience proc to create a simple 1D memory space for N coordinates
   ## in memory
   # get enough space for the N coordinates in coord
-  result = simple_dataspace(coord.len)
+  result = simple_dataspace(coord.len).MemspaceID
 
-proc string_dataspace*[T: seq[string] | string](str: T, dtype: hid_t): hid_t =
+proc string_dataspace*[T: seq[string] | string](str: T, dtype: DatatypeID): DataspaceID =
   ## returns a dataspace of size 1 for a string of length N, by
   ## changing the size of the datatype given
   # need at least a minimum size of 1 for a HDF5 string to store
   # the null terminator
   when T is string:
     let dspaceLen = max(str.len, 1)
-    discard H5Tset_size(dtype, dspaceLen.csize_t)
+    discard H5Tset_size(dtype.hid_t, dspaceLen.csize_t)
     # append null termination
-    discard H5Tset_strpad(dtype, H5T_STR_NULLTERM)
+    discard H5Tset_strpad(dtype.hid_t, H5T_STR_NULLTERM)
     # now return dataspace of size 1
     result = simple_dataspace(1)
   else:
     # set type to be variable length string
-    discard H5Tset_size(dtype, H5T_VARIABLE)
+    discard H5Tset_size(dtype.hid_t, H5T_VARIABLE)
     # and create dataspace for each element in the string sequence
     result = simple_dataspace(str.len)
 
-proc dataspace_id*(dataset_id: hid_t): hid_t {.inline.} =
-  ## convenienve wrapper around H5Dget_space proc, which returns the dataspace
-  ## id of the given dataset_id
-  result = H5Dget_space(dataset_id)
+proc getNumberOfDims*(dspace_id: DataspaceID): int =
+  ## Return the number of dimensions of a simple (contiguous) dataspace
+  result = H5Sget_simple_extent_ndims(dspace_id.hid_t).int
 
-proc dataspace_id*(dset: H5DataSet): hid_t =
-  ## convenienve wrapper around H5Dget_space proc, which returns the dataspace
-  ## id of the given dataset_id
-  ## same as above, but works on the `H5DataSet` directly and gets the dataset
-  ## id from it
-  result = dset.dataset_id.dataspace_id
+proc getNumberOfPoints*(dspace_id: DataspaceID): int =
+  ## Return the number of elements in the given (1D?) dataspace
+  result = H5Sget_simple_extent_npoints(dspace_id.hid_t).int
 
-proc dataspace_id*(dset: ref H5DataSet): hid_t =
-  ## same as above for ref
-  result = dset.dataset_id.dataspace_id
+proc getSizeOfDims*(dspace_id: DataspaceID): tuple[shape: seq[int],
+                                                   maxshape: seq[int]] =
+  ## Return the sizes of all dimensions of a simple (contiguous) dataspace
+  ##
+  ## Output:
+  ##   tuple[shape, maxshape: seq[int]] = a tuple of a seq containing the
+  ##     size of each dimension (shape) and a seq containing the maximum allowed
+  ##     size of each dimension (maxshape).
+  let ndims = getNumberOfDims(dspace_id)
+  # given ndims, create a seq in which to store the dimensions of the dataset
+  var
+    shape = newSeq[hsize_t](ndims)
+    maxshape = newSeq[hsize_t](ndims)
+  let sdims = H5Sget_simple_extent_dims(dspace_id.hid_t,
+                                        addr(shape[0]),
+                                        addr(maxshape[0]))
+  # now replace max shape values == `H5S_UNLIMITED` by `int.high`
+  maxshape = maxshape.mapIt(
+    if it == H5S_UNLIMITED: # == -1
+      hsize_t(int.high)
+    else:
+      hsize_t(it))
+  if sdims < 0 or sdims != ndims:
+    raise newException(HDF5LibraryError,
+                       "Call to HDF5 library failed in `getSizeOfDims` " &
+                       "after a call to `H5Sget_simple_extent_dims` with return code " &
+                       "$#" % $sdims)
+  result = (mapIt(shape, int(it)), mapIt(maxshape, int(it)))

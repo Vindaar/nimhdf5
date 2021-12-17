@@ -1,27 +1,8 @@
-proc flush*(group: H5Group, flushKind: FlushKind) =
-  ## wrapper around H5Fflush for convenience
-  var err: herr_t
-  case flushKind
-  of fkGlobal:
-      err = H5Fflush(group.group_id, H5F_SCOPE_GLOBAL)
-  of fkLocal:
-      err = H5Fflush(group.group_id, H5F_SCOPE_LOCAL)
-  if err < 0:
-    raise newException(HDF5LibraryError, "Trying to flush group " & group.name &
-      " as " & $flushKind & " failed!")
-
-proc close*(group: H5Group) =
-  if group.opened:
-    let err = H5Gclose(group.group_id)
-    if err != 0:
-      raise newException(HDF5LibraryError, "Failed to close group " & group.name & "!")
-    group.opened = false
-
-proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
 import std / [tables, options, strutils]
 
 import hdf5_wrapper, H5nimtypes, datatypes, attributes, h5util, util
 
+proc getGroup(h5f: H5File, grp_name: string): Option[H5Group] =
   ## convenience proc to return the group with name grp_name
   ## if it does not exist, KeyError is thrown
   ## inputs:
@@ -68,83 +49,84 @@ proc get(h5f: H5File, group_in: grp_str): H5Group =
     result = h5f.groups[group_name]
     doAssert result.opened
 
-func isGroup[T: H5File | H5Group | H5DataSet](h5_object: T): bool =
-  # procedure to check whether object is a H5Group
-  if h5_object is H5Group:
-    result = true
+proc openGroup*(h5f: H5File, group: string): GroupID =
+  ## Opens the given `group` in the `h5f` file. Throws `KeyError` if the given
+  ## group does not exist.
+  if group in h5f and group in h5f.groups and h5f.groups[group].opened: # exists and is open
+    # return id from table
+    result = h5f.groups[group].group_id
+  elif group in h5f: # exists, but not open. `file_id` is the relevant location id
+    result = H5Gopen2(h5f.file_id.hid_t, group.cstring, H5P_DEFAULT).GroupID
+    if result.hid_t < 0:
+      raise newException(HDF5LibraryError, "call to H5 library failed in " &
+        "`createGroupFromParent` trying to open group via `H5Gopen2`!")
+    withDebug:
+      debugEcho "Group exists H5Gopen2() returned id ", result
   else:
-    result = false
+    raise newException(KeyError, "Group with name `" & $group.string & "` does not " &
+      "exist in file `" & $h5f.name & ".")
 
-proc createGroupFromParent[T](h5f: T, group_name: string): H5Group =
+proc createGroupImpl*(h5f: H5File, group: string): GroupID =
+  ## Creates the given group in the file.
+  ##
+  ## Does not perform any checks on whether the group exists in the file. If this
+  ## proc is called for an existing proc, it may fail.
+  withDebug:
+    if group notin h5f:
+      debugEcho "Group non existant, creating group ", group
+    else:
+      debugEcho "Calling `createGroup` despite ", group, " existing in file!"
+  # group non existant, `file_id` is the relevant location id
+  result = H5Gcreate2(h5f.file_id.hid_t, group, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT).GroupID
+  if result.hid_t < 0:
+    raise newException(HDF5LibraryError, "call to H5 library failed in " &
+      "`createGroupFromParent` trying to create group via `H5Gcreate2`!")
+
+
+proc updateGroupInfo(h5f: H5File, grp: var H5Group) =
+  ## Updates all information of the given group `grp` by calling into the HDF5 library.
+  ##
+  ## Note: this procedure raises, if the given group does not yet exist in the
+  ## file. Or should it not raise?
+  # essentially the body of the below proc
+
+proc createGroupFromParent[T: H5Group | H5File](h5o: T, group_name: string): H5Group =
   ## procedure to create a group within a H5F
   ## Note: this procedure requires that the parent of the group
   ## to create exists, while the group to be created does not!
   ## i.e. only call this function of you are certain of these two
   ## facts
   ## inputs:
-  ##    h5f: H5FilObj = the file in which to create the group
+  ##    h5o: H5FilObj = the file in which to create the group
   ##    group_name: string = the name of the group to be created
   ## outputs:
   ##    H5Group = returns a group object with the basic properties set
-  result = newH5Group(group_name)
-  # the location id (id of group or the root) at which to create the group
-  let location_id = h5f.file_id
-  let exists = location_id.existsInFile(result.name)
-
-  # set the parent name
-  result.parent = getParent(result.name)
-
-  if exists > 0:
-    # group exists, open it
-    result.group_id = H5Gopen2(location_id, result.name, H5P_DEFAULT)
-    if result.group_id < 0:
-      raise newException(HDF5LibraryError, "call to H5 library failed in " &
-        "`createGroupFromParent` trying to open group via `H5Gopen2`!")
-    withDebug:
-      debugEcho "Group exists H5Gopen2() returned id ", result.group_id
-  elif exists == 0:
-    withDebug:
-      debugEcho "Group non existant, creating group ", result.name
-    # group non existant, create
-    result.group_id = H5Gcreate2(location_id, result.name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
-    if result.group_id < 0:
-      raise newException(HDF5LibraryError, "call to H5 library failed in " &
-        "`createGroupFromParent` trying to create group via `H5Gcreate2`!")
-  else:
-    raise newException(HDF5LibraryError, "call to H5 library failed in " &
-      "`createGroupFromParent` trying to create group: " & group_name &
-      ". Such a group exists? " & $exists)
-  result.opened = true # either we have raised or the group is now open
+  let file_ref = h5o.getFileRef()
+  let exists = group_name in h5o
   # since we know that the parent exists, we can simply use the (recursive!) getParentId
   # to get the id of the parent, without worrying about receiving a parent id of an
-  # object, which is in reality not a parent
-  result.parent_id = getParentId(h5f, result)
-  when h5f is H5FileObj:
-    result.file = h5f.name
-  elif h5f is H5Group:
-    result.file = h5f.file
+  # object, which is in reality not the actual parent
+  let parent_id = getParentId(h5o, group_name)
+  result = newH5Group(group_name, file_ref = file_ref,
+                      parentID = parent_id)
 
-  result.file_id = h5f.file_id
+  if exists:
+    result.group_id = h5o.openGroup(group_name) # simply open the group
+  else:
+    result.group_id = h5o.createGroupImpl(group_name)
+  result.opened = true # either we have raised or the group is now open
 
   # create attributes field
-  result.attrs = initH5Attributes(result.group_id, result.name, "H5Group")
-
-  # finally add reference to H5FileObj to group
-  when h5f is H5FileObj:
-    # if called by file obj itself, create new reference and
-    # assign that to file reference
-    var h5ref = new H5FileObj
-    h5ref = h5f
-    result.file_ref = h5ref
-  else:
-    # else use the ref of the parent creating this object
-    result.file_ref = h5f.file_ref
+  result.attrs = initH5Attributes(ParentID(kind: okGroup,
+                                           gid: result.group_id),
+                                  result.name, "H5Group")
+  result.groups[group_name] = result
 
   withDebug:
     debugEcho "Adding element to h5f groups ", group_name
-  h5f.groups[result.name] = result
-  result.groups = h5f.groups
-  result.datasets = h5f.datasets
+
+#proc getGroup[T: H5Group | H5File](h5o: T, group_name: string): H5Group =
+
 
 proc create_group*[T](h5f: T, group_name: string): H5Group =
   ## checks whether the given group name already exists or not.
