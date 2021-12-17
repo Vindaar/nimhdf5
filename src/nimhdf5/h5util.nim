@@ -51,8 +51,7 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
     if h5info.`type` == H5O_TYPE_GROUP:
       h5f.groups[name] = newH5Group(name)
     elif h5info.`type` == H5O_TYPE_DATASET:
-      echo "visiting dataset ", name
-      h5f.datasets[name] = newH5DataSet(name)
+      h5f.datasets[name] = newH5Dataset(name)
 
 proc visit_file*(h5f: H5File, h5id: hid_t = 0.hid_t) =
   ## this proc iterates over the whole file and reads the complete content
