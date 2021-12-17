@@ -40,4 +40,6 @@ task test, "Runs all tests":
   exec "nim c -r tests/t17.nim"
   exec "nim c -r tests/tIntegerTypes.nim"
   # at least run the high level examples to avoid regressions
+  if fileExists("dset.h5"): # as a test, we need to get rid of the high level H5 output file
+    rmFile("dset.h5")
   exec "nim c -r examples/h5_high_level_example.nim"
