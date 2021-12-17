@@ -1501,7 +1501,7 @@ proc isVlen*(dset: H5Dataset): bool =
   ## Returns true if the dataset is a variable length dataset
   result = dset.dtype_class == H5T_VLEN
 
-proc open*(h5f: H5File, dset: dset_str): bool =
+proc open*(h5f: H5File, dset: dset_str) =
   ## Opens the given `dset` and updates the data stored in the `datasets` table of
   ## the given `h5f`.
   ##
@@ -1569,7 +1569,6 @@ proc open*(h5f: H5File, dset: dset_str): bool =
                                         "H5DataSet")
       # need to close the datatype again, otherwise cause resource leak
       datatype_id.close()
-      result = true
     else:
       # check whether there exists a group of same name?
       let groupOfName = h5f.isGroup(dsetOpen.name)
@@ -1583,7 +1582,6 @@ proc open*(h5f: H5File, dset: dset_str): bool =
   else:
     dsetOpen = h5f.datasets[dsetName]
     doAssert dsetOpen.opened
-    result = true # as already open
     # in this case we still need to update e.g. shape
     # TODO: think about what else we might have to update!
     let dataspace_id = dsetOpen.dataset_id.dataspace_id
@@ -1591,10 +1589,11 @@ proc open*(h5f: H5File, dset: dset_str): bool =
   # finally update the dataset in the table
   h5f.datasets[dsetName] = dsetOpen
 
-template `[]`*(h5f: H5File, name: dset_str): H5DataSet =
-  ## a simple wrapper around get for datasets
-  if not h5f.open(name):
-    raise newException(HDF5LibraryError, "Failed to open the dataset `" & $name.string & ".")
+proc `[]`*(h5f: H5File, name: dset_str): H5DataSet =
+  ## Opens and retrieves the dataset with name `name`
+  ##
+  ## Throws a `KeyError` if the dataset does not exist.
+  h5f.open(name) # try to open (will fail if it does not exist)
   let nameStr = formatName name.string
   h5f.datasets[nameStr]
 
