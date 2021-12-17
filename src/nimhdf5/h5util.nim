@@ -39,7 +39,7 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
   ## a pointer here, since it's handed to C
   ## this proc is only called in the case where the start from the root group
   doAssert not h5f_p.isNil, "Memory corruption detected. Pointer to H5 file is nil!" # this should really never happen
-  # cast the H5FileObj pointer back
+  # cast the H5File pointer back
   var h5f = cast[H5File](h5f_p)
   if name_c == ".":
     # in case the location is `.`, we are simply at our starting point (currently
@@ -53,7 +53,7 @@ proc addH5ObjectFromRoot*(location_id: hid_t, name_c: cstring, h5info: H5O_info_
       echo "visiting dataset ", name
       h5f.datasets[name] = newH5DataSet(name)
 
-proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t) =
+proc visit_file*(h5f: H5File, h5id: hid_t = 0.hid_t) =
   ## this proc iterates over the whole file and reads the complete content
   ## optionally only visits all elements below hid_t
   ## H5Ovisit recursively visits any object (group or dataset + a couple specific
@@ -62,7 +62,7 @@ proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t) =
   ## returns the value of the callback (proc returns value > 0), stops early
   ## and returns error (proc returns value < 0)
   ## inputs:
-  ##   h5f: H5FileObj = file object, which will be visited. The
+  ##   h5f: H5File = file object, which will be visited. The
   ##     object's group information will be updated.
   ##   name: string = name of the starting location from which to visit the file
   ##   h5id: hid_t = optional identifier id, from which to start visiting the
@@ -87,18 +87,18 @@ proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t) =
   # now set visited flag
   h5f.visited = true
 
-#proc contains*[T: (H5FileObj | H5Group)](h5f: T, name: string): bool =
+#proc contains*[T: (H5File | H5Group)](h5f: T, name: string): bool =
 #  ## proc to check whehther an element named `name` is contained in the
 #  ## HDF5 file. Checks for both groups and datasets!
 #  ## For groups either a full path or a relative path (relative to the name
 #  ## of the group on which `contains` is called) is possible. Note that
 #  ## lookups with a depth of more than 1 (subgroups or datasets of groups
-#  ## in the group we check) is currently not supported. Call on H5FileObj
+#  ## in the group we check) is currently not supported. Call on H5File
 #  ## instead.
 #  ## Note: we first check for the existence of a group of this name,
 #  ## and only if no group of `name` is found, do we check the dataset names
 #  ## inputs:
-#  ##   h5f: H5FileObj = H5 file to check
+#  ##   h5f: H5File = H5 file to check
 #  ##   name: string = the name of the dataset / group to check
 #  ## outputs:
 #  ##   bool = true if contained, false else
@@ -107,7 +107,7 @@ proc visit_file*(h5f: H5FileObj, h5id: hid_t = 0.hid_t) =
 #  ##     if the file wasn't visited before)
 #
 #  # if file not visited yet, do that now
-#  when T is H5FileObj:
+#  when T is H5File:
 #    if h5f.visited == false:
 #      h5f.visit_file
 #  else:
@@ -146,16 +146,13 @@ proc isOpen*(h5f: H5File, name: grp_str): bool =
   result = if h5f.groups.hasKey(n): h5f.groups[n].opened
            else: false
 
-proc isDataset*(h5f: H5FileObj, name: string): bool =
+proc isDataset*(h5f: H5File, name: string): bool =
   ## checks for existence of object in file. If it exists checks whether
   ## object is a dataset or not
   let target = formatName name
-  echo "Checking if target ", name, " in file"
   if target in h5f:
     let objType = getObjectTypeByName(h5f.file_id, target)
     result = if objType == H5O_TYPE_DATASET: true else: false
-  #else:
-  #  echo "it's not in the file what"
 
 proc isGroup*(h5f: H5File, name: string): bool =
   ## checks for existence of object in file. If it exists checks whether
@@ -219,7 +216,7 @@ proc firstExistingParent*[T](h5f: T, name: string): Option[H5Group] =
   ## proc to find the first existing parent of a given object in H5F
   ## recursively
   ## inputs:
-  ##    h5f: H5FileObj: the object in which to look for the parent
+  ##    h5f: H5File: the object in which to look for the parent
   ##    name: string: name of object from which to start looking upwards
   ## outputs:
   ##    Option[H5Group] = if an existing H5Group is found recursively an
@@ -308,9 +305,9 @@ proc delete*[T](h5o: T, name: string): bool =
       h5o.datasets.del(name)
   result = if H5Ldelete(h5id, name, H5P_DEFAULT) >= 0: true else: false
 
-proc copy*[T](h5in: H5FileObj, h5o: T,
+proc copy*[T](h5in: H5File, h5o: T,
               target: Option[string] = none[string](),
-              h5out: Option[H5FileObj] = none[H5FileObj]()): bool =
+              h5out: Option[H5File] = none[H5File]()): bool =
   ## Copies the object `h5o` from `source` to `target`.
   ## `Target` may be in a separate file, indicated by `h5out`.
   ## Returns `true` if the object was copied successfully.

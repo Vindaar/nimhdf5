@@ -144,7 +144,7 @@ proc existsAttribute*(h5id: hid_t, name: string): bool =
   else:
     raise newException(HDF5LibraryError, "HDF5 library called returned bad value in `existsAttribute` function")
 
-template existsAttribute*[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: string): bool =
+template existsAttribute*[T: (H5File | H5Group | H5DataSet)](h5o: T, name: string): bool =
   ## proc to check whether a given
   ## simply check if the given attribute name corresponds to an attribute
   ## of the given object
@@ -164,7 +164,7 @@ proc deleteAttribute*(h5id: hid_t, name: string): bool =
   else:
     result = true
 
-proc deleteAttribute*[T: (H5FileObj | H5Group | H5DataSet)](h5o: T, name: string): bool =
+proc deleteAttribute*[T: (H5File | H5Group | H5DataSet)](h5o: T, name: string): bool =
   result = deleteAttribute(getH5Id(h5o), name)
   # if successful also lower the number of attributes
   h5o.attrs.num_attrs = h5o.attrs.getNumAttrs

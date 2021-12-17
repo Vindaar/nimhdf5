@@ -1,15 +1,3 @@
-import tables
-import options
-import ospaths
-import strutils
-
-import hdf5_wrapper
-import H5nimtypes
-import datatypes
-import attributes
-import h5util
-import util
-
 proc flush*(group: H5Group, flushKind: FlushKind) =
   ## wrapper around H5Fflush for convenience
   var err: herr_t
@@ -30,10 +18,14 @@ proc close*(group: H5Group) =
     group.opened = false
 
 proc getGroup(h5f: H5FileObj, grp_name: string): Option[H5Group] =
+import std / [tables, options, strutils]
+
+import hdf5_wrapper, H5nimtypes, datatypes, attributes, h5util, util
+
   ## convenience proc to return the group with name grp_name
   ## if it does not exist, KeyError is thrown
   ## inputs:
-  ##    h5f: H5FileObj = the file object from which to get the group
+  ##    h5f: H5File = the file object from which to get the group
   ##    obj_name: string = name of the group to get
   ## outputs:
   ##    H5Group = if group is found
@@ -51,7 +43,7 @@ proc get(h5f: H5File, group_in: grp_str): H5Group =
   ## convenience proc to return the group with name group_name
   ## if it does not exist, KeyError is thrown
   ## inputs:
-  ##    h5f: H5FileObj = the file object from which to get the dset
+  ##    h5f: H5File = the file object from which to get the dset
   ##    obj_name: string = name of the dset to get
   ## outputs:
   ##    H5Group = if group is found
@@ -163,7 +155,7 @@ proc create_group*[T](h5f: T, group_name: string): H5Group =
   ##   If parent exists:
   ##     create new group and return it
   ## inputs:
-  ##    h5f: H5FileObj = the h5f file object in which to look for the group
+  ##    h5f: H5File = the h5f file object in which to look for the group
   ##    group_name: string = the name of the group to check for in h5f
   ## outputs:
   ##    H5Group = an object containing the (newly) created group in the file
@@ -198,11 +190,11 @@ proc create_group*[T](h5f: T, group_name: string): H5Group =
     else:
       result = createGroupFromParent(h5f, group_path)
 
-template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
+proc `[]`*(h5f: H5File, name: grp_str): H5Group =
   # a simple wrapper around get for groups
   h5f.get(name)
 
-# proc openGroupById(h5f: H5FileObj, locaction_id: hid_t, name: string): H5Group =
+# proc openGroupById(h5f: H5File, locaction_id: hid_t, name: string): H5Group =
 #   # proc which opens an existing group by its ID
 #   var group = newH5Group(name)
 #   group.group_id = H5Gopen2(locaction_id, name, H5P_DEFAULT)
@@ -214,6 +206,6 @@ template `[]`*(h5f: H5FileObj, name: grp_str): H5Group =
 #   group.attrs = initH5Attributes(group.name, group.group_id, "H5Group")
 
 
-# let's try to implement some iterators for H5FileObj and H5Groups
+# let's try to implement some iterators for H5File and H5Groups
 
 # for H5Groups first implement relative create_group

@@ -1,34 +1,19 @@
-import tables
-import strutils, sequtils
-import options
-import os
+# stdlib
+import std / [tables, strutils, sequtils, options]
+from os import fileExists
+# internal
+import hdf5_wrapper, H5nimtypes, datatypes, dataspaces, attributes, h5util, util
+from datasets import `[]`
+from groups import create_group, `[]`
 
-import hdf5_wrapper
-import H5nimtypes
-import datatypes
-import dataspaces
-
-# need to forward declare visit file, due to cyclic import statements
-# files -> datasets -> groups -> files
-# and
-# files -> groups -> files
-# so that proc is already known when we encounter the
-# from files import visit_files statement in groups.nim
-
-from datasets import `[]`, close
-import attributes
-from groups import create_group, `[]`, close
-import h5util
-import util
-
-proc newH5File*(): H5FileObj =
+proc newH5File*(): H5File =
   ## default constructor for a H5File object, for internal use
   let dset = newTable[string, H5DataSet]()
   let dspace = initTable[string, hid_t]()
   let groups = newTable[string, H5Group]()
   let attrs = newH5Attributes()
-  result = H5FileObj(name: "",
-                     file_id: H5_NOFILE,
+  result = H5File(name: "",
+                     file_id: H5_NOFILE.FileID,
                      rw_type: H5F_INVALID_RW,
                      err: -1,
                      status: -1.hid_t,
@@ -37,16 +22,16 @@ proc newH5File*(): H5FileObj =
                      groups: groups,
                      attrs: attrs)
 
-proc nameFirstExistingParent(h5f: H5FileObj, name: string): string =
+proc nameFirstExistingParent(h5f: H5File, name: string): string =
   ## similar to firstExistingParent, except that only the name of
   ## the object is returned
   discard
 
-# template get(h5f: H5FileObj, dset_name: string): H5Object =
+# template get(h5f: H5File, dset_name: string): H5Object =
 #   # convenience proc to return the dataset with name dset_name
 #   # if it does not exist, KeyError is thrown
 #   # inputs:
-#   #    h5f: H5FileObj = the file object from which to get the dset
+#   #    h5f: H5File = the file object from which to get the dset
 #   #    obj_name: string = name of the dset to get
 #   # outputs:
 #   #    H5DataSet = if dataset is found
@@ -74,11 +59,11 @@ proc nameFirstExistingParent(h5f: H5FileObj, name: string): string =
 #     let result = h5f.groups[dset_name]
 #     result
 
-proc nameExistingObjectOrParent(h5f: H5FileObj, name: string): string =
+proc nameExistingObjectOrParent(h5f: H5File, name: string): string =
   ## this procedure can be used to get the name of the given object
   ## or its first existing parent
   ## inputs:
-  ##    h5f: H5FileObj = the file object in which to check the tables
+  ##    h5f: H5File = the file object in which to check the tables
   ##    name: string = name of the object to check for
   ## outputs:
   ##    string = the name of the given object (if it exists), or the
@@ -105,13 +90,13 @@ proc H5open*(name, rw_type: string): H5File =
   ##     name: string = the name or path to the HDF5 to open or to create
   ##           - if file does not exist, it is created if rw_type includes
   ##             a {'w', 'write'}. Else it throws an IOError
-  ##           - if it exists, the H5FileObj object for that file is returned
+  ##           - if it exists, the H5File object for that file is returned
   ##     rw_tupe: string = an identifier to indicate whether to open an HDF5
   ##           with read or read/write access.
   ##           - {'r', 'read'} = read access
   ##           - {'w', 'write', 'rw'} =  read/write access
   ## outputs:
-  ##    H5FileObj: the H5FileObj object, which is handed to all HDF5 related functions
+  ##    H5File: the H5File object, which is handed to all HDF5 related functions
   ##            (or thanks to unified calling syntax of nim, on which functions
   ##            are called). Contains all low level handling information needed
   ##            for the C functions
@@ -160,7 +145,7 @@ proc H5open*(name, rw_type: string): H5File =
   result.attrs = initH5Attributes(result.file_id, "/", "H5FileObj")
 
 proc H5file*(name, rw_type: string): H5File {.deprecated: "Use `H5open` instead of " &
-    "H5file. The datatype was renamed from `H5FileObj` to `H5File`.".} =
+    "H5file. The datatype was renamed from `H5File` to `H5File`.".} =
   result = H5open(name, rw_type)
 
 proc printOpenObjects*(h5f: H5FileObj) =
@@ -220,7 +205,7 @@ proc getOpenObjectIds*(h5f: H5FileObj, kind: ObjectKind): seq[hid_t] =
   let objsOpen = H5Fget_obj_ids(h5f.file_id, h5Kind.cuint, 1000, addr objList[0])
   result = objList.filterIt(it > 0)
 
-proc flush*(h5f: H5FileObj, flushKind: FlushKind = fkGlobal) =
+proc flush*(h5f: H5File, flushKind: FlushKind = fkGlobal) =
   ## wrapper around H5Fflush for convenience
   var err: herr_t
   case flushKind
@@ -249,13 +234,13 @@ proc close*(id: hid_t, kind: ObjectKind): herr_t =
   of okAll:
     discard
 
-proc close*(h5f: H5FileObj): herr_t =
+proc close*(h5f: H5File): herr_t =
   ## this procedure closes all known datasets, dataspaces, groups and the HDF5 file
   ## itself to clean up.
   ## The return value will be non negative if the closing was successful and negative
   ## otherwise.
   ## inputs:
-  ##    h5f: H5FileObj = file object which to close
+  ##    h5f: H5File = file object which to close
   ## outputs:
   ##    hid_t = status of the closing of the file
   # TODO: can we use iterate and H5Oclose to close all this stuff
@@ -320,14 +305,14 @@ template withH5*(h5file, rw_type: string, actions: untyped) =
   block:
     var h5f {.inject.} = H5File(h5file, rw_type)
 
-    # perform actions with H5FileObj
+    # perform actions with H5File
     actions
 
     let err = h5f.close()
     if err != 0:
       echo "Closing of H5 file unsuccessful. Returned code ", err
 
-proc getObjectIdByName(h5file: H5FileObj, name: string): hid_t =
+proc getObjectIdByName(h5file: H5File, name: string): hid_t =
   ## proc to retrieve the location ID of a H5 object based its relative path
   ## to the given id
   let h5type = getObjectTypeByName(h5file.file_id, name)
@@ -350,7 +335,7 @@ proc getObjectIdByName(h5file: H5FileObj, name: string): hid_t =
 
 
 # TODO: should this remain in files.nim?
-proc create_hardlink*(h5file: H5FileObj, target: string, link_name: string) =
+proc create_hardlink*(h5file: H5File, target: string, link_name: string) =
   ## proc to create hardlinks between pointing to an object `target`. Can be either a group
   ## or a dataset, defined by its name (full path!)
   ## the target has to exist, while the link_name must be free

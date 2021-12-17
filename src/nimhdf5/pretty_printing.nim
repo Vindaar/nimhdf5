@@ -101,7 +101,7 @@ proc `$`*(grp: H5Group): string =
   ## to string conversion for a `H5Group` for pretty printing
   result = pretty(grp, full = false)
 
-proc pretty*(h5f: H5FileObj, indent = 2, full = false): string =
+proc pretty*(h5f: H5File, indent = 2, full = false): string =
   result = repeat(' ', indent) & "{\n"
   let fieldInd = repeat(' ', indent + 2)
   result.add &"{fieldInd}name: {h5f.name},\n"
@@ -126,6 +126,6 @@ proc pretty*(h5f: H5FileObj, indent = 2, full = false): string =
   result.add &",\n{fieldInd}attrs: {h5f.attrs}"
   result.add repeat(' ', indent) & "\n}"
 
-proc `$`*(grp: H5FileObj): string =
-  ## to string conversion for a `H5FileObj` for pretty printing
-  result = pretty(grp, full = false)
+proc `$`*(h5f: H5File): string =
+  ## to string conversion for a `H5File` for pretty printing
+  result = pretty(h5f, full = false)

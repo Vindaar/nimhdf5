@@ -40,7 +40,7 @@ type
     dkUInt64,      ## represents an unsigned int64
 
   # these distinct types provide the ability to distinguish the `[]` function
-  # acting on H5FileObj between a dataset and a group, s.t. we can access groups
+  # acting on H5File between a dataset and a group, s.t. we can access groups
   # as well as datasets from the object using `[]`. Typecast the name (as a string)
   # of the object to either of the two types (you have to know the type of the
   # dset / group you want to access of course!)
@@ -113,10 +113,10 @@ type
     # filename string, in which the dataset is located
     file*: string
     # reference to the file object, in which dataset resides. Important to perform checks
-    # in procs, which should not depend explicitly on H5FileObj, but necessarily depend
+    # in procs, which should not depend explicitly on H5File, but necessarily depend
     # implicitly on it, e.g. create_dataset (called from group) etc.
     # TODO: is this needed for dataset?
-    # file_ref*: ref H5FileObj
+    # file_ref*: ref H5File
     # the id of the dataset
     dataset_id*: hid_t
     # `all` index, to indicate that we wish to set the whole dataset to the
@@ -145,15 +145,15 @@ type
     # file id of the file in which group is stored
     file_id*: hid_t
     # reference to the file object, in which group resides. Important to perform checks
-    # in procs, which should not depend explicitly on H5FileObj, but necessarily depend
+    # in procs, which should not depend explicitly on H5File, but necessarily depend
     # implicitly on it, e.g. create_group, iterator items etc.
     file_ref*: H5File
     # the id of the HDF5 group (its location id)
     group_id*: hid_t
     # TODO: think, should H5Group contain a table about its dataspaces? Or should
-    # all of this be in H5FileObj? Probably better here for accessing it later via
+    # all of this be in H5File? Probably better here for accessing it later via
     # [] I guess
-    # However: then H5FileObj needs to still know (!) about its dataspaces and where
+    # However: then H5File needs to still know (!) about its dataspaces and where
     # they are located. Easily done by keeping a table of string of each dataset, which
     # contains their location simply by the path and have a table of H5Group objects
     datasets*: TableRef[string, H5DataSet]
