@@ -6,9 +6,11 @@ import nimhdf5
 # to showcase
 import nimhdf5/hdf5_wrapper
 import sequtils
-import tables
+import tables # to print tables directly e.g. `grp.datasets` to print datasets table
 import strutils
 import strformat
+
+from os import fileExists
 
 const FILE = "dset.h5"
 
@@ -16,6 +18,12 @@ proc write_some() =
   var
     # identifiers
     status: herr_t
+
+  if fileExists(FILE):
+    raise newException(IOError, "This script is not intended to be run again on an existing file. " &
+      "If it were to continue it would crash, because a dataset has a different shape than we intend to " &
+      "create it as (because it is resized during this script). The file is not deleted to allow looking at " &
+      "the generated HDF5 file, e.g. with `hdfview`. To run the script again, delete the `dset.h5` file.")
 
   # Create a new file using default properties.
   var h5f = H5file(FILE, "rw")
@@ -273,23 +281,22 @@ proc read_some() =
       echo "There is no group or dataset called $# in $#" % [$name, $file.name]
   # some example `in` file checks
   file.echo_in_file("/test/another")
-  doAssert "/test/another" in file == true
+  doAssert "/test/another" in file
   file.echo_in_file("/not/in_file")
-  doAssert "/not/in_file" notin file == true
+  doAssert "/not/in_file" notin file
   file.echo_in_file("/group1/dsetresize")
-  doAssert "/group1/dsetresize" in file == true
+  doAssert "/group1/dsetresize" in file
 
   # can also check for elements in a group
   g1.echo_in_file("/group1/group2")
   g1.echo_in_file("group2")
   g1.echo_in_file("dset1D")
-  doAssert "/group1/group2" in g1 == true
-  doAssert "group2" in g1 == true
-  doAssert "/group2" in g1 == true
+  doAssert "/group1/group2" in g1
+  doAssert "group2" in g1
+  doAssert "/group2" in g1
 
   # close the file again
   discard file.close()
-
 
 proc main() =
   write_some()
