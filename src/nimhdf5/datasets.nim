@@ -1565,7 +1565,7 @@ proc open*(h5f: H5File, dset: dset_str) =
       datatype_id.close()
     else:
       # check whether there exists a group of same name?
-      let groupOfName = h5f.isGroup(dsetOpen.name)
+      let groupOfName = h5f.isGroup(dsetName)
       if groupOfName:
         raise newException(ValueError, "Dataset with name: " & dsetName &
           " not found in file " & h5f.name & ". Instead found a group " &
