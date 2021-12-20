@@ -208,3 +208,10 @@ proc `[]`*(h5f: H5File, name: grp_str): H5Group =
   ##
   ## Throws a `KeyError` if it does not exist.
   h5f.openAndGetGroup(name.string)
+
+proc getOrCreateGroup*(h5f: H5File, name: string): H5Group =
+  ## Returns the group `name` if it exists in `h5f`. Else creates it.
+  if h5f.isGroup(name):
+    result = h5f[name.grp_str]
+  else:
+    result = h5f.create_group(name)
