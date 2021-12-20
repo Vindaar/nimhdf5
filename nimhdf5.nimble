@@ -20,6 +20,7 @@ task test, "Runs all tests":
   exec "nim c -r tests/tbasic.nim"
   exec "nim c -r tests/tdset.nim"
   exec "nim c -r tests/tread1D.nim"
+  exec "nim c -r tests/tgroups.nim"
   exec "nim c -r tests/tattributes.nim"
   exec "nim c -r tests/tvlen_array.nim"
   exec "nim c -r tests/tempty_hyperslab.nim"
