@@ -1,9 +1,24 @@
+* v0.4.2
+- adds =getOrCreateGroup= helper to always get a group, either
+  returning the existing one or creating it.
+  Before version =v0.4.0= this was the default behavior for =[]= as
+  well as =create_group=.
+  As of now, =[]= raises a =KeyError= now if it does not exist (this
+  is a *breaking* change that is retroactively added to the changelog
+  of =v0.4.0=). However, =create_group= does *not* throw if the group
+  already exists. This may change in the future though.
 * v0.4.1
 - adds missing import of =os.`/`= in =datasets.nim=, which got removed
   in the refactor
 - fixes a regression in =open= for datasets in the case of a not
   existing dataset
 * v0.4.0
+- *NOTE:* At the time of release of =v0.4.0= the following *breaking*
+  change was not listed as such:
+  - =[]= for groups does *not* create a group anymore, if it does not
+    exist. Use =getOrCreateGroup= added in =v0.4.2= for that! This was
+    an unintended side effect that was overlooked, as the
+    implementation was based on =create_group=.
 - *major* change: introduce multiple different distinct types for the
   different usages of =hid_t= in the HDF5 library. This gives us more
   readability, type safety etc. We can write proper type aware =close=
