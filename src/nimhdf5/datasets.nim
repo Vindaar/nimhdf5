@@ -11,24 +11,18 @@ template tryExport(body: untyped): untyped =
   when compiles(body):
     discard
 
-import options
-import tables
-import strutils
+# stdlib
+import std / [options, tables, strutils, sequtils, macros]
 tryExport:
   export nimIdentNormalize
-import sequtils
-import seqmath
-import macros
+from os import `/`
 
-import hdf5_wrapper
-import H5nimtypes
-import datatypes
-import dataspaces
-import attributes
-import filters
-import util
-import h5util
+# external nimble
+import pkg / seqmath
 
+# internal
+import hdf5_wrapper, H5nimtypes, datatypes, dataspaces,
+       attributes, filters, util, h5util
 from groups import create_group
 
 proc getDset(h5f: H5File, dsetName: string): Option[H5DataSet] =
