@@ -1,4 +1,4 @@
-import nimhdf5
+import nimhdf5, os
 
 const
   File = "tests/dset.h5"
