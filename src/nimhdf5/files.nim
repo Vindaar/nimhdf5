@@ -222,16 +222,21 @@ proc close*(h5f: H5File): herr_t =
   # now close all remaining objects, which we might have missed above
   # TODO: it seems we're missing some attributes. The rest is typically closed
   # find out where we miss them!
-  for t in ObjectKind:
-    if t in {okAll, okNone}: continue
-    let objsStillOpen = h5f.getOpenObjectIds(t)
-    if objsStillOpen.len > 0:
-      for id in objsStillOpen:
-        # only close non files (file will be closed below)
-        case t
-        of okFile: discard
-        else:
-          result = close(id, t)
+  when false:
+    ## NOTE: this code is problematic: If one file is opened from two threads,
+    ## the H5 call will also return the open ids of the other instance. So this
+    ## code leads to closing those. Once the other file will be closed, the `opened`
+    ## field is out of sync and it leads to H5 errors (and then an exception).
+    for t in ObjectKind:
+      if t in {okAll, okNone}: continue
+      let objsStillOpen = h5f.getOpenObjectIds(t)
+      if objsStillOpen.len > 0:
+        for id in objsStillOpen:
+          # only close non files (file will be closed below)
+          case t
+          of okFile: discard
+          else:
+            result = close(id, t)
 
   withDebug:
     let objsYet = h5f.getOpenObjectIds(okAll)
