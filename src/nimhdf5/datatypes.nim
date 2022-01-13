@@ -365,17 +365,31 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
   proc `=destroy`*(attr: var H5AttrObj) =
     ## Closes the given attribute.
     attr.close()
+    for name, field in fieldPairs(attr):
+      `=destroy`(field)
 
   proc `=destroy`*(attrs: var H5AttributesObj) =
     ## Closes all attributes that are stored in this `H5Attributes` table.
-    for name, attr in mpairs(attrs.attr_tab):
-      `=destroy`(attr)
-    attrs.parent_id = ParentID(kind: okNone)
+    if attrs.attr_tab != nil:
+      for name, attr in mpairs(attrs.attr_tab):
+        if attr != nil:
+          `=destroy`(attr)
+      `=destroy`(attrs.attr_tab)
+    for name, field in fieldPairs(attrs):
+      if name != "attr_tab":
+        when typeof(field) is string or typeof(field) is seq:
+          `=destroy`(field)
 
   proc `=destroy`*(dset: var H5DataSetObj) =
     ## Closes the dataset and resets all references to nil.
     dset.close() # closes its dataspace etc. as well
     dset.opened = false
+    if dset.attrs != nil:
+      `=destroy`(dset.attrs)
+    for name, field in fieldPairs(dset):
+      if name != "attrs":
+        when typeof(field) is string or typeof(field) is seq:
+          `=destroy`(field)
 
   proc `=destroy`*(grp: var H5GroupObj) =
     ## Closes the group and resets all references to nil.
@@ -384,6 +398,16 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
     grp.parent_id = ParentID(kind: okNone)
     grp.close()
     grp.opened = false
+    if grp.datasets != nil:
+      `=destroy`(grp.datasets)
+    if grp.groups != nil:
+      `=destroy`(grp.groups)
+    if grp.attrs != nil:
+      `=destroy`(grp.attrs)
+    for name, field in fieldPairs(grp):
+      if name notin ["attrs", "groups", "datasets", "file_ref"]:
+        when typeof(field) is string or typeof(field) is seq:
+          `=destroy`(field)
 
   #proc `=destroy`*(grp: var H5Group) =
   #  ## Closes the group and resets all references to nil.
