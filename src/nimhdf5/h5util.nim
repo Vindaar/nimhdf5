@@ -275,6 +275,14 @@ proc getObjectTypeByName*(h5id: FileID | GroupID | DatasetID, name: string): H5O
   else:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getObjectTypeByName`")
 
+proc getObjectInfo*(h5id: FileID | GroupID | DatasetID): H5O_info_t =
+  ## Returns the object info for a single object in the H5 file
+  let err = H5Oget_info(h5id.hid_t, addr result)
+  if err >= 0:
+    echo result
+  else:
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getObjectInfo`")
+
 proc getObjectTypeByName*(h5id: ParentID, name: string): H5O_type_t =
   case h5id.kind
   of okFile: result = getObjectTypeByName(h5id.fid, name)
