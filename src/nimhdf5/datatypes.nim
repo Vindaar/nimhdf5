@@ -257,6 +257,43 @@ proc dataspace_id*(dset: H5DataSet): DataspaceID =
   ## id from it
   result = dset.dataset_id.dataspace_id
 
+from sequtils import filterIt
+proc parseObjectKindToH5*(kind: ObjectKind): int
+proc getOpenObjectIds*(h5id: FileID | GroupID, kind: ObjectKind,
+                       bufSize = 1000): seq[hid_t] =
+  ## Return all IDs of objects of `kind` that are still open in the file.
+  ##
+  ## This will fail if there are more than `bufSize` elements open!
+  ##
+  ## Returns a sequence of `hid_t` as we haven't checked what object types they are
+  ## nor can we return a sequence of different types.
+  let h5Kind = parseObjectKindToH5(kind)
+  # create buffer size of `bufSize`. Should be plenty for open ids
+  # if not, something is wrong anyways (I'd assume?)
+  var objList = newSeq[hid_t](bufSize)
+  let objsOpen = H5Fget_obj_ids(h5id.hid_t,
+                                h5Kind.cuint, bufSize.csize_t, addr objList[0])
+  result = objList.filterIt(it > 0)
+
+proc getOpenObjectIds*(h5f: H5File, kind: ObjectKind,
+                       bufSize = 1000): seq[hid_t] =
+  result = h5f.file_id.getOpenObjectIds(kind, bufsize)
+
+proc isObjectOpen*[T: H5File | H5Group | H5GroupObj | H5Dataset | H5DatasetObj](h5o: T): bool =
+  when T is H5File:
+    let ids = h5o.file_id.getOpenObjectIds(okFile)
+  elif T is H5Group or T is H5GroupObj:
+    let ids = h5o.file_id.getOpenObjectIds(okGroup)
+  elif T is H5Dataset or T is H5DatasetObj:
+    let ids = h5o.parentID.gid.getOpenObjectIds(okDataset)
+  for id in ids:
+    when T is H5File:
+      if id == h5o.fileID.hid_t: return true # id in returned list, so is open
+    elif T is H5Group or T is H5GroupObj:
+      if id == h5o.groupID.hid_t: return true # id in returned list, so is open
+    elif T is H5Dataset or T is H5DatasetObj:
+      if id == h5o.datasetID.hid_t: return true # id in returned list, so is open
+
 proc close*[T: DataspaceID | MemspaceID | HyperslabID](space_id: T, msg = "") =
   ## Closes the dataspace / memspace and raises `HDF5LibraryError` in case closing fails.
   ##
@@ -318,7 +355,7 @@ proc flush*(group: H5Group, flushKind: FlushKind) =
       " as " & $flushKind & " failed!")
 
 proc close*(group: var H5GroupObj) =
-  if group.opened:
+  if group.opened and group.isObjectOpen():
     let err = H5Gclose(group.group_id.hid_t)
     if err != 0:
       raise newException(HDF5LibraryError, "Failed to close group " & group.name & "!")
@@ -341,7 +378,7 @@ proc flush*(dset: H5DataSetObj, flushKind: FlushKind) =
 proc flush*(dset: H5DataSet, flushKind: FlushKind) = dset[].flush(flushKind)
 
 proc close*(dset: var H5DataSetObj) =
-  if dset.opened:
+  if dset.opened and dset.isObjectOpen():
     # close the dataset creation property list, important if filters are used
     dset.dcpl_id.close(msg = "dcpl associated with dataset: " & $dset.name)
     withDebug:

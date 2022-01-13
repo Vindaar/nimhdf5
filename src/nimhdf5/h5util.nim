@@ -10,7 +10,6 @@ import strutils, strformat
 import ospaths
 import options
 import tables
-from sequtils import filterIt
 
 # nimhdf5 related libraries
 import hdf5_wrapper
@@ -303,21 +302,32 @@ proc printOpenObjects*(h5f: H5File) =
   echo "\t\t types open: ", typesOpen
   echo "\t\t attrs open: ", attrsOpen
 
-proc getOpenObjectIds*(h5f: H5File, kind: ObjectKind,
-                       bufSize = 1000): seq[hid_t] =
-  ## Return all IDs of objects of `kind` that are still open in the file.
-  ##
-  ## This will fail if there are more than `bufSize` elements open!
-  ##
-  ## Returns a sequence of `hid_t` as we haven't checked what object types they are
-  ## nor can we return a sequence of different types.
-  let h5Kind = parseObjectKindToH5(kind)
-  # create buffer size of `bufSize`. Should be plenty for open ids
-  # if not, something is wrong anyways (I'd assume?)
-  var objList = newSeq[hid_t](bufSize)
-  let objsOpen = H5Fget_obj_ids(h5f.file_id.hid_t,
-                                h5Kind.cuint, bufSize.csize_t, addr objList[0])
-  result = objList.filterIt(it > 0)
+when false:
+  proc getOpenObjectIds*(h5f: H5File, kind: ObjectKind,
+                         bufSize = 1000): seq[hid_t] =
+    ## Return all IDs of objects of `kind` that are still open in the file.
+    ##
+    ## This will fail if there are more than `bufSize` elements open!
+    ##
+    ## Returns a sequence of `hid_t` as we haven't checked what object types they are
+    ## nor can we return a sequence of different types.
+    let h5Kind = parseObjectKindToH5(kind)
+    # create buffer size of `bufSize`. Should be plenty for open ids
+    # if not, something is wrong anyways (I'd assume?)
+    var objList = newSeq[hid_t](bufSize)
+    let objsOpen = H5Fget_obj_ids(h5f.file_id.hid_t,
+                                  h5Kind.cuint, bufSize.csize_t, addr objList[0])
+    result = objList.filterIt(it > 0)
+
+  proc isObjectOpen*[T: H5File | H5Group | H5Dataset](h5f: H5File, h5oid: T): bool =
+    when T is H5File:
+      let ids = h5f.getOpenObjectIds(okFile)
+    elif T is H5Group:
+      let ids = h5f.getOpenObjectIds(okGroup)
+    elif T is H5Dataset:
+      let ids = h5f.getOpenObjectIds(okDataset)
+    for id in ids:
+      if id == h5oid: return true # id in returned list, so is open
 
 proc contains*(h5f: H5File, name: string): bool =
   ## Checks if the given `name` is contained in the H5 file.
