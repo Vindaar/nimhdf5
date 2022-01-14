@@ -325,6 +325,12 @@ proc getOpenObjectIds*(h5f: H5File, kind: ObjectKind,
                        bufSize = 1000): seq[hid_t] =
   result = h5f.file_id.getOpenObjectIds(kind, bufsize)
 
+proc isValidID*(h5id: hid_t): bool {.inline.} =
+  ## This is essentially just an alias to `isObjectOpen` as that is the original use
+  ## case of the underlying procedure. In some cases it may be logical to check for
+  ## valid-ness of an ID instead of whether an object is open (for clarity in code)
+  result = h5id.isObjectOpen
+
 proc getRefcount*(h5id: hid_t): int {.inline.} =
   if h5id.isObjectOpen:
     let err = H5Iget_ref(h5id)
@@ -383,14 +389,15 @@ when false:
   ## this is also super helpful
   proc getName*(h5id: hid_t): string =
     ## Returns the name associated with the given ID.
+    ##
+    ## NOTE: this procedure may only be called, if the given ID is still valid!
+    ## Needs to be wrapped in something
     var size = H5Iget_name(h5id, nil, 0)
     result = newString(size) # nim strings are already zero terminated
     let err = H5Iget_name(h5id, result, size + 1) # +1 for zero termination
     if err < 0:
       raise newException(HDF5LibraryError, "Call to `H5Iget_name` failed trying to determine " &
         "name of object with ID: " & $h5id)
-
-
 
 proc contains*(h5f: H5File, name: string): bool =
   ## Checks if the given `name` is contained in the H5 file.
