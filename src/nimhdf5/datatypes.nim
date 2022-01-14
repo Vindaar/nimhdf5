@@ -344,7 +344,7 @@ proc close*(dtype_id: DatatypeID) =
 
 proc close*(attr: var H5AttrObj) =
   ## closes the attribute and the corresponding dataspace
-  if attr.opened:
+  if attr.opened and attr.attr_id.hid_t.isObjectOpen:
     var err = H5Aclose(attr.attr_id.hid_t)
     if err < 0:
       raise newException(HDF5LibraryError, "Error closing attribute with id " &

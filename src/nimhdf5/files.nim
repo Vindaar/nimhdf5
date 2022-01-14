@@ -244,11 +244,12 @@ proc close*(h5f: H5File): herr_t =
     # should be zero now
     echo "Still open objects are ", objsYet
 
-  # flush the file
-  result = H5Fflush(h5f.file_id.hid_t, H5F_SCOPE_GLOBAL)
+  if h5f.isObjectOpen: # close file only if still open
+    # flush the file
+    result = H5Fflush(h5f.file_id.hid_t, H5F_SCOPE_GLOBAL)
 
-  # close the remaining attributes
-  result = H5Fclose(h5f.file_id.hid_t)
+    # close the remaining attributes
+    result = H5Fclose(h5f.file_id.hid_t)
 
 template withH5*(h5file, rw_type: string, actions: untyped) =
   ## template to work with a H5 file, taking care of opening
