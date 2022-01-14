@@ -325,7 +325,72 @@ proc getOpenObjectIds*(h5f: H5File, kind: ObjectKind,
                        bufSize = 1000): seq[hid_t] =
   result = h5f.file_id.getOpenObjectIds(kind, bufsize)
 
+proc getRefcount*(h5id: hid_t): int {.inline.} =
+  if h5id.isObjectOpen:
+    let err = H5Iget_ref(h5id)
+    if err >= 0:
+      result = err.int
+    else:
+      raise newException(HDF5LibraryError, "Call to `H5Iget_ref` failed trying to determine reference " &
+        "count to id: " & $h5id)
+  else:
+    result = 0
+
+proc getRefCount*[T: H5File | H5Group | H5GroupObj | H5Dataset | H5DatasetObj](h5o: T): int {.inline.} =
+  ## Returns the reference count to the given object. This tells us how many instances of the
+  ## object are still open in memory.
+  result = h5o.getH5ID.to_hid_t.getRefCount()
+
+proc getFileID*(h5id: hid_t): FileID =
+  ## Returns the `FileID` of the file the given object is associated to.
+  ##
+  ## TODO: this could replace us keeping track of the file id in groups!
+  ##
+  ## Keep in mind this note from the docs:
+  ##
+  ## ..note::
+  ##   Note that the HDF5 library permits an application to close a file
+  ##   while objects within the file remain open. If the file containing
+  ##   the object id is still open, H5Iget_file_id() will retrieve the
+  ##   existing file identifier. If there is no existing file identifier
+  ##   for the file, i.e., the file has been closed, H5Iget_file_id() will
+  ##   reopen the file and return a new file identifier. In either case,
+  ##   the file identifier must eventually be released using H5Fclose().
+  let err = H5Iget_file_id(h5id)
+  if err > 0:
+    result = err.FileID
+  elif err == -1.hid_t:
+    raise newException(HDF5LibraryError, "Could not determine the file ID associated with " &
+      $h5id & ". Invalid ID according to call to `H5Iget_file_id`.")
+  else:
+    doAssert err != 0, "`H5Iget_file_id` returned ambiguous ID 0."
+    raise newException(HDF5LibraryError, "Call to `H5Iget_file_id` failed determining the file " &
+      "associated with the ID: " & $h5id)
+
+proc getFileID*[T: H5Dataset | H5DatasetObj | H5Group | H5GroupObj | H5Attr | H5AttrObj](h5o: T): FileID =
+  ## Returns the `FileID` associated with the given H5 object.
+  when T is H5Attr or T is H5AttrObj:
+    let id = h5o.attr_id.hid_t
+  else:
+    let id = h5o.getH5ID.to_hid_t
+  result = id.getFileID()
+
 when false:
+  ## XXX: add an enum to map the types associated with identifiers.
+  proc getH5Type*(h5id: hid_t): SomeType =
+    result = H5Iget_type(h5id)
+
+  ## this is also super helpful
+  proc getName*(h5id: hid_t): string =
+    ## Returns the name associated with the given ID.
+    var size = H5Iget_name(h5id, nil, 0)
+    result = newString(size) # nim strings are already zero terminated
+    let err = H5Iget_name(h5id, result, size + 1) # +1 for zero termination
+    if err < 0:
+      raise newException(HDF5LibraryError, "Call to `H5Iget_name` failed trying to determine " &
+        "name of object with ID: " & $h5id)
+
+
 
 proc contains*(h5f: H5File, name: string): bool =
   ## Checks if the given `name` is contained in the H5 file.
