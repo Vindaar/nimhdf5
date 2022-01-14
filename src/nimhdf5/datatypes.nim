@@ -70,7 +70,7 @@ type
   H5Attributes* = ref H5AttributesObj
 
   # stores information about a single attribute
-  H5AttrObj = object
+  H5AttrObj* = object
     opened*: bool # flag which indicates whether attribute is opened
     attr_id*: AttributeID
     dtype_c*: DatatypeID
@@ -134,7 +134,7 @@ type
   H5DataSet* = ref H5DataSetObj
 
   # an object to store information about a HDF5 group
-  H5GroupObj = object
+  H5GroupObj* = object
     name*: string
     # groups may not be open (in that case only the name is really valid!)
     opened*: bool
@@ -257,42 +257,59 @@ proc dataspace_id*(dset: H5DataSet): DataspaceID =
   ## id from it
   result = dset.dataset_id.dataspace_id
 
-from sequtils import filterIt
-proc parseObjectKindToH5*(kind: ObjectKind): int
-proc getOpenObjectIds*(h5id: FileID | GroupID, kind: ObjectKind,
-                       bufSize = 1000): seq[hid_t] =
-  ## Return all IDs of objects of `kind` that are still open in the file.
-  ##
-  ## This will fail if there are more than `bufSize` elements open!
-  ##
-  ## Returns a sequence of `hid_t` as we haven't checked what object types they are
-  ## nor can we return a sequence of different types.
-  let h5Kind = parseObjectKindToH5(kind)
-  # create buffer size of `bufSize`. Should be plenty for open ids
-  # if not, something is wrong anyways (I'd assume?)
-  var objList = newSeq[hid_t](bufSize)
-  let objsOpen = H5Fget_obj_ids(h5id.hid_t,
-                                h5Kind.cuint, bufSize.csize_t, addr objList[0])
-  result = objList.filterIt(it > 0)
+proc to_hid_t*(p: ParentID): hid_t =
+  case p.kind
+  of okFile: result = p.fid.hid_t
+  of okDataset: result = p.did.hid_t
+  of okGroup: result = p.gid.hid_t
+  of okType: result = p.typId.hid_t
+  of okAttr: result = p.attrId.hid_t
+  of okAll, okNone:
+    raise newException(ValueError, "Cannot convert ParentID of kind " & $p.kind &
+      " to a `hid_t` value.")
 
-proc getOpenObjectIds*(h5f: H5File, kind: ObjectKind,
-                       bufSize = 1000): seq[hid_t] =
-  result = h5f.file_id.getOpenObjectIds(kind, bufsize)
+func getH5Id*[T: H5File | H5DataSet | H5DatasetObj | H5Group | H5GroupObj](h5o: T): ParentID =
+  ## this func returns the ID of the given object as a `ParentID`
+  ## of the correct kind.
+  when h5o is H5File:
+    result = ParentID(kind: okFile, fid: h5o.file_id)
+  elif h5o is H5Group or h5o is H5GroupObj:
+    result = ParentID(kind: okGroup, gid: h5o.group_id)
+  elif h5o is H5DataSet or h5o is H5DatasetObj:
+    result = ParentID(kind: okDataset, did: h5o.dataset_id)
+  else:
+    {.error: "Invalid branch!".}
 
-proc isObjectOpen*[T: H5File | H5Group | H5GroupObj | H5Dataset | H5DatasetObj](h5o: T): bool =
-  when T is H5File:
-    let ids = h5o.file_id.getOpenObjectIds(okFile)
-  elif T is H5Group or T is H5GroupObj:
-    let ids = h5o.file_id.getOpenObjectIds(okGroup)
-  elif T is H5Dataset or T is H5DatasetObj:
-    let ids = h5o.parentID.gid.getOpenObjectIds(okDataset)
-  for id in ids:
-    when T is H5File:
-      if id == h5o.fileID.hid_t: return true # id in returned list, so is open
-    elif T is H5Group or T is H5GroupObj:
-      if id == h5o.groupID.hid_t: return true # id in returned list, so is open
-    elif T is H5Dataset or T is H5DatasetObj:
-      if id == h5o.datasetID.hid_t: return true # id in returned list, so is open
+proc isObjectOpen*(h5id: hid_t): bool =
+  ## Determines whether the object associated with the given ID is still open.
+  ##
+  ## This procedure is valid for *any* H5 identifier, including attributes, dataspaces
+  ## access property lists, etc.
+  ##
+  ## This is achieved by checking if the identifier is valid. An identifier is valid only
+  ## as long as the object is open. Note: this is sane, because we assign the ID fields
+  ## of the objects only based on calls to the H5 library, so we know these IDs are
+  ## valid at some point.
+  let err = H5Iis_valid(h5id)
+  if err > 0:
+    result = true
+  elif err == 0:
+    result = false
+  else:
+    raise newException(HDF5LibraryError, "Call to `H5Iis_valid` failed calling with identifier: " &
+      $h5id)
+
+proc isObjectOpen*(h5id: ParentID): bool {.inline.} =
+  ## Determines whether the object associated with the given `ParentID` still open.
+  ##
+  ## See the docs of the overload taking a `hid_t` for more information.
+  result = h5id.to_hid_t.isObjectOpen
+
+proc isObjectOpen*[T: H5File | H5Group | H5GroupObj | H5Dataset | H5DatasetObj](h5o: T): bool {.inline.} =
+  ## Determines whether the given object is still open.
+  ##
+  ## See the docs of the overload taking a `hid_t` for more information.
+  result = h5o.getH5ID.isObjectOpen()
 
 proc close*[T: DataspaceID | MemspaceID | HyperslabID](space_id: T, msg = "") =
   ## Closes the dataspace / memspace and raises `HDF5LibraryError` in case closing fails.
@@ -466,17 +483,6 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
       ## Closes the memspace when it goes out of scope
       mspace_id.close()
 
-proc to_hid_t*(p: ParentID): hid_t =
-  case p.kind
-  of okFile: result = p.fid.hid_t
-  of okDataset: result = p.did.hid_t
-  of okGroup: result = p.gid.hid_t
-  of okType: result = p.typId.hid_t
-  of okAttr: result = p.attrId.hid_t
-  of okAll, okNone:
-    raise newException(ValueError, "Cannot convert ParentID of kind " & $p.kind &
-      " to a `hid_t` value.")
-
 proc parseH5toObjectKind*(h5Kind: int): ObjectKind =
   if h5Kind == H5F_OBJ_FILE:
     result = okFile
@@ -600,18 +606,6 @@ proc newH5Group*(name: string = "",
     result.file_id = file_ref.file_id
     result.datasets = file_ref.datasets
     result.groups = file_ref.groups
-
-func getH5Id*[T: H5File | H5DataSet | H5Group](h5o: T): ParentID =
-  ## this func returns the ID of the given object as a `ParentID`
-  ## of the correct kind.
-  when h5o is H5File:
-    result = ParentID(kind: okFile, fid: h5o.file_id)
-  elif h5o is H5Group:
-    result = ParentID(kind: okGroup, gid: h5o.group_id)
-  elif h5o is H5DataSet:
-    result = ParentID(kind: okDataset, did: h5o.dataset_id)
-  else:
-    {.error: "Invalid branch!".}
 
 proc getTypeNoSize(x: DtypeKind): DtypeKind =
   ## returns the datatype without size information
