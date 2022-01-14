@@ -447,7 +447,8 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
 
   proc `=destroy`*(grp: var H5GroupObj) =
     ## Closes the group and resets all references to nil.
-    grp.file_ref = nil
+    `=destroy`(grp.file_ref) # only destroy the `ref` to the file!
+    grp.file_ref = nil # should this be destroyed?
     grp.file_id = -1.FileID
     grp.parent_id = ParentID(kind: okNone)
     grp.close()
