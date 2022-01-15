@@ -28,7 +28,7 @@
 {.deadCodeElim: on.}
 
 import
-  H5public, H5Cpublic, ../H5nimtypes, ../h5libname
+  H5Cpublic, ../H5nimtypes
 
 
 

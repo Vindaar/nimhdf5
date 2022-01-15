@@ -21,7 +21,7 @@
 ##  Public headers needed by this file
 
 import
-  H5public, H5ACpublic, H5Dpublic, H5Fpublic, H5FDpublic, H5Ipublic, H5Lpublic,
+  H5ACpublic, H5Dpublic, H5Fpublic, H5FDpublic, H5Lpublic,
   H5Opublic, H5MMpublic, H5Tpublic, H5Zpublic, ../H5nimtypes, ../h5libname
 
 

@@ -19,7 +19,7 @@
 ##  Public headers needed by this file
 
 import
-  H5public, H5Ipublic, ../H5nimtypes, ../h5libname
+  ../H5nimtypes, ../h5libname
 
 # before we can import any of the variables, from the already shared library
 # we need to make sure that they are defined. The library needs to be

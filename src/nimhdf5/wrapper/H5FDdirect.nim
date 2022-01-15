@@ -12,7 +12,6 @@
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
 {.deadCodeElim: on.}
-import ../h5libname
 ##
 ##  Programmer:  Raymond Lu <slu@hdfgroup.uiuc.edu>
 ##               Wednesday, 20 September 2006

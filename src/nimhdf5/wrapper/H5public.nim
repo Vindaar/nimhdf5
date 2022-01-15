@@ -197,9 +197,9 @@ else:
 ##  File addresses have their own types.
 ##
 
-const H5_SIZEOF_INT = sizeof(cint)
-const H5_SIZEOF_LONG = sizeof(clong)
-const H5_SIZEOF_LONG_LONG = sizeof(clonglong)
+const H5_SIZEOF_INT* = sizeof(cint)
+const H5_SIZEOF_LONG* = sizeof(clong)
+const H5_SIZEOF_LONG_LONG* = sizeof(clonglong)
 
 when H5_SIZEOF_INT >= 8:
   type
@@ -246,8 +246,8 @@ const
 ##  defined in Posix.1g, otherwise it is defined here.
 ##
 
-const H5_SIZEOF_UINT32_T = sizeof(cuint)
-const H5_SIZEOF_SHORT = sizeof(cshort)
+const H5_SIZEOF_UINT32_T* = sizeof(cuint)
+const H5_SIZEOF_SHORT* = sizeof(cshort)
 when H5_SIZEOF_UINT32_T >= 4:
   # this is empty in the original H5 code.
   type

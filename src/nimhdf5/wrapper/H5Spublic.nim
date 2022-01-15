@@ -20,8 +20,7 @@
 ##  Public headers needed by this file
 
 import
-  H5public, H5Ipublic, ../H5nimtypes, ../h5libname
-
+  ../H5nimtypes, ../h5libname
 
 ##  Define atomic datatypes
 

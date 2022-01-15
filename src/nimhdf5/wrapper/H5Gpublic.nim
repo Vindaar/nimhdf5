@@ -32,7 +32,6 @@ import
   H5public,                   ##  Generic Functions
   H5Lpublic,                  ##  Links
   H5Opublic,                  ##  Object headers
-  H5Tpublic,
   ../H5nimtypes, ../h5libname
 
 

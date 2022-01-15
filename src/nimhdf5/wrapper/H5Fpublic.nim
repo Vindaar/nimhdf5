@@ -20,7 +20,7 @@
 ##  Public header files needed by this file
 
 import
-  H5public, H5ACpublic, H5Ipublic, ../H5nimtypes, ../h5libname
+  H5public, H5ACpublic, ../H5nimtypes, ../h5libname
 
 ##  When this header is included from a private header, don't make calls to H5check()
 

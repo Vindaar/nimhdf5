@@ -29,8 +29,6 @@
 
 import
   H5public,                   ##  Generic Functions
-  H5Ipublic,                  ##  IDs
-  H5Lpublic,
   ../H5nimtypes, ../h5libname
 
 

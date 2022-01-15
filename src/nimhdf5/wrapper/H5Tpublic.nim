@@ -19,7 +19,7 @@
 ##  Public headers needed by this file
 
 import
-  H5public, H5Ipublic, ../H5nimtypes, ../h5libname
+  ../H5nimtypes, ../h5libname
 
 
 
@@ -27,7 +27,6 @@ import
 # we need to make sure that they are defined. The library needs to be
 # initialized. Thus we include
 include H5niminitialize
-
 
 template HOFFSET*(S, M: untyped): untyped =
   (offsetof(S, M))

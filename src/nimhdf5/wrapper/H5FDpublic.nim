@@ -333,8 +333,8 @@ type
     terminate*: proc (): herr_t {.cdecl.}
     sb_size*: proc (file: ptr H5FD_t_prot): hsize_t {.cdecl.}
     sb_encode*: proc (file: ptr H5FD_t_prot; name: cstring; ## out
-                    p: ptr cuchar): herr_t {.cdecl.} ## out
-    sb_decode*: proc (f: ptr H5FD_t_prot; name: cstring; p: ptr cuchar): herr_t {.cdecl.}
+                      p: ptr char): herr_t {.cdecl.} ## out
+    sb_decode*: proc (f: ptr H5FD_t_prot; name: cstring; p: ptr char): herr_t {.cdecl.}
     fapl_size*: csize_t
     fapl_get*: proc (file: ptr H5FD_t_prot): pointer {.cdecl.}
     fapl_copy*: proc (fapl: pointer): pointer {.cdecl.}

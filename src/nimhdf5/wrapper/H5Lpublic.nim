@@ -28,7 +28,6 @@
 
 import
   H5public,                   ##  Generic Functions
-  H5Ipublic,                  ##  IDs
   H5Tpublic,
   ../H5nimtypes, ../h5libname
 
@@ -84,7 +83,7 @@ const
 ##  Information struct for link (for H5Lget_info/H5Lget_info_by_idx)
 
 type
-  INNER_C_UNION_3734014316* = object {.union.}
+  INNER_C_UNION_3734014316* {.union.} = object
     address*: haddr_t          ##  Address hard link points to
     val_size*: csize_t           ##  Size of a soft link or UD link value
 

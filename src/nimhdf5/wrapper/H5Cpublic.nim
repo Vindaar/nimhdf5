@@ -28,9 +28,6 @@
 
 ##  Public headers needed by this file
 
-import
-  H5public, ../h5libname
-
 type
   H5C_cache_incr_mode* {.size: sizeof(cint).} = enum
     H5C_incr_off, H5C_incr_threshold

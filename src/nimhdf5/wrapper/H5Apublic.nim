@@ -20,7 +20,6 @@
 
 import
   H5public,
-  H5Ipublic,                  ##  IDs
   H5Opublic,                  ##  Object Headers
   H5Tpublic,
   ../H5nimtypes, ../h5libname
