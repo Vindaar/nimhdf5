@@ -57,3 +57,26 @@ macro getInnerType*(TT: typed): untyped =
   # assign symbol to result
   result = quote do:
     `res`
+
+macro iterateEnumFields*(typ: typed): untyped =
+  ## Creates a bracket with all elements that are actually set in the given enum type
+  ##
+  ## NOTE: this is currently not performing a lot of checks on what the argument is. It
+  ## just assumes you only hand an enum from a generic context (i.e. the `iterateEnum`
+  ## iterator below)
+  let typImpl = typ.getTypeImpl[1].getImpl
+  let enumTy = typImpl[2]
+  doAssert enumTy.kind == nnkEnumTy
+  result = nnkBracket.newTree()
+  for field in enumTy:
+    case field.kind
+    of nnkEmpty: continue
+    of nnkEnumFieldDef:
+      result.add field[0]
+    else:
+      error("Invalid kind encountered in enum definition: " & $field.kind)
+
+iterator iterateEnumSet*[T](s: set[T]): T =
+  for field in iterateEnumFields(T):
+    if field in s:
+      yield field

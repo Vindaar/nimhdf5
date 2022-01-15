@@ -218,7 +218,7 @@ proc create_dataset*[T: (tuple | int | seq)](
   ##    ... some dataset object, part of the file?!
   ## throws:
   ##    ... some H5 C related errors ?!
-  if h5f.rw_type notin {H5F_ACC_EXCL, H5F_ACC_RDWR}:
+  if {akExclusive, akReadWrite} * h5f.accessFlags == {}:
     raise newException(ReadOnlyError, "Cannot create a dataset in " & $h5f.name &
       ", because the file is opened with read-only access!")
 

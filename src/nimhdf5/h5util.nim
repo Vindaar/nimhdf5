@@ -305,25 +305,42 @@ proc printOpenObjects*(h5f: H5File) =
   echo "\t\t types open: ", typesOpen
   echo "\t\t attrs open: ", attrsOpen
 
-proc getOpenObjectIds*(h5id: FileID | GroupID, kind: ObjectKind,
-                       bufSize = 1000): seq[hid_t] =
+proc getNumberOpenObject*(h5id: FileID, objectKinds: set[ObjectKind]): int =
+  ## Returns the number of open objects in the given file.
+  ##
+  ## If `okLocal` is part of the `objectKinds` set, the number will only refer
+  ## to the number of open objects as opened by the given `FileID`! This is
+  ## relevant when opening a file from two threads / processes to distinguish
+  ## / get all open objects between all IDs.
+  if okNone in objectKinds: return 0
+  let err = H5Fget_obj_count(h5id.hid_t, objectKinds.toH5())
+  if err < 0:
+    raise newException(HDF5LibraryError, "Call to `H5get_obj_count` failed in `getNumberOpenObjects`.")
+
+proc getOpenObjectIds*(h5id: FileID, objectKinds: set[ObjectKind]): seq[hid_t] =
   ## Return all IDs of objects of `kind` that are still open in the file.
   ##
-  ## This will fail if there are more than `bufSize` elements open!
+  ## If you ask for multiple types at the same time, you may use `getType` on the
+  ## identifier to separate the different IDs (keep in mind `getType` returns an
+  ## element of the `H5I_type_t` enum!).
   ##
-  ## Returns a sequence of `hid_t` as we haven't checked what object types they are
-  ## nor can we return a sequence of different types.
-  let h5Kind = parseObjectKindToH5(kind)
-  # create buffer size of `bufSize`. Should be plenty for open ids
-  # if not, something is wrong anyways (I'd assume?)
-  var objList = newSeq[hid_t](bufSize)
-  let objsOpen = H5Fget_obj_ids(h5id.hid_t,
-                                h5Kind.cuint, bufSize.csize_t, addr objList[0])
-  result = objList.filterIt(it > 0)
+  ## If `okLocal` is part of the `objectKinds` set, the number will only refer
+  ## to the number of open objects as opened by the given `FileID`! This is
+  ## relevant when opening a file from two threads / processes to distinguish
+  ## / get all open objects between all IDs.
+  if okNone in objectKinds: return @[]
+  let numObjects = getNumberOpenObject(h5id, objectKinds)
+  if numObjects > 0:
+    var objList = newSeq[hid_t](numObjects)
+    let err = H5Fget_obj_ids(h5id.hid_t,
+                             objectKinds.toH5(), numObjects.csize_t, addr objList[0])
+    if err < 0:
+      raise newException(HDF5LibraryError, "Call to `H5get_obj_ids` failed in `getOpenObjectsIds`.")
+    result = objList.filterIt(it > 0)
 
-proc getOpenObjectIds*(h5f: H5File, kind: ObjectKind,
-                       bufSize = 1000): seq[hid_t] =
-  result = h5f.file_id.getOpenObjectIds(kind, bufsize)
+proc getOpenObjectIds*(h5f: H5File, objectKinds: set[ObjectKind]): seq[hid_t] =
+  ## Overload of the above for a `H5File` as an input.
+  result = h5f.file_id.getOpenObjectIds(objectKinds)
 
 proc isValidID*(h5id: hid_t): bool {.inline.} =
   ## This is essentially just an alias to `isObjectOpen` as that is the original use

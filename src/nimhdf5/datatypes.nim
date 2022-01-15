@@ -5,6 +5,9 @@ import macros
 
 import hdf5_wrapper, H5nimtypes, util
 
+# add an invalid rw code to handle wrong inputs in parseH5rw_type
+const H5F_INVALID_RW* = cuint(0x00FF)
+
 type
   # based on `typeinfo.AnyKind` enum
   DtypeKind* = enum  ## what kind of ``dtype`` it is
@@ -46,6 +49,18 @@ type
   # dset / group you want to access of course!)
   grp_str*  = distinct string
   dset_str* = distinct string
+
+  ## Controls the different options with which one can open files.
+  AccessKind* = enum
+    akRead = H5F_ACC_RDONLY          ## open for read only
+    akReadWrite = H5F_ACC_RDWR       ## open for read and write. File can exist, will "append" to file
+    akTruncate = H5F_ACC_TRUNC       ## overwrite existing files
+    akExclusive = H5F_ACC_EXCL       ## open in read and write mode, but fail if file already exists
+    akCreate = H5F_ACC_CREAT         ## create non-existing files;
+                                     ## NOTE: I don't understand what this means. Apparently this is deprecated
+    akWriteSWMR = H5F_ACC_SWMR_WRITE ## open file in SWMR mode as the writing process (see SWMR note in README)
+    akReadSWMR = H5F_ACC_SWMR_READ   ## open file in SWMR mode as a reading process
+    akInvalid = H5F_INVALID_RW       ## invalid opening mode (can appear as a return value)
 
   #special_vlen = hid_t
   #special_str  = hid_t
@@ -175,9 +190,8 @@ type
     # on. Should only be used if you need to access functions for which
     # no high level equivalent exists.
     file_id*: FileID
-    # var which stores access type. For internal use. Might be needed
-    # for access to low level C calls, which have no high level equiv.
-    rw_type*: cuint
+    # stores the access flags (read, read/write, SWMR, ...)
+    accessFlags*: set[AccessKind]
     # var to store error codes of called C functions
     err*: herr_t
     # var to store status of C calls
@@ -216,10 +230,18 @@ type
   FlushKind* = enum
     fkLocal, fkGlobal
 
-  # An enum that maps different H5 object kind values to more readable names
-  ## TODO: we could map these values directly?
+  ## An enum that maps different H5 object kind values to more readable names
+  ## Mainly these specify different objects that may be using `H5Fget_*` functions.
   ObjectKind* = enum
-    okNone, okFile, okDataset, okGroup, okType, okAttr, okAll
+    okNone = 0,
+    okFile = H5F_OBJ_FILE
+    okDataset = H5F_OBJ_DATASET
+    okGroup = H5F_OBJ_GROUP
+    okType = H5F_OBJ_DATATYPE
+    okAttr = H5F_OBJ_ATTR
+    # okAll not needed anymore, as we will use a set
+    okLocal = H5F_OBJ_LOCAL ## Restricts to objects opened via the given file ID and not
+                            ## given file (opening a file twice yields different file IDs!)
 
   ParentID* = object
     case kind*: ObjectKind
@@ -233,14 +255,23 @@ type
       typId*: DatatypeID
     of okAttr:
       attrId*: AttributeID
-    of okAll, okNone: discard # all cannot be a parent
+    of okNone, okLocal: discard # all cannot be a parent
 
-const
-  H5_NOFILE* = hid_t(-1)
-  H5_OPENFILE* = hid_t(1)
+const AllObjectKinds* = {okFile, okDataset, okGroup, okType, okAttr}
 
-# add an invalid rw code to handle wrong inputs in parseH5rw_type
-const H5F_INVALID_RW* = cuint(0x00FF)
+func toH5*(flags: set[AccessKind]): cuint =
+  ## Performs a bitwise `or` of all flags in the set to generate the correct
+  ## value for the H5 library
+  if flags.card == 0: return akInvalid.ord
+  for fl in iterateEnumSet(flags):
+    result = result or fl.ord.cuint
+
+func toH5*(flags: set[ObjectKind]): cuint =
+  ## Performs a bitwise `or` of all flags in the set to generate the correct
+  ## value for the H5 library
+  if flags.card == 0: return okNone.ord
+  for fl in iterateEnumSet(flags):
+    result = result or fl.ord.cuint
 
 ## NOTE: the following two `dataspace_id` procs ``*really*`` do not belong here. But the problem is
 ## we need them for `close` of `H5DataSet`. Those shouldn't be here either, but they are needed
@@ -264,7 +295,7 @@ proc to_hid_t*(p: ParentID): hid_t =
   of okGroup: result = p.gid.hid_t
   of okType: result = p.typId.hid_t
   of okAttr: result = p.attrId.hid_t
-  of okAll, okNone:
+  of okNone, okLocal:
     raise newException(ValueError, "Cannot convert ParentID of kind " & $p.kind &
       " to a `hid_t` value.")
 
@@ -484,38 +515,6 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
       ## Closes the memspace when it goes out of scope
       mspace_id.close()
 
-proc parseH5toObjectKind*(h5Kind: int): ObjectKind =
-  if h5Kind == H5F_OBJ_FILE:
-    result = okFile
-  elif h5Kind == H5F_OBJ_DATASET:
-    result = okDataset
-  elif h5Kind == H5F_OBJ_GROUP:
-    result = okGroup
-  elif h5Kind == H5F_OBJ_DATATYPE:
-    result = okType
-  elif h5Kind == H5F_OBJ_ATTR:
-    result = okAttr
-  elif h5Kind == H5F_OBJ_ALL:
-    result = okAll
-
-proc parseObjectKindToH5*(kind: ObjectKind): int =
-  case kind
-  of okFile:
-    result = H5F_OBJ_FILE
-  of okDataset:
-    result = H5F_OBJ_DATASET
-  of okGroup:
-    result = H5F_OBJ_GROUP
-  of okType:
-    result = H5F_OBJ_DATATYPE
-  of okAttr:
-    result = H5F_OBJ_ATTR
-  of okAll:
-    result = H5F_OBJ_ALL
-  of okNone:
-    raise newException(ValueError, "ObjectKind `okNone` cannot be " &
-      "converted to a HDF5 corresponding value.")
-
 proc newH5Attributes*(): H5Attributes =
   let attr = newTable[string, H5Attr]()
   result = H5Attributes(attr_tab: attr,
@@ -544,7 +543,7 @@ proc getNumAttrs*(h5attr: H5Attributes): int =
 
 proc initH5Attributes*(p_id: ParentID, p_name: string = "", p_type: string = ""): H5Attributes =
   let attr = newTable[string, H5Attr]()
-  doAssert p_id.kind notin {okNone, okAll}, "parent id must exist!"
+  doAssert p_id.kind notin {okNone, okLocal}, "parent id must exist!"
   var h5attr = H5Attributes(attr_tab: attr,
                             num_attrs: -1,
                             parent_name: p_name,
@@ -833,39 +832,54 @@ proc getDtypeString*(dset_id: DatasetID): string =
   ## to the H5 library to get the datatype of that dataset
   result = anyTypeToString(h5ToNimType(dset_id.getDatasetType()))
 
-proc parseH5rw_type*(rw_type: string, exists: bool): cuint =
+## XXX: in addition to SWMR opening flag there is the proc
+## ` H5Fstart_swmr_write()`
+## which apparently can be used to activate it after the file has been opened
+## already!
+
+proc parseH5rwType*(rwType: string, exists: bool,
+                    swmr: bool = false): set[AccessKind] =
   ## this proc simply acts as a parser for the read/write
   ## type string handed to the H5file() proc.
   ## inputs:
-  ##    rw_type: string = the identifier string, which sets the
+  ##    rwType: string = the identifier string, which sets the
   ##            read / write options for a HDF5 file
   ##    exits: bool = a bool to tell whether the file for which
   ##          we need to parse r/w already exists. Changes
   ##          potential return values
+  ##    swmr: bool = determines whether we open the file in Single Writer /
+  ##          Multiple Reader (SWMR) mode.
   ## outputs:
   ##    cuint = returns a C uint, since that is the datatype of
   ##            the constans defined in H5Fpublic.nim. These can be
   ##            handed directly to the low level C functions
   ## throws:
   ##
-  if rw_type == "w" or
-     rw_type == "rw" or
-     rw_type == "write":
-    if exists == true:
-      result = H5F_ACC_RDWR
+  if rwType == "w" or
+     rwType == "rw" or
+     rwType == "write":
+    if exists and swmr:
+      result = {akReadWrite, akWriteSWMR}
+    elif exists:
+      result = {akReadWrite}
     else:
-      result = H5F_ACC_EXCL
-  elif rw_type == "r" or
-       rw_type == "read":
-    result = H5F_ACC_RDONLY
+      result = {akExclusive} # open in exclusive mode to make sure our notion of `exists` doesn't cause
+                             # data loss
+  elif rwType == "r" or
+       rwType == "read":
+    if swmr:
+      result = {akRead, akReadSWMR}
+    else:
+      result = {akRead}
   else:
-    result = H5F_INVALID_RW
+    result = {akInvalid}
 
 template getH5rw_invalid_error*(): string =
   """
   The given r/w type is invalid. Make sure to use one of the following:
   - {'r', 'read'} = read access
   - {'w', 'write', 'rw'} =  read/write access
+
   """
 
 proc getH5read_non_exist_file*(filename: string): string =
