@@ -219,6 +219,89 @@ know.
   - groups
   - datasets
   - attributes
+- Single Writer Multiple Reader (SWMR). See for more info below.
+
+*** Single Writer Multiple Reader
+
+This wrapper fully supports the Single Writer Multiple Reader feature
+of the HDF5 library, but it is still in an experimental state, as I've
+never really needed it.
+
+It allows to access a single HDF5 file from multiple threads or
+processes, where one of these is a writer process and all others are
+readers. When using this feature the user does not have to worry about
+locks etc. between the different processes.
+
+**** Usage
+Open an HDF5 file in write mode and hand the =swmr= flag:
+#+begin_src nim
+# writer.nim
+import nimhdf5
+var h5f = H5open("/tmp/test.h5", "rw", swmr = true)
+# do writing stuff
+#+end_src
+and in all reader threads / processes, simply do the same, but do
+*not* hand a write:
+#+begin_src nim
+# reader.nim
+import nimhdf5
+var h5f = H5open("/tmp/test.h5", "r", swmr = true)
+#+end_src
+This *should* be all that is required.
+
+I'm not sure if the writer process should make sure to flush the file
+regularly or not. Feel free to tell me if you know. :)
+
+***** Alternative writer
+
+An alternative to the above for the writer process is to first open
+the file in write mode without ~swmr = true~ and then later put it
+into =swmr= mode via:
+#+begin_src nim
+import nimhdf5
+var h5f = H5open("/tmp/test.h5", "rw")
+# do some regular stuff
+# and then activate SWMR later
+h5f.activateSWMR()
+#+end_src
+
+*** Threadsafe HDF5 library & file locks
+
+This wrapper can also be used with a HDF5 library that was compiled
+with the =--enable-threadsafe= compilation flag.
+
+Once the library has been compiled with it, in principle the user can
+try to open a single file in write mode from multiple processes or
+threads. For safe handling in these contexts, it may be up to the user
+to lock access to the file / writing to individual datasets via some
+locking mechanism.
+In principle the threadsafe option of the library adds its own mutex
+logic, so in theory it should work without them.
+
+See these notes about the threadsafe library:
+https://support.hdfgroup.org/HDF5/doc/TechNotes/ThreadSafeLibrary.html
+
+One issue a user might encounter is that the second opening of a file
+yields an error saying that the resource is temporarily unavailable.
+In HDF5 version starting from =1.10=, file locking was added as a
+feature.
+
+This behavior is controlled via an environment variable:
+#+begin_src sh
+export HDF5_USE_FILE_LOCKING=FALSE
+#+end_src
+If set to false, file locking is *disabled*. With it multiple
+processes may open the same file.
+
+When doing this, keep in mind that each thread / process will receive
+their own =FileID=. Some HDF5 functions may either give the user
+information based on the specific file ID and others based on the
+actual file. In the cases where one can choose, it is supported via
+the =okLocal= (=ObjectKind= enum) or =fkLocal= (=FlushKind= enum).
+
+Relevant part of the documentation:
+https://docs.hdfgroup.org/hdf5/develop/_h5public_8h.html#title31
+
 
 ** Blosc support
 
