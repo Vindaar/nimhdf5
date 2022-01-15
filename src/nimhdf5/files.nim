@@ -112,6 +112,25 @@ proc H5file*(name, rwType: string): H5File {.deprecated: "Use `H5open` instead o
     "H5file. The datatype was renamed from `H5File` to `H5File`.".} =
   result = H5open(name, rwType)
 
+proc activateSWMR*(h5f: H5File) =
+  ## Attempts to activate Single Writer Multiple Reader mode for the given `H5File`.
+  ##
+  ## This should succeed, as long as the file was opened in write mode.
+  if akReadWrite in h5f.accessFlags and akWriteSWMR notin h5f.accessFlags:
+    let err = H5Fstart_swmr_write(h5f.fileID.hid_t)
+    if err < 0:
+      raise newException(HDF5LibraryError, "Failed to active SWMR mode in call to " &
+        "`H5Fstart_swmr_write`.")
+    h5f.accessFlags.incl akWriteSWMR
+  elif akWriteSWMR in h5f.accessFlags:
+    withDebug:
+      echo "File was already in SWMR mode: ", h5f
+    discard # already activated
+  else:
+    raise newException(IOError, "Cannot activate SWMR mode for an input file that misses " &
+      "the write flag `akReadWrite`. Input file " & $h5f.name & " is opened with flags: " &
+      $h5f.accessFlags)
+
 proc flush*(h5f: H5File, flushKind: FlushKind = fkGlobal) =
   ## wrapper around H5Fflush for convenience
   var err: herr_t
