@@ -61,7 +61,7 @@ proc doAssert_data(dset: var H5DataSet) =
 when isMainModule:
   # open file, create dataset
   var
-    h5f = H5File(File, "rw")
+    h5f = H5open(File, "rw")
     dset = h5f.create_vlen()
   # perform 1st checks on still open file
   h5f.doAssert_fields(dset)
@@ -69,7 +69,7 @@ when isMainModule:
   var err = h5f.close()
   doAssert(err >= 0)
   var
-    h5f_read = H5File(File, "r")
+    h5f_read = H5open(File, "r")
   # get same dset from before
   dset = h5f_read[VlenName.dset_str]
   # check if doAssertions still hold true (did we read correctly?)

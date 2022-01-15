@@ -12,7 +12,7 @@ const chunkSize = @[20, 20]
 
 when isMainModule:
 
-  var h5f = H5File(Filename, "rw")
+  var h5f = H5open(Filename, "rw")
 
   let filter =  H5Filter(kind: fkZlib, zlibLevel: 9)
 

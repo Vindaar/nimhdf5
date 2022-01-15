@@ -71,7 +71,7 @@ proc assert_overwrite(grp: var H5Group) =
 when isMainModule:
 
   var
-    h5f = H5file(File, "rw")
+    h5f = H5open(File, "rw")
     grp = h5f.create_group(GrpName)
     grpCp = h5f.create_group(GrpCopy)
     err: herr_t
@@ -89,7 +89,7 @@ when isMainModule:
   assert(err >= 0)
 
   # open again, again with write access to delete attributes again
-  h5f = H5File(File, "rw")
+  h5f = H5open(File, "rw")
   grp = h5f[GrpName.grp_str]
   grpCp = h5f[GrpCopy.grp_str]
   # and check again

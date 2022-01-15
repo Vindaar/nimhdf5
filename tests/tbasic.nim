@@ -5,7 +5,7 @@ const FILE = "create_close.h5"
 
 when isMainModule:
 
-  var h5f = H5file(FILE, "rw")
+  var h5f = H5open(FILE, "rw")
 
   assert(h5f.name == FILE)
 
@@ -13,6 +13,6 @@ when isMainModule:
 
   # unless closing did not work, should return >= 0
   assert(err >= 0)
-  
-  # clean up after ourselves  
+
+  # clean up after ourselves
   removeFile(File)

@@ -19,7 +19,7 @@ proc create_dset(h5f: var H5FileObj, name: string): H5DataSet =
 when isMainModule:
   # open file, create dataset
   var
-    h5f = H5File(File, "rw")
+    h5f = H5open(File, "rw")
     dset1 = h5f.create_dset(DsetName1)
     dset2 = h5f.create_dset(DsetName2)
     dset3 = h5f.create_dset(DsetName3)

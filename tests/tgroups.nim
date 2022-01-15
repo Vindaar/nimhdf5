@@ -7,7 +7,7 @@ const
   Grp3 = "/foo/bar"
 
 when isMainModule:
-  var h5f = H5File(File, "rw")
+  var h5f = H5open(File, "rw")
 
   # manually create group
   let grp1 = h5f.create_group(Grp1)

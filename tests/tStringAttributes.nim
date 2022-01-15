@@ -23,7 +23,7 @@ proc assert_attrs(grp: var H5Group) =
 
 when isMainModule:
   var
-    h5f = H5file(File, "rw")
+    h5f = H5open(File, "rw")
 
   var grp = h5f.create_group("/")
   grp.write_attrs()
@@ -32,7 +32,7 @@ when isMainModule:
   var err = h5f.close()
   assert(err >= 0)
 
-  h5f = H5file(File, "r")
+  h5f = H5open(File, "r")
   grp = h5f["/".grp_str]
   grp.assert_attrs
 

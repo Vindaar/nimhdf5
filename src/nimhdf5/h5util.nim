@@ -207,7 +207,7 @@ proc existsInFile*(h5id: FileID, name: string): hid_t =
       continue
     # need to convert result of H5Lexists to hid_t, because return type is
     # `htri_t` from the H5 wrapper
-    result = H5Lexists(h5id.hid_t, toCheck, H5P_DEFAULT).hid_t
+    result = H5Lexists(h5id.hid_t, toCheck.cstring, H5P_DEFAULT).hid_t
     if result == 0:
       # does not exist, so break, even if we're not at the deepest level
       break

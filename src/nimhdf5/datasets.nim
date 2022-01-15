@@ -137,13 +137,13 @@ proc create_dataset_in_file(h5file_id: FileID, dset: H5DataSet): DatasetID =
   # the check can never succeed. Ok if we only check for chunksize?
   let dataspace_id = simple_dataspace(dset.shape, dset.maxshape)
   if dset.maxshape.len == 0 and dset.chunksize.len == 0:
-    result = H5Dcreate2(h5file_id.hid_t, dset.name, dset.dtype_c.hid_t, dataspace_id.hid_t,
+    result = H5Dcreate2(h5file_id.hid_t, dset.name.cstring, dset.dtype_c.hid_t, dataspace_id.hid_t,
                          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
       .DatasetID
   else:
     # in this case we are definitely working with chunked memory of some
     # sorts, which means that the dataset creation property list is set
-    result = H5Dcreate2(h5file_id.hid_t, dset.name, dset.dtype_c.hid_t, dataspace_id.hid_t,
+    result = H5Dcreate2(h5file_id.hid_t, dset.name.cstring, dset.dtype_c.hid_t, dataspace_id.hid_t,
                          H5P_DEFAULT, dset.dcpl_id.hid_t, H5P_DEFAULT)
       .DatasetID
 
@@ -1561,7 +1561,7 @@ proc open*(h5f: H5File, dset: dset_str) =
                                                  did: dsetOpen.dataset_id),
                                         dsetOpen.name,
                                         "H5DataSet")
-      # need to close the datatype again, otherwise cause resource leak
+      # need to close the data type again, otherwise cause resource leak
       datatype_id.close()
     else:
       # check whether there exists a group of same name?

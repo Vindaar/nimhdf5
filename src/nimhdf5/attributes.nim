@@ -24,7 +24,7 @@ proc openAttrByIdx(h5attr: H5Attributes, idx: int): AttributeID =
   let loc = "."
   # we read by creation order, increasing from 0
   result = H5Aopen_by_idx(h5attr.parent_id.to_hid_t,
-                          loc,
+                          loc.cstring,
                           H5_INDEX_CRT_ORDER,
                           H5_ITER_INC,
                           hsize_t(idx),
@@ -46,7 +46,7 @@ proc getAttrName*[T: SomeInteger](attr_id: AttributeID, buf_space: T = 200): str
     debugEcho "Call to getAttrName! with size $#" % $buf_space
   var name = newString(buf_space)
   # read the name
-  let length = H5Aget_name(attr_id.hid_t, len(name).csize_t, name)
+  let length = H5Aget_name(attr_id.hid_t, len(name).csize_t, name.cstring)
   # H5Aget_name returns the length of the name. In case the name
   # is longer than the given buffer, we call this function again with
   # a buffer with the correct length
@@ -361,6 +361,8 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
     when T is SomeNumber or T is char:
       var at_val: T
       err = H5Aread(hid_t(attr.attr_id), hid_t(attr.dtype_c), addr(at_val))
+      if err < 0:
+        raise newException(HDF5LibraryError, "Call to `H5Aread` failed in `read_attribute`.")
       result = at_val
     elif T is seq:
       # determine number of elements in seq
@@ -375,6 +377,8 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
         # return correct type based on base kind
         result.setLen(npoints)
         err = H5Aread(hid_t(attr.attr_id), hid_t(attr.dtype_c), addr result[0])
+        if err < 0:
+          raise newException(HDF5LibraryError, "Call to `H5Aread` failed in `read_attribute`.")
     elif T is string:
       # case of single string attribute
       result = readStringAttribute attr

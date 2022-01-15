@@ -17,7 +17,7 @@ var d_new = @[ @[1'f64, 2, 3, 4, 5],
 when isMainModule:
   # open file, create dataset
   var
-    h5f = H5File(File, "rw")
+    h5f = H5open(File, "rw")
 
   template createAndOverwrite(path: string): untyped =
     var dset = h5f.create_dataset(path, (2, 5), float64)

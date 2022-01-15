@@ -63,7 +63,7 @@ proc openGroup*(h5f: H5File, group: string): GroupID =
     withDebug:
       debugEcho "Group exists H5Gopen2() returned id ", result
   else:
-    raise newException(KeyError, "Group with name `" & $group.string & "` does not " &
+    raise newException(KeyError, "Group with name `" & $group & "` does not " &
       "exist in file `" & $h5f.name & ".")
 
 proc createGroupImpl*(h5f: H5File, group: string): GroupID =

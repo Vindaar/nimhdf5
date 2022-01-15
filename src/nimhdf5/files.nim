@@ -1,8 +1,8 @@
 # stdlib
-import std / [tables, strutils, sequtils, options]
+import std / [tables, strutils]
 from os import fileExists
 # internal
-import hdf5_wrapper, H5nimtypes, datatypes, dataspaces, attributes, h5util, util
+import hdf5_wrapper, H5nimtypes, datatypes, h5util, util
 from datasets import `[]`
 from groups import create_group, `[]`
 
