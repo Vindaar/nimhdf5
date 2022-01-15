@@ -55,13 +55,15 @@ import
 ##  /\* NOTE: 0x0008u was H5F_ACC_DEBUG, now deprecated *\/
 ##  #define H5F_ACC_CREAT	(H5CHECK H5OPEN 0x0010u)	/\*create non-existing files  *\/
 ##  #define H5F_ACC_SWMR_WRITE	(H5CHECK 0x0020u) /\*indicate that this file is
+
 const
   H5F_ACC_RDONLY*     = cuint(0x0000)
   H5F_ACC_RDWR*       = cuint(0x0001)
   H5F_ACC_TRUNC*      = cuint(0x0002)
-  H5F_ACC_EXCL*        = cuint(0x0004)
+  H5F_ACC_EXCL*       = cuint(0x0004)
   H5F_ACC_CREAT*      = cuint(0x0010)
   H5F_ACC_SWMR_WRITE* = cuint(0x0020)
+  H5F_ACC_SWMR_READ*  = cuint(0x0040)
 ##                                                   * open for writing in a
 ##                                                   * single-writer/multi-reader (SWMR)
 ##                                                   * scenario.  Note that the
