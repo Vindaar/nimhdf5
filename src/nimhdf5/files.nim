@@ -12,13 +12,13 @@ proc newH5File*(): H5File =
   let groups = newTable[string, H5Group]()
   let attrs = newH5Attributes()
   result = H5File(name: "",
-                     file_id: H5_NOFILE.FileID,
-                     rw_type: H5F_INVALID_RW,
-                     err: -1,
-                     status: -1.hid_t,
-                     datasets: dset,
-                     groups: groups,
-                     attrs: attrs)
+                  file_id: -1.FileID,
+                  accessFlags: {akInvalid},
+                  err: -1,
+                  status: -1.hid_t,
+                  datasets: dset,
+                  groups: groups,
+                  attrs: attrs)
 
 # template get(h5f: H5File, dset_name: string): H5Object =
 #   # convenience proc to return the dataset with name dset_name
@@ -52,7 +52,7 @@ proc newH5File*(): H5File =
 #     let result = h5f.groups[dset_name]
 #     result
 
-proc H5open*(name, rw_type: string): H5File =
+proc H5open*(name, rwType: string, accessFlags: set[AccessKind] = {}): H5File =
   ## this procedure is the main creating / opening procedure
   ## for HDF5 files.
   ## inputs:
@@ -60,10 +60,13 @@ proc H5open*(name, rw_type: string): H5File =
   ##           - if file does not exist, it is created if rw_type includes
   ##             a {'w', 'write'}. Else it throws an IOError
   ##           - if it exists, the H5File object for that file is returned
-  ##     rw_tupe: string = an identifier to indicate whether to open an HDF5
+  ##     rwType: string = an identifier to indicate whether to open an HDF5
   ##           with read or read/write access.
   ##           - {'r', 'read'} = read access
   ##           - {'w', 'write', 'rw'} =  read/write access
+  ##     accessFlags: set[AccessKind] = Allows finer control over the opening
+  ##           behavior of the file. See the `AccessKind` enum for an explanation.
+  ##           If any given, ignores the regular `rwType` argument.
   ## outputs:
   ##    H5File: the H5File object, which is handed to all HDF5 related functions
   ##            (or thanks to unified calling syntax of nim, on which functions
@@ -81,34 +84,23 @@ proc H5open*(name, rw_type: string): H5File =
   # which both need different file flags
   let exists = fileExists(name)
 
-  # parse rw_type to decide what to do
-  let rw = parseH5rw_type(rw_type, exists)
-  result.rw_type = rw
-  if rw == H5F_INVALID_RW:
+  # parse rwType to decide what to do
+  let flags = if accessFlags.card > 0: accessFlags
+              else: parseH5rwType(rwType, exists)
+  result.accessFlags = flags
+  if akInvalid in flags:
      raise newException(IOError, getH5rw_invalid_error())
-  # else we can now use rw_type to correcly deal with file opening
-  elif rw == H5F_ACC_RDONLY:
-    # check whether the file actually exists
-    if exists == true:
-      # then we call H5Fopen, last argument is fapl_id, specifying file access
-      # properties (...somehwat unclear to me so far...)
-      withDebug:
-        echo "exists and read only"
-      result.file_id = H5Fopen(name, rw, H5P_DEFAULT).FileID
-    else:
-      # cannot open a non existing file with read only properties
-      raise newException(IOError, getH5read_non_exist_file(name))
-  elif rw == H5F_ACC_RDWR:
-    # check whether file exists already
-    # then use open call
+  elif exists:
+    ## open existing file
+    result.file_id = H5Fopen(name, flags.toH5(), H5P_DEFAULT).FileID
+  elif not exists and akRead in flags:
+    # cannot open a non existing file with read only properties
+    raise newException(IOError, getH5read_non_exist_file(name))
+  else:
+    # create new file
     withDebug:
-      echo "exists and read write"
-    result.file_id = H5Fopen(name, rw, H5P_DEFAULT).FileID
-  elif rw == H5F_ACC_EXCL:
-    # use create call
-    withDebug:
-      echo "rw is  ", rw
-    result.file_id = H5Fcreate(name, rw, H5P_DEFAULT, H5P_DEFAULT).FileID
+      echo "Flags is  ", flags
+    result.file_id = H5Fcreate(name, flags.toH5(), H5P_DEFAULT, H5P_DEFAULT).FileID
   # after having opened / created the given file, we get the datasets etc.
   # which are stored in the file
   result.attrs = initH5Attributes(ParentID(kind: okFile,
@@ -147,7 +139,7 @@ proc close*(id: hid_t, kind: ObjectKind): herr_t =
     result = H5Aclose(id)
   of okType:
     result = H5Tclose(id)
-  of okAll, okNone:
+  of okNone, okLocal:
     discard
 
 proc close*(h5f: H5File): herr_t =
@@ -164,7 +156,7 @@ proc close*(h5f: H5File): herr_t =
   withDebug:
     echo "\n\nBefore closing: \n:"
     h5f.printOpenObjects()
-    let objs = h5f.getOpenObjectIds(okAll)
+    let objs = h5f.getOpenObjectIds(AllObjectKinds + {okLocal})
     echo "Objects open are ", objs
 
   for name, dset in pairs(h5f.datasets):
@@ -209,7 +201,7 @@ proc close*(h5f: H5File): herr_t =
             result = close(id, t)
 
   withDebug:
-    let objsYet = h5f.getOpenObjectIds(okAll)
+    let objsYet = h5f.getOpenObjectIds(AllObjectKinds + {okLocal})
     h5f.printOpenObjects()
     # should be zero now
     echo "Still open objects are ", objsYet

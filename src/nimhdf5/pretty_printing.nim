@@ -1,5 +1,5 @@
 import std / [strutils, strformat, tables]
-import datatypes, H5nimtypes, attribute_util, json
+import datatypes, H5nimtypes, attribute_util, json, util
 
 proc pretty*(att: H5Attr, indent = 0, full = false): string =
   result = repeat(' ', indent) & "{\n"
@@ -100,11 +100,21 @@ proc `$`*(grp: H5Group): string =
   ## to string conversion for a `H5Group` for pretty printing
   result = pretty(grp, full = false)
 
+proc `$`*[T: AccessKind | ObjectKind](s: set[T]): string =
+  result = "{"
+  var idx = 0
+  for el in iterateEnumSet(s):
+    if idx < s.card:
+      result.add $el & ", "
+    else:
+      result.add $el
+  result.add "}"
+
 proc pretty*(h5f: H5File, indent = 2, full = false): string =
   result = repeat(' ', indent) & "{\n"
   let fieldInd = repeat(' ', indent + 2)
   result.add &"{fieldInd}name: {h5f.name},\n"
-  result.add &"{fieldInd}rw_type: {h5f.rw_type},\n"
+  result.add &"{fieldInd}accessFlags: {h5f.accessFlags},\n"
   result.add &"{fieldInd}visited: {h5f.visited}"
   if full:
     result.add &",\n{fieldInd}nfile_id: {h5f.file_id.hid_t},\n"
