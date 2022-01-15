@@ -495,14 +495,6 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
         when typeof(field) is string or typeof(field) is seq:
           `=destroy`(field)
 
-  #proc `=destroy`*(grp: var H5Group) =
-  #  ## Closes the group and resets all references to nil.
-  #  grp.file_ref = nil
-  #  grp.file_id = -1.FileID
-  #  grp.parent_id = ParentID(kind: okNone)
-  #  grp.close()
-  #  grp.opened = false
-
   when false:
     ## currently these are problematic, as we're allowed to just copy these IDs in Nim land,
     ## and for each copy going out of scope `=destroy` would be called. Can cause double free.

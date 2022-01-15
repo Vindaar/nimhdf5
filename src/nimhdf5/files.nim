@@ -208,16 +208,17 @@ proc close*(h5f: H5File): herr_t =
     ## the H5 call will also return the open ids of the other instance. So this
     ## code leads to closing those. Once the other file will be closed, the `opened`
     ## field is out of sync and it leads to H5 errors (and then an exception).
-    for t in ObjectKind:
-      if t in {okAll, okNone}: continue
-      let objsStillOpen = h5f.getOpenObjectIds(t)
+    ##
+    ## NOTE2: with the now added support for `okLocal` the above should *not* be a problem
+    ## anymore
+    for t in iterateEnumSet(AllObjectKinds):
+      let objsStillOpen = h5f.getOpenObjectIds({t, okLocal}) # only see objects opened by this ID
       if objsStillOpen.len > 0:
         for id in objsStillOpen:
           # only close non files (file will be closed below)
           case t
           of okFile: discard
-          else:
-            result = close(id, t)
+          else: result = close(id, t)
 
   withDebug:
     let objsYet = h5f.getOpenObjectIds(AllObjectKinds + {okLocal})
