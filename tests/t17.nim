@@ -28,7 +28,7 @@ template check(actions: untyped) =
 when isMainModule:
   # open file, create dataset
   var
-    h5f = H5File(File, "rw")
+    h5f = H5open(File, "rw")
 
   var dset1 = h5f.create_dataset(DsetName2, (9, 9), int,
                                  chunksize = @[27, 27],

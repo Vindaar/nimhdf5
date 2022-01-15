@@ -61,7 +61,7 @@ proc assert_file2(h5f: var H5FileObj) =
 when isMainModule:
   # open file, create dataset
   var
-    h5f = H5File(File1, "rw")
+    h5f = H5open(File1, "rw")
     dset = create_dset(h5f)
   # perform 1st checks on still open file
   h5f.assert_dset(dset, File1)
@@ -72,7 +72,7 @@ when isMainModule:
   #dset = h5f[DsetName.dset_str]
 
   # copy the dataset to file 2
-  var h5out = H5File(File2, "rw")
+  var h5out = H5open(File2, "rw")
 
   # copy dataset to another location in same file
   var success = h5f.copy(dset, target = some("/test"))

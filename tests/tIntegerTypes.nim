@@ -31,7 +31,7 @@ proc read[T](h5f: var H5FileObj, dtype: typedesc[T]): seq[T] =
 when isMainModule:
   # open file, create dataset
   var
-    h5f = H5File(File, "rw")
+    h5f = H5open(File, "rw")
 
   # write all datasets
   doAssert h5f.write(di64, int64).dtypeAnyKind == dkInt64
@@ -45,7 +45,7 @@ when isMainModule:
 
   var err = h5f.close()
   assert(err >= 0)
-  h5f = H5File(File, "r")
+  h5f = H5open(File, "r")
 
   doAssert h5f.read(int64) == di64
   doAssert h5f.read(int32) == di32

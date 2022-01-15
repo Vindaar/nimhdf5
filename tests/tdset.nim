@@ -1,7 +1,6 @@
 import nimhdf5
 import sequtils
 import os
-import ospaths
 
 const
   File = "tests/dset.h5"
@@ -13,11 +12,11 @@ var d_ar = @[ @[ @[1'f64, 2, 3, 4, 5],
                  @[6'f64, 7, 8, 9, 10] ] ]
 
 
-proc create_dset(h5f: var H5FileObj): H5DataSet =
+proc create_dset(h5f: var H5File): H5DataSet =
   result = h5f.create_dataset("/group1/dset", (2, 2, 5), float64)
   result[result.all] = d_ar
 
-proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet, parent = DsetName) =
+proc assert_fields(h5f: var H5File, dset: var H5DataSet, parent = DsetName) =
   assert(dset.shape == @[2, 2, 5])
 
   # non resizable dataset means maxshape same as current shape
@@ -56,7 +55,7 @@ proc assert_data(dset: var H5DataSet) =
 when isMainModule:
   # open file, create dataset
   var
-    h5f = H5File(File, "rw")
+    h5f = H5open(File, "rw")
     dset = h5f.create_dset()
     dset2 = h5f.write_dataset(Dset2Name, d_ar)
   # perform 1st checks on still open file
@@ -66,7 +65,7 @@ when isMainModule:
   var err = h5f.close()
   assert(err >= 0)
   var
-    h5f_read = H5File(File, "r")
+    h5f_read = H5open(File, "r")
   # get same dset from before
   dset = h5f_read[DsetName.dset_str]
   dset2 = h5f_read[Dset2Name.dset_str]

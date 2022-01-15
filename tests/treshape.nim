@@ -66,7 +66,7 @@ proc assert_data(dset: var H5DataSet, shape: seq[int]) =
 when isMainModule:
   # open file, create dataset
   var
-    h5f = H5File(File, "rw")
+    h5f = H5open(File, "rw")
     (dset2d, dset3d) = h5f.create_dset()
   # perform 1st checks on still open file
   assert_data(dset2d, @[3, 3])
@@ -75,7 +75,7 @@ when isMainModule:
   var err = h5f.close()
   assert(err >= 0)
   var
-    h5f_read = H5File(File, "r")
+    h5f_read = H5open(File, "r")
   # get same dset from before
   dset2d = h5f_read[Dset2D.dset_str]
   dset3d = h5f_read[Dset3D.dset_str]

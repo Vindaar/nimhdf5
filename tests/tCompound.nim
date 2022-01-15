@@ -32,7 +32,7 @@ when isMainModule:
     data[i] = Comp(a: i.float * 1.1, b: i, c: i.float32 / 1.111)
     dataTup[i] = (d: i.float * 2.5, e: i * 2, f: i * 3)
 
-  var h5f = H5File(File, "rw")
+  var h5f = H5open(File, "rw")
 
   h5f.write_dataset(data, Dset)
   h5f.write_dataset(dataTup, DsetTup)
@@ -42,7 +42,7 @@ when isMainModule:
   var err = h5f.close()
   assert err >= 0
 
-  h5f = H5File(File, "r")
+  h5f = H5open(File, "r")
   h5f.assert_dataset(data, Dset)
   h5f.assert_dataset(dataTup, DsetTup)
 

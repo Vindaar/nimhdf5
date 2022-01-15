@@ -1,8 +1,6 @@
 import nimhdf5
 import sequtils
 import os
-import ospaths
-import typeinfo
 
 const
   File = "tests/dset.h5"
@@ -10,7 +8,7 @@ const
   Dset2Name = "dset2"
 const data = @[0, 1, 2 ,3, 4, 5, 6, 7, 8, 9]
 
-proc create_dset(h5f: var H5FileObj, name: string): H5DataSet =
+proc create_dset(h5f: var H5File, name: string): H5DataSet =
   result = h5f.create_dataset(name, 10, int)
   result[result.all] = data
 

@@ -25,7 +25,7 @@ proc createDatasets(h5f: H5File) =
   expGroups.incl "/baz"
 
 when isMainModule:
-  var h5f = H5File("tContainsIterator.h5", "w")
+  var h5f = H5open("tContainsIterator.h5", "w")
   h5f.createDatasets()
 
   block Groups:

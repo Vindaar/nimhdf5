@@ -1,5 +1,4 @@
 # now import / include the relevant pieces of the library
-import nimhdf5/hdf5_wrapper
 #include nimhdf5/H5nimtypes
 import nimhdf5/H5nimtypes
 export H5nimtypes
@@ -22,7 +21,7 @@ export attributes, attribute_util
 import nimhdf5/groups
 export groups
 
-import nimhdf5/dataspaces
+# import nimhdf5/dataspaces
 # dataspaces is not exported, since the user is not supposed to have
 # to deal with dataspaces by her/himself
 #export dataspaces

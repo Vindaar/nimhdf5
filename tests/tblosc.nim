@@ -21,7 +21,7 @@ when isMainModule:
   echo "Blosc date: ", date
 
   # create dataset to store with filter and read back
-  var h5f = H5File(Filename, "rw")
+  var h5f = H5open(Filename, "rw")
 
   let filter =  H5Filter(kind: fkBlosc, bloscLevel: 4, doShuffle: false,
                          compressor: BloscCompressor.LZ4)

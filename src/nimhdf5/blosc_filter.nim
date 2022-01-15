@@ -1,11 +1,12 @@
 # check whether blosc is available and then import and export plugin
 # else we just set the ``HasBloscSupport`` variable to false
-template canImport(x: untyped): untyped =
-  compiles:
-    import x
 
 import macros
 when defined(blosc):
+  template canImport(x: untyped): untyped =
+    compiles:
+      import x
+
   # need to have these nested, because otherwise we cannot seemingly combine
   # the two
   when canImport(blosc):
