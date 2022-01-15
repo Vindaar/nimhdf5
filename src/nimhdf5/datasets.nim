@@ -25,22 +25,24 @@ import hdf5_wrapper, H5nimtypes, datatypes, dataspaces,
        attributes, filters, util, h5util
 from groups import create_group
 
-proc getDset(h5f: H5File, dsetName: string): Option[H5DataSet] =
-  ## convenience proc to return the dataset with name dsetName
-  ## if it does not exist, KeyError is thrown
-  ## inputs:
-  ##    h5f: H5File = the file object from which to get the dset
-  ##    obj_name: string = name of the dset to get
-  ## outputs:
-  ##    H5DataSet = if dataset is found
-  ## throws:
-  ##    KeyError: if dataset could not be found
-  let dset_exist = hasKey(h5f.datasets, dsetName)
-  if dset_exist == false:
-    #raise newException(KeyError, "Dataset with name: " & dsetName & " not found in file " & h5f.name)
-    result = none(H5DataSet)
-  else:
-    result = some(h5f.datasets[dsetName])
+when false:
+  ## XXX: this was an idea to add a non raising API at some point. Guess I never finished that.
+  proc getDset(h5f: H5File, dsetName: string): Option[H5DataSet] =
+    ## convenience proc to return the dataset with name dsetName
+    ## if it does not exist, KeyError is thrown
+    ## inputs:
+    ##    h5f: H5File = the file object from which to get the dset
+    ##    obj_name: string = name of the dset to get
+    ## outputs:
+    ##    H5DataSet = if dataset is found
+    ## throws:
+    ##    KeyError: if dataset could not be found
+    let dset_exist = hasKey(h5f.datasets, dsetName)
+    if dset_exist == false:
+      #raise newException(KeyError, "Dataset with name: " & dsetName & " not found in file " & h5f.name)
+      result = none(H5DataSet)
+    else:
+      result = some(h5f.datasets[dsetName])
 
 proc parseShapeTuple[T: tuple](dims: T): seq[int] =
   ## parses the shape tuple handed to create_dataset

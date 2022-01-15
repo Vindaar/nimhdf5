@@ -2,52 +2,54 @@ import std / [tables, options, strutils]
 
 import hdf5_wrapper, H5nimtypes, datatypes, attributes, h5util, util
 
-proc getGroup(h5f: H5File, grp_name: string): Option[H5Group] =
-  ## convenience proc to return the group with name grp_name
-  ## if it does not exist, KeyError is thrown
-  ## inputs:
-  ##    h5f: H5File = the file object from which to get the group
-  ##    obj_name: string = name of the group to get
-  ## outputs:
-  ##    H5Group = if group is found
-  ## throws:
-  ##    KeyError: if group could not be found
-  let grp_exist = hasKey(h5f.datasets, grp_name)
-  if grp_exist == false:
-    #raise newException(KeyError, "Dataset with name: " & grp_name & " not found in file " & h5f.name)
-    result = none(H5Group)
-  else:
-    result = some(h5f.groups[grp_name])
-
-proc create_group*[T](h5f: T, group_name: string): H5Group
-proc get(h5f: H5File, group_in: grp_str): H5Group =
-  ## convenience proc to return the group with name group_name
-  ## if it does not exist, KeyError is thrown
-  ## inputs:
-  ##    h5f: H5File = the file object from which to get the dset
-  ##    obj_name: string = name of the dset to get
-  ## outputs:
-  ##    H5Group = if group is found
-  ## throws:
-  ##    KeyError: if group could not be found
-  let
-    group_name = string(group_in)
-    group_open = h5f.isOpen(group_in)
-  if not group_open:
-    # if group not known (potentially the case if:
-    # - no call to visit_file (read all grps / dsets)
-    # - not created individually directly / indirectly
-    # check for existence in file
-    let exists = existsInFile(h5f.file_id, group_name)
-    if exists > hid_t(0):
-      # get group from file
-      result = h5f.create_group(group_name)
+when false:
+  ## XXX: this was an attempt to add a non raising API, but I never finished it...
+  proc getGroup(h5f: H5File, grp_name: string): Option[H5Group] =
+    ## convenience proc to return the group with name grp_name
+    ## if it does not exist, KeyError is thrown
+    ## inputs:
+    ##    h5f: H5File = the file object from which to get the group
+    ##    obj_name: string = name of the group to get
+    ## outputs:
+    ##    H5Group = if group is found
+    ## throws:
+    ##    KeyError: if group could not be found
+    let grp_exist = hasKey(h5f.datasets, grp_name)
+    if grp_exist == false:
+      #raise newException(KeyError, "Dataset with name: " & grp_name & " not found in file " & h5f.name)
+      result = none(H5Group)
     else:
-      # does not exists, raise exception
-      raise newException(KeyError, "Group with name: " & group_name & " not found in file " & h5f.name)
-  else:
-    result = h5f.groups[group_name]
-    doAssert result.opened
+      result = some(h5f.groups[grp_name])
+
+  proc create_group*[T](h5f: T, group_name: string): H5Group
+  proc get(h5f: H5File, group_in: grp_str): H5Group =
+    ## convenience proc to return the group with name group_name
+    ## if it does not exist, KeyError is thrown
+    ## inputs:
+    ##    h5f: H5File = the file object from which to get the dset
+    ##    obj_name: string = name of the dset to get
+    ## outputs:
+    ##    H5Group = if group is found
+    ## throws:
+    ##    KeyError: if group could not be found
+    let
+      group_name = string(group_in)
+      group_open = h5f.isOpen(group_in)
+    if not group_open:
+      # if group not known (potentially the case if:
+      # - no call to visit_file (read all grps / dsets)
+      # - not created individually directly / indirectly
+      # check for existence in file
+      let exists = existsInFile(h5f.file_id, group_name)
+      if exists > hid_t(0):
+        # get group from file
+        result = h5f.create_group(group_name)
+      else:
+        # does not exists, raise exception
+        raise newException(KeyError, "Group with name: " & group_name & " not found in file " & h5f.name)
+    else:
+      result = h5f.groups[group_name]
+      doAssert result.opened
 
 proc openGroup*(h5f: H5File, group: string): GroupID =
   ## Opens the given `group` in the `h5f` file. Throws `KeyError` if the given
@@ -83,12 +85,14 @@ proc createGroupImpl*(h5f: H5File, group: string): GroupID =
       "`createGroupFromParent` trying to create group via `H5Gcreate2`!")
 
 
-proc updateGroupInfo(h5f: H5File, grp: var H5Group) =
-  ## Updates all information of the given group `grp` by calling into the HDF5 library.
-  ##
-  ## Note: this procedure raises, if the given group does not yet exist in the
-  ## file. Or should it not raise?
-  # essentially the body of the below proc
+when false:
+  ## XXX: this is still not properly implemented...
+  proc updateGroupInfo(h5f: H5File, grp: var H5Group) =
+    ## Updates all information of the given group `grp` by calling into the HDF5 library.
+    ##
+    ## Note: this procedure raises, if the given group does not yet exist in the
+    ## file. Or should it not raise?
+    # essentially the body of the below proc
 
 proc createGroupFromParent[T: H5Group | H5File](h5o: T, group_name: string): H5Group =
   ## procedure to create a group within a H5F
@@ -198,7 +202,7 @@ proc create_group*[T](h5f: T, group_name: string): H5Group =
     # whether such a group already exists
     # in the HDF5 file and h5f is simply not aware of it yet
     if isInH5Root(group_path) == false:
-      let parent = create_group(h5f, getParent(group_path))
+      discard create_group(h5f, getParent(group_path))
       result = createGroupFromParent(h5f, group_path)
     else:
       result = createGroupFromParent(h5f, group_path)
