@@ -84,14 +84,14 @@ const
 ##  Flags for H5Fget_obj_count() & H5Fget_obj_ids() calls
 
 const
-  H5F_OBJ_FILE* = (0x00000001)  ##  File objects
-  H5F_OBJ_DATASET* = (0x00000002) ##  Dataset objects
-  H5F_OBJ_GROUP* = (0x00000004) ##  Group objects
-  H5F_OBJ_DATATYPE* = (0x00000008) ##  Named datatype objects
-  H5F_OBJ_ATTR* = (0x00000010)  ##  Attribute objects
+  H5F_OBJ_FILE* = cuint(0x00000001)  ##  File objects
+  H5F_OBJ_DATASET* = cuint(0x00000002) ##  Dataset objects
+  H5F_OBJ_GROUP* = cuint(0x00000004) ##  Group objects
+  H5F_OBJ_DATATYPE* = cuint(0x00000008) ##  Named datatype objects
+  H5F_OBJ_ATTR* = cuint(0x00000010)  ##  Attribute objects
   H5F_OBJ_ALL* = (H5F_OBJ_FILE or H5F_OBJ_DATASET or H5F_OBJ_GROUP or
       H5F_OBJ_DATATYPE or H5F_OBJ_ATTR)
-  H5F_OBJ_LOCAL* = (0x00000020) ##  Restrict search to objects opened through current file ID
+  H5F_OBJ_LOCAL* = cuint(0x00000020) ##  Restrict search to objects opened through current file ID
 
 ##  (as opposed to objects opened through any file ID accessing this file)
 
