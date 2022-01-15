@@ -381,11 +381,14 @@ proc getFileID*[T: H5Dataset | H5DatasetObj | H5Group | H5GroupObj | H5Attr | H5
     let id = h5o.getH5ID.to_hid_t
   result = id.getFileID()
 
-when false:
-  ## XXX: add an enum to map the types associated with identifiers.
-  proc getH5Type*(h5id: hid_t): SomeType =
-    result = H5Iget_type(h5id)
+proc getType*(h5id: hid_t): H5I_type_t =
+  ## Returns the type associated with an arbitrary H5 identifier.
+  ##
+  ## Might return `H5I_BADID` (field of the enum) if the ID does not match
+  ## any known identifier.
+  result = H5Iget_type(h5id)
 
+when false:
   ## this is also super helpful
   proc getName*(h5id: hid_t): string =
     ## Returns the name associated with the given ID.
