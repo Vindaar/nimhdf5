@@ -22,7 +22,7 @@
 import
   H5public,
   H5Gpublic,
-  H5Ipublic,
+  H5Opublic,
   ../H5nimtypes, ../h5libname
 
 
@@ -63,7 +63,7 @@ const
 ##  Dataset Region reference structure for user's code
 
 type
-  hdset_reg_ref_t* = array[H5R_DSET_REG_REF_BUF_SIZE, cuchar]
+  hdset_reg_ref_t* = array[H5R_DSET_REG_REF_BUF_SIZE, char]
 
 ##  Buffer to store heap ID and index
 ##  Needs to be large enough to store largest haddr_t in a worst case machine (ie. 8 bytes currently) plus an int

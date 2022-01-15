@@ -20,7 +20,6 @@
 {.deadCodeElim: on.}
 
 import
-  H5Ipublic,
   ../H5nimtypes, ../h5libname
 
 

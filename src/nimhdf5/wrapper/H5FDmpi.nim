@@ -13,12 +13,12 @@
 
 {.deadCodeElim: on.}
 
-## 
+##
 ##  Programmer:  Quincey Koziol <koziol@ncsa.uiuc.edu>
 ##               Friday, January 30, 2004
-## 
+##
 ##  Purpose:	The public header file for common items for all MPI VFL drivers
-## 
+##
 
 ## **** Macros for One linked collective IO case. ****
 ##  The default value to do one linked collective IO for all chunks.
@@ -33,7 +33,7 @@ const
 ##  The default value of the threshold to do collective IO for this chunk.
 ##    If the average percentage of processes per chunk is greater than the default value,
 ##    collective IO is done for this chunk.
-## 
+##
 
 const
   H5D_MULTI_CHUNK_IO_COL_THRESHOLD* = 60
@@ -62,8 +62,5 @@ type
 
 
 ##  Include all the MPI VFL headers
-
-import
-  H5FDmpio
 
 ##  MPI I/O file driver

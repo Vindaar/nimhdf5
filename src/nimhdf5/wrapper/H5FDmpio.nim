@@ -13,9 +13,6 @@
 
 {.deadCodeElim: on.}
 
-import ../h5libname
-
-
 ##
 ##  Programmer:  Robb Matzke <matzke@llnl.gov>
 ##               Monday, August  2, 1999

@@ -27,11 +27,6 @@
 ## -------------------------------------------------------------------------
 ##
 
-##  Public headers needed by this file
-
-import
-  H5public, ../h5libname
-
 ##  These typedefs are currently used for VL datatype allocation/freeing
 
 type
