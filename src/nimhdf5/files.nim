@@ -9,7 +9,6 @@ from groups import create_group, `[]`
 proc newH5File*(): H5File =
   ## default constructor for a H5File object, for internal use
   let dset = newTable[string, H5DataSet]()
-  let dspace = initTable[string, DataspaceID]()
   let groups = newTable[string, H5Group]()
   let attrs = newH5Attributes()
   result = H5File(name: "",
@@ -20,11 +19,6 @@ proc newH5File*(): H5File =
                      datasets: dset,
                      groups: groups,
                      attrs: attrs)
-
-proc nameFirstExistingParent(h5f: H5File, name: string): string =
-  ## similar to firstExistingParent, except that only the name of
-  ## the object is returned
-  discard
 
 # template get(h5f: H5File, dset_name: string): H5Object =
 #   # convenience proc to return the dataset with name dset_name
@@ -57,30 +51,6 @@ proc nameFirstExistingParent(h5f: H5File, name: string): string =
 #   else:
 #     let result = h5f.groups[dset_name]
 #     result
-
-proc nameExistingObjectOrParent(h5f: H5File, name: string): string =
-  ## this procedure can be used to get the name of the given object
-  ## or its first existing parent
-  ## inputs:
-  ##    h5f: H5File = the file object in which to check the tables
-  ##    name: string = name of the object to check for
-  ## outputs:
-  ##    string = the name of the given object (if it exists), or the
-  ##          name of the first existing parent. If root is the only
-  ##          existing object, empty string is returned
-  let dset = hasKey(h5f.datasets, name)
-  if dset == false:
-    let group = hasKey(h5f.groups, name)
-    if group == false:
-      # in this case object does not yet exist, search up hierarchy from
-      # name for existing parent
-      let p = firstExistingParent(h5f, name)
-      if isSome(p) == true:
-        # in this case return the name
-        result = unsafeGet(p).name
-      else:
-        # else return empty string, nothing found in file object
-        result = ""
 
 proc H5open*(name, rw_type: string): H5File =
   ## this procedure is the main creating / opening procedure
@@ -146,9 +116,9 @@ proc H5open*(name, rw_type: string): H5File =
                                   "/",
                                   "H5File")
 
-proc H5file*(name, rw_type: string): H5File {.deprecated: "Use `H5open` instead of " &
+proc H5file*(name, rwType: string): H5File {.deprecated: "Use `H5open` instead of " &
     "H5file. The datatype was renamed from `H5File` to `H5File`.".} =
-  result = H5open(name, rw_type)
+  result = H5open(name, rwType)
 
 proc flush*(h5f: H5File, flushKind: FlushKind = fkGlobal) =
   ## wrapper around H5Fflush for convenience
@@ -251,12 +221,12 @@ proc close*(h5f: H5File): herr_t =
     # close the remaining attributes
     result = H5Fclose(h5f.file_id.hid_t)
 
-template withH5*(h5file, rw_type: string, actions: untyped) =
+template withH5*(h5file, rwType: string, actions: untyped) =
   ## template to work with a H5 file, taking care of opening
   ## and closing the file
   ## injects the `h5f` variable into the calling space
   block:
-    var h5f {.inject.} = H5File(h5file, rw_type)
+    var h5f {.inject.} = H5File(h5file, rwType)
 
     # perform actions with H5File
     actions

@@ -1,6 +1,6 @@
 import std / [strutils, tables]
 
-import datatypes, h5util, util, groups, datasets, pretty_printing
+import datatypes, h5util, util, groups, datasets
 
 iterator items*(h5f: H5File, start_path = "/", depth = -1): H5Group =
   ## iterator, which returns a non mutable group objects starting from `start_path` in the
