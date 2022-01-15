@@ -26,7 +26,7 @@
    in the Nim progams as function arguments without getting any weird errors.
 ]#
 
-include
+import
   nimhdf5/wrapper/H5public, nimhdf5/wrapper/H5Apublic,        ##  Attributes
   nimhdf5/wrapper/H5ACpublic,                 ##  Metadata cache
   nimhdf5/wrapper/H5Dpublic,                  ##  Datasets
@@ -44,12 +44,31 @@ include
   nimhdf5/wrapper/H5Spublic,                  ##  Dataspaces
   nimhdf5/wrapper/H5Tpublic,                  ##  Datatypes
   nimhdf5/wrapper/H5Zpublic
+export
+  H5public, H5Apublic,
+  H5ACpublic,
+  H5Dpublic,
+  H5Epublic,
+  H5Fpublic,
+  H5FDpublic,
+  H5Gpublic,
+  H5Ipublic,
+  H5Lpublic,
+  H5MMpublic,
+  H5Opublic,
+  H5Ppublic,
+  H5PLpublic,
+  H5Rpublic,
+  H5Spublic,
+  H5Tpublic,
+  H5Zpublic
+
 
 
 ##  Data filters
 ##  Predefined file drivers
 
-include
+import
   nimhdf5/wrapper/H5FDcore,                   ##  Files stored entirely in memory
   nimhdf5/wrapper/H5FDdirect,                 ##  Linux direct I/O
   nimhdf5/wrapper/H5FDfamily,                 ##  File families
@@ -58,6 +77,15 @@ include
   nimhdf5/wrapper/H5FDmulti,                  ##  Usage-partitioned file family
   nimhdf5/wrapper/H5FDsec2,                   ##  POSIX unbuffered file I/O
   nimhdf5/wrapper/H5FDstdio
+export
+  H5FDcore,                   ##  Files stored entirely in memory
+  H5FDdirect,                 ##  Linux direct I/O
+  H5FDfamily,                 ##  File families
+  H5FDlog,                    ##  sec2 driver with I/O logging (for debugging)
+  H5FDmpi,                    ##  MPI-based file drivers
+  H5FDmulti,                  ##  Usage-partitioned file family
+  H5FDsec2,                   ##  POSIX unbuffered file I/O
+  H5FDstdio
 
 when defined(H5_HAVE_WINDOWS): ##  Standard C buffered I/O
   import
