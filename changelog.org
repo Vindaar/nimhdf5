@@ -1,3 +1,11 @@
+* v0.4.3
+- fixed the ~=destroy~ hooks introduced in =v0.4.2=
+- added support for =SWMR= (see README)
+- introduce better checks on whether an object is open by using =H5I=
+  interface
+- turn file access constants into an =enum= to better handle multiple
+  constants at the same time as a =set=
+- lots of cleanup of old code, replace includes by imports, ...  
 * v0.4.2
 - adds =getOrCreateGroup= helper to always get a group, either
   returning the existing one or creating it.
