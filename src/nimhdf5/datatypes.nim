@@ -475,9 +475,6 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
   proc `=destroy`*(grp: var H5GroupObj) =
     ## Closes the group and resets all references to nil.
     `=destroy`(grp.file_ref) # only destroy the `ref` to the file!
-    grp.file_ref = nil # should this be destroyed?
-    grp.file_id = -1.FileID
-    grp.parent_id = ParentID(kind: okNone)
     grp.close()
     grp.opened = false
     if grp.datasets != nil:
@@ -488,8 +485,7 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
       `=destroy`(grp.attrs)
     for name, field in fieldPairs(grp):
       if name notin ["attrs", "groups", "datasets", "file_ref"]:
-        when typeof(field) is string or typeof(field) is seq:
-          `=destroy`(field)
+        `=destroy`(field)
 
   when false:
     ## currently these are problematic, as we're allowed to just copy these IDs in Nim land,
