@@ -456,14 +456,10 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
   proc `=destroy`*(attrs: var H5AttributesObj) =
     ## Closes all attributes that are stored in this `H5Attributes` table.
     if attrs.attr_tab != nil:
-      for name, attr in mpairs(attrs.attr_tab):
-        if attr != nil:
-          `=destroy`(attr)
       `=destroy`(attrs.attr_tab)
     for name, field in fieldPairs(attrs):
       if name != "attr_tab":
-        when typeof(field) is string or typeof(field) is seq:
-          `=destroy`(field)
+        `=destroy`(field)
 
   proc `=destroy`*(dset: var H5DataSetObj) =
     ## Closes the dataset and resets all references to nil.
