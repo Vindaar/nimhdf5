@@ -90,7 +90,7 @@ proc H5open*(name, rwType: string, accessFlags: set[AccessKind] = {}): H5File =
   result.accessFlags = flags
   if akInvalid in flags:
      raise newException(IOError, getH5rw_invalid_error())
-  elif exists:
+  elif exists and akTruncate notin flags:
     ## open existing file
     result.file_id = H5Fopen(name, flags.toH5(), H5P_DEFAULT).FileID
   elif not exists and akRead in flags:
