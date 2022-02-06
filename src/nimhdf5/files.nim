@@ -101,6 +101,12 @@ proc H5open*(name, rwType: string, accessFlags: set[AccessKind] = {}): H5File =
     withDebug:
       echo "Flags is  ", flags
     result.file_id = H5Fcreate(name, flags.toH5(), H5P_DEFAULT, H5P_DEFAULT).FileID
+
+  if result.file_id.hid_t < 0.hid_t:
+    raise newException(HDF5LibraryError, "Failed to open file " & $name & " using rwType: \"" & $rwType &
+      "\" and access flags: " & $accessFlags)
+
+
   # after having opened / created the given file, we get the datasets etc.
   # which are stored in the file
   result.attrs = initH5Attributes(ParentID(kind: okFile,
