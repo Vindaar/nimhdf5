@@ -1,3 +1,14 @@
+* v0.4.4
+- further fixes ~=destroy~ hooks introduced in =v0.4.2=. Under some
+  circumstances the defined hooks caused segmentation faults when
+  deallocating objects (these hooks are finicky!)
+- fix opening files with =akTruncate= (i.e. overwrite a file instead
+  of appending)
+- *SEMI-BREAKING*: raise an exception if opening a file failed.
+  This is more of an oversight rather than a feature that we did not
+  raise so far. This is not really *breaking* in a sense, because in
+  the past we simply failed in the =getNumAttrs= call that happened
+  when trying to open the attributes of the root group in the file.
 * v0.4.3
 - fixed the ~=destroy~ hooks introduced in =v0.4.2=
 - added support for =SWMR= (see README)
