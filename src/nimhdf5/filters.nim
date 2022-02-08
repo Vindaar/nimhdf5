@@ -81,7 +81,7 @@ proc setFilters*(dset: H5DataSet, filter: H5Filter) =
       filterVals[5] = if filter.doShuffle: 1 else: 0
       filterVals[6] = filter.compressor.cuint
       # set the filter
-      status = H5Pset_filter(dset.dcpl_id, FILTER_BLOSC, H5Z_FLAG_OPTIONAL,
+      status = H5Pset_filter(dset.dcpl_id.hid_t, FILTER_BLOSC, H5Z_FLAG_OPTIONAL,
                              filterVals.len.csize_t, addr filterVals[0])
     else:
       raise newException(NotImplementedError, "Blosc support not available, due " &
