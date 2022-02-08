@@ -1,3 +1,7 @@
+* v0.4.5
+- treat =akTruncate= flag as write access to the file
+  (=create_dataset= was not working with it)
+- fix =blosc= filter, regressed due to recent =distinct= introductions
 * v0.4.4
 - further fixes ~=destroy~ hooks introduced in =v0.4.2=. Under some
   circumstances the defined hooks caused segmentation faults when
