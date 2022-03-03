@@ -870,11 +870,11 @@ proc getH5read_non_exist_file*(filename: string): string =
   result = &"Cannot open a non-existing file {filename} with read only access. Write " &
     "access will create the file for you."
 
-template toH5vlen*[T](data: var seq[T]): untyped =
+template toH5vlen*[T](data: seq[T]): untyped =
   when T is seq:
     mapIt(toSeq(0..data.high)) do:
       if data[it].len > 0:
-        hvl_t(`len`: csize_t(data[it].len), p: addr(data[it][0]))
+        hvl_t(`len`: csize_t(data[it].len), p: unsafeAddr(data[it][0]))
       else:
         hvl_t(`len`: csize_t(0), p: nil)
   else:
