@@ -806,6 +806,13 @@ proc readAs*[T: SomeNumber](h5f: H5File, dset: string, dtype: typedesc[T]): seq[
 
 proc read*[T](dset: H5DataSet, buf: var seq[T]) =
   ## read whole dataset
+  ## XXX: handle string fields instead of erroring!
+  when T is object:
+    if buf.len > 0:
+      for field in fields(buf[0]):
+        when typeof(field) is string:
+          {.error: "Reading data of objects with string fields currently still unsupported! " &
+            "The relevant type is: " & $T & " with string field: " & $astToStr(field).}
   if buf.len == foldl(dset.shape, a * b, 1):
     discard H5Dread(dset.dataset_id.hid_t, dset.dtype_c.hid_t, H5S_ALL, H5S_ALL, H5P_DEFAULT,
                     addr(buf[0]))
