@@ -17,6 +17,13 @@ proc create_vlen(h5f: var H5FileObj): H5DataSet =
   result = h5f.create_dataset("/group1/vlen", 4, vlen_type)
   result[result.all] = d_vlen
 
+  ## now check that handing the *shape* of the input data fails:
+  try:
+    discard h5f.create_dataset("/group1/vlen2", d_vlen.shape, vlen_type)
+    doAssert false, "`create_dataset` should have failed!"
+  except ValueError:
+    doAssert true
+
 proc doAssert_fields(h5f: var H5FileObj, dset: var H5DataSet) =
   doAssert(dset.maxshape == dset.shape)
 
