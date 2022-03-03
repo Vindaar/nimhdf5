@@ -241,6 +241,14 @@ proc create_dataset*[T: (tuple | int | seq)](
   elif T is seq:
     let shape_seq = shape
 
+  when dtype is seq or dtype is DatatypeID:
+    ## Check if given `shape` is not causing problems
+    if shape_seq.len != 1 and shape_seq[1].int > 1:
+      raise newException(ValueError, "The `dtype` argument is " & $dtype & " for the `create_dataset` " &
+        "call for the dataset: " & $dset & ". This implies a variable length (VLEN) dataset. The given " &
+        "shape: " & $shape & " however is not 1 dimensional. For a VLEN dataset only give the " &
+        "*number* of variable length elements to store!")
+
   # given dset name, either get or create group in which it belongs
   let group = create_group(h5f, dsetName.getParent) # getOrCreateGroup(h5f, dset.parent)
 
