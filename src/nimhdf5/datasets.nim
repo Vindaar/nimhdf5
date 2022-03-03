@@ -1058,9 +1058,12 @@ template `[]`*(grp: H5Group, dsetName: dset_str): H5DataSet =
   grp.file_ref[(grp.name / dsetName.string).dset_str]
 
 template withDset*(h5dset: H5DataSet, actions: untyped) =
-  ## convenience template to read a dataset from the file and perform actions
+  ## Convenience template to read a dataset from the file and perform actions
   ## with that dataset, without having to manually check the data type of the
-  ## dataset
+  ## dataset.
+  ##
+  ## Simply reads all the data of the given dataset into the injected `dset`
+  ## variable.
   case h5dset.dtypeAnyKind
   of dkBool:
     let dset {.inject.} = h5dset.read(bool)
@@ -1148,6 +1151,13 @@ template withDset*(h5dset: H5DataSet, actions: untyped) =
   else:
     echo "WARNING: `withDset` nothing to do, dataset is of type ", h5dset.dtypeAnyKind
     discard
+
+template withDset*(h5f: H5File, name: string, actions: untyped) =
+  ## Version of `withDset`, which acts on an input file and a dataset given by
+  ## a string name.
+  let h5dset = h5f[name.dset_str]
+  withDset(h5dset):
+    actions
 
 proc h5SelectHyperslab(dspace_id: DataspaceID | MemspaceID | HyperslabID,
                        offset, count, stride, blk: var seq[hsize_t]): herr_t {.inline.} =
