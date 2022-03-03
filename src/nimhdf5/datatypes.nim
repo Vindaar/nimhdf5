@@ -801,7 +801,7 @@ proc nimToH5type*(dtype: typedesc): DatatypeID =
     res = H5Tcreate(H5T_COMPOUND, sizeof(dtype).csize_t)
     walkObjectAndInsert(tmpH5, res)
   elif dtype is seq:
-    res = special_type(getInnerType(dtype))
+    res = special_type(getInnerType(dtype)).hid_t ## NOTE: back conversion to hid_t
   result = res.DatatypeID
 
 template anyTypeToString*(dtype: DtypeKind): string =
