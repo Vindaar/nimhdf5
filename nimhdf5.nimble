@@ -39,6 +39,7 @@ task test, "Runs all tests":
   exec "nim c -r tests/tint64_dset.nim"
   exec "nim c -r tests/t17.nim"
   exec "nim c -r tests/tIntegerTypes.nim"
+  exec "nim c -r tests/tWithDset.nim"
   # at least run the high level examples to avoid regressions
   if fileExists("dset.h5"): # as a test, we need to get rid of the high level H5 output file
     rmFile("dset.h5")
