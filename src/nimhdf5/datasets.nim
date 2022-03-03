@@ -590,8 +590,7 @@ proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) =
         # in the file in this case we need to prepare the data further by
         # assigning the data to a hvl_t struct
         when T is seq:
-          var mdata = data
-          var data_hvl = mdata.toH5vlen
+          var data_hvl = data.toH5vlen
           err = H5Dwrite(dset.dataset_id.hid_t,
                          dset.dtype_c.hid_t,
                          H5S_ALL,
