@@ -1061,48 +1061,90 @@ template withDset*(h5dset: H5DataSet, actions: untyped) =
   ## convenience template to read a dataset from the file and perform actions
   ## with that dataset, without having to manually check the data type of the
   ## dataset
-  let dtype = if h5dset.dtypeAnyKind == dkSequence: h5dset.dtypeBaseKind
-              else: h5dset.dtypeAnyKind
-  case dtype
+  case h5dset.dtypeAnyKind
   of dkBool:
-    let dset {.inject.} = h5dset.read(bool, allowVlen = true)
+    let dset {.inject.} = h5dset.read(bool)
     actions
   of dkChar:
-    let dset {.inject.} = h5dset.read(char, allowVlen = true)
+    let dset {.inject.} = h5dset.read(char)
     actions
   of dkString:
-    let dset {.inject.} = h5dset.read(string, allowVlen = true)
+    let dset {.inject.} = h5dset.read(string)
     actions
   of dkFloat32:
-    let dset {.inject.} = h5dset.read(float32, allowVlen = true)
+    let dset {.inject.} = h5dset.read(float32)
     actions
   of dkFloat64:
-    let dset {.inject.} = h5dset.read(float64, allowVlen = true)
+    let dset {.inject.} = h5dset.read(float64)
     actions
   of dkInt8:
-    let dset {.inject.} = h5dset.read(int8, allowVlen = true)
+    let dset {.inject.} = h5dset.read(int8)
     actions
   of dkInt16:
-    let dset {.inject.} = h5dset.read(int16, allowVlen = true)
+    let dset {.inject.} = h5dset.read(int16)
     actions
   of dkInt32:
-    let dset {.inject.} = h5dset.read(int32, allowVlen = true)
+    let dset {.inject.} = h5dset.read(int32)
     actions
   of dkInt64:
-    let dset {.inject.} = h5dset.read(int64, allowVlen = true)
+    let dset {.inject.} = h5dset.read(int64)
     actions
   of dkUint8:
-    let dset {.inject.} = h5dset.read(uint8, allowVlen = true)
+    let dset {.inject.} = h5dset.read(uint8)
     actions
   of dkUint16:
-    let dset {.inject.} = h5dset.read(uint16, allowVlen = true)
+    let dset {.inject.} = h5dset.read(uint16)
     actions
   of dkUint32:
-    let dset {.inject.} = h5dset.read(uint32, allowVlen = true)
+    let dset {.inject.} = h5dset.read(uint32)
     actions
   of dkUint64:
-    let dset {.inject.} = h5dset.read(uint64, allowVlen = true)
+    let dset {.inject.} = h5dset.read(uint64)
     actions
+  of dkSequence:
+    # need to perform same game again...
+    case h5dset.dtypeBaseKind
+    of dkBool:
+      let dset {.inject.} = h5dset.readVlen(bool)
+      actions
+    of dkChar:
+      let dset {.inject.} = h5dset.readVlen(char)
+      actions
+    of dkString:
+      let dset {.inject.} = h5dset.readVlen(string)
+      actions
+    of dkFloat32:
+      let dset {.inject.} = h5dset.readVlen(float32)
+      actions
+    of dkFloat64:
+      let dset {.inject.} = h5dset.readVlen(float64)
+      actions
+    of dkInt8:
+      let dset {.inject.} = h5dset.readVlen(int8)
+      actions
+    of dkInt16:
+      let dset {.inject.} = h5dset.readVlen(int16)
+      actions
+    of dkInt32:
+      let dset {.inject.} = h5dset.readVlen(int32)
+      actions
+    of dkInt64:
+      let dset {.inject.} = h5dset.readVlen(int64)
+      actions
+    of dkUint8:
+      let dset {.inject.} = h5dset.readVlen(uint8)
+      actions
+    of dkUint16:
+      let dset {.inject.} = h5dset.readVlen(uint16)
+      actions
+    of dkUint32:
+      let dset {.inject.} = h5dset.readVlen(uint32)
+      actions
+    of dkUint64:
+      let dset {.inject.} = h5dset.readVlen(uint64)
+      actions
+    else:
+      echo "WARNING: `withDset` for type of ", h5dset.dtypeBaseKind, " not supported"
   else:
     echo "WARNING: `withDset` nothing to do, dataset is of type ", h5dset.dtypeAnyKind
     discard
