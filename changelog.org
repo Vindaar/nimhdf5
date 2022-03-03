@@ -1,3 +1,13 @@
+* v0.4.6
+- avoid copy of input data when writing VLEN data
+- CT error if composite data with string fields is being read, as it's
+  currently not supported (strings are vlen data & vlen in composite
+  isn't implemented)
+- fix regression in =copy= due to =distinct hid_t= variants
+- extend =withDset= to work properly with vlen data (returning =dset=
+  variable with =seq[seq[T]]=) and add =withDset= overload working
+  with a H5 file and a string name of a dataset
+- add test case for =withDset=  
 * v0.4.5
 - treat =akTruncate= flag as write access to the file
   (=create_dataset= was not working with it)
