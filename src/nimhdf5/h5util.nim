@@ -7,7 +7,7 @@
 # procs related to general H5 objects.
 
 import std / [strutils, strformat, options, tables, sequtils]
-from os import `/`
+from os import `/`, parentDir, extractFilename
 
 # nimhdf5 related libraries
 import hdf5_wrapper, H5nimtypes, util, datatypes
@@ -489,24 +489,24 @@ proc copy*[T](h5in: H5File, h5o: T,
     var h5f = h5out.get
     if target.isSome:
       let grp = h5f.create_group(targetGrp)
-      targetId = grp.group_id
+      targetId = grp.group_id.hid_t
     else:
       echo "Target grp ", targetGrp
       echo "Target Name ", targetName
       let grp = h5f.create_group(targetName.parentDir)
-      targetId = grp.group_id
+      targetId = grp.group_id.hid_t
   else:
     if target.isSome:
       if targetGrp == "/":
-        targetId = h5in.file_id
+        targetId = h5in.file_id.hid_t
       else:
         let grp = h5in.create_group(targetGrp)
-        targetId = grp.group_id
+        targetId = grp.group_id.hid_t
     else:
       raise newException(HDF5LibraryError, "Cannot copy object " & h5o.name & " to " &
         "same file without target!")
 
-  let err = H5Ocopy(h5o.getH5Id, h5o.name,
+  let err = H5Ocopy(h5o.getH5Id.to_hid_t, h5o.name,
                     targetId, targetName,
                     H5P_DEFAULT, H5P_DEFAULT)
 
