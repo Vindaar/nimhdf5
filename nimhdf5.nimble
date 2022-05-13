@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.4.6"
+version       = "0.4.7"
 author        = "Sebastian Schmidt"
 description   = "Bindings for the HDF5 data format C library"
 license       = "MIT"
