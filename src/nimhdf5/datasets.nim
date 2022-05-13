@@ -347,10 +347,11 @@ proc create_dataset*[T: (tuple | int | seq)](
                               filter,
                               overwrite = overwrite)
 
-proc write_dataset*[TT](h5f: H5File, name: string, data: TT): H5DataSet =
+proc write_dataset*[TT](h5f: H5File, name: string, data: TT,
+                        overwrite = false): H5DataSet =
   ## convenience proc to create a dataset and write data it immediately
   type T = getInnerType(TT)
-  result = h5f.create_dataset(name, data.shape, T)
+  result = h5f.create_dataset(name, data.shape, T, overwrite = overwrite)
   result[result.all] = data
 
 proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =

@@ -1,3 +1,5 @@
+* v0.4.7
+- add =overwrite= option to =write_dataset= convenience proc
 * v0.4.6
 - avoid copy of input data when writing VLEN data
 - CT error if composite data with string fields is being read, as it's
