@@ -9,7 +9,7 @@
 # of the H5 library (although the purpose of the function might)
 # and does not make use of any datatypes defined for H5 interop.
 
-import std / [strutils, macros, os]
+import std / [strutils, macros, os, pathnorm]
 
 template withDebug*(actions: untyped) =
   ## a debugging template, which can be used to e.g. output
@@ -25,7 +25,8 @@ proc formatName*(name: string): string =
   # a potentially missing root / and removing a potential trailing /
   # do this by trying to strip any leading and trailing / from name (plus newline,
   # whitespace, if any) and then prepending a leading /
-  result = "/" & strip(name, chars = ({'/'} + Whitespace + NewLines))
+  # Note: we use `normalizePath` only for the behavior of `./`, `..` and multiple `/`
+  result = "/" & name.normalizePath().strip(chars = ({'/'} + Whitespace + NewLines))
 
 template getParent*(dset_name: string): string =
   ## given a `dset_name` after formating (!), return the parent name,
