@@ -454,13 +454,9 @@ proc contains*(grp: H5Group, name: string): bool =
   ##
   ## Uses `H5Lexists` using `existsInFile`. Does not require us to traverse our tables.
   let fileId = grp.file_ref.file_id
-  if name.startsWith(grp.name):
-    # is subgroup, just check on file
-    result = existsInFile(fileId, name) > 0
-  else:
-    # treated as relative, prepend the groups name
-    let name = formatName(grp.name / name)
-    result = existsInFile(fileId, name) > 0
+  # maybe `name` is a subgroup or absolute, fix up name
+  let name = formatMaybeRelativeName(grp, name)
+  result = existsInFile(fileId, name) > 0
 
 proc delete*[T](h5o: T, name: string): bool =
   ## Deletes the object with `name` from the H5 file
@@ -468,6 +464,7 @@ proc delete*[T](h5o: T, name: string): bool =
   ## a relative name is valid. Else if `h5o` is the file itself, `name` needs
   ## to be the full path. Returns `true` if deletion successful
   let h5id = getH5Id(h5o)
+  let name = formatMaybeRelativeName(h5o, name)
   case h5id.getObjectTypeByName(name)
   of H5O_TYPE_UNKNOWN, H5O_TYPE_NAMED_DATATYPE, H5O_TYPE_NTYPES:
     raise newException(HDF5LibraryError, "Object with name " & $name & " is neither " &
@@ -475,6 +472,13 @@ proc delete*[T](h5o: T, name: string): bool =
   of H5O_TYPE_GROUP:
     if name in h5o.groups:
       h5o.groups.del(name)
+    # now remove all datasets in the group
+    var toDelete = newSeq[string]()
+    for dset in keys(h5o.datasets):
+      if dset.startsWith(name):
+        toDelete.add dset
+    for dset in toDelete:
+      h5o.datasets.del(dset)
   of H5O_TYPE_DATASET:
     if name in h5o.datasets:
       h5o.datasets.del(name)
