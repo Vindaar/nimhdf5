@@ -293,7 +293,7 @@ proc read_some() =
   g1.echo_in_file("dset1D")
   doAssert "/group1/group2" in g1
   doAssert "group2" in g1
-  doAssert "/group2" in g1
+  doAssert "./group2" in g1
 
   # close the file again
   discard file.close()
