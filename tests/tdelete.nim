@@ -1,5 +1,5 @@
 import nimhdf5
-import sequtils
+import sequtils, tables
 import os
 import ospaths
 import typeinfo
@@ -32,24 +32,43 @@ when isMainModule:
   doAssert "group2/dset" in h5f
   doAssert "group3/dset" in h5f
 
+  doAssert "/group" in h5f.groups
+  doAssert "/group2" in h5f.groups
+  doAssert "/group3" in h5f.groups
+  doAssert "/group/dset" in h5f.datasets
+  doAssert "/group2/dset" in h5f.datasets
+  doAssert "/group3/dset" in h5f.datasets
+
+
   # now delete
   # first delete only dset then group
   doAssert h5f.delete("group/dset")
   doAssert "group/dset" notin h5f
+  doAssert "/group/dset" notin h5f.datasets
   doAssert h5f.delete("group")
   doAssert "group" notin h5f
+  doAssert "/group" notin h5f.groups
 
   # now delete group2 and its contents
   doAssert h5f.delete("group2")
   doAssert "group2" notin h5f
+  doAssert "/group2" notin h5f.groups
   doAssert "group2/dset" notin h5f
+  doAssert "/group2/dset" notin h5f.datasets
 
   # finally delete group3/dset from relative group3
   var grp3 = h5f["group3".grp_str]
   doAssert grp3.delete("dset")
   doAssert "group3/dset" notin h5f
+  doAssert "/group3/dset" notin h5f.datasets
+  doAssert "group3/dset" notin grp3
+  doAssert "/group3/dset" notin grp3.datasets
   doAssert h5f.delete("group3")
   doAssert "group3" notin h5f
+  doAssert "/group3" notin h5f.groups
+
+  doAssert h5f.groups.len == 0
+  doAssert h5f.datasets.len == 0
 
   var err = h5f.close()
   doAssert(err >= 0)
