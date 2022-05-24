@@ -427,6 +427,26 @@ proc contains*(h5f: H5File, name: string): bool =
   let fileId = h5f.file_id
   result = existsInFile(fileId, name) > 0
 
+proc formatMaybeRelativeName*[T](h5o: T, name: string): string =
+  ## Formats the given `name` taking into account that it may be a relative name
+  ## starting from the given `h5o` or may be an absolute path.
+  when T is H5File:
+    # must be absolute
+    result = name.formatName() # possibly prepend `/`
+  else:
+    # 1. if starts with `/`, treat as absolute
+    if name.startsWith("/"):
+      result = name.formatName()
+    else:
+      # check if relative
+      let n = name.formatName()
+      if n.startsWith(h5o.name):
+        # is absolute
+        result = n
+      else:
+        # is relative, prepend object name
+        result = formatName(h5o.name / name)
+
 proc contains*(grp: H5Group, name: string): bool =
   ## Checks if the given `name` is a subgroup or dataset in `grp` or its groups.
   ## nIt takes a parent-child relationship for groups into account, i.e. if called
