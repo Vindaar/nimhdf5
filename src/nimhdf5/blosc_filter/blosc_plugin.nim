@@ -4,6 +4,12 @@ import ../hdf5_wrapper
 import ../util
 import blosc
 
+type
+  # raised if generic exception raised in context of blosc filter
+  HDF5BloscError* = object of HDF5FilterError
+  # raised if blosc decompression fails
+  HDF5BloscDecompressionError* = object of HDF5DecompressionError
+
 # Filter revision number, starting at 1
 const FILTER_BLOSC_VERSION* = 2 # multiple compressors since Blosc 1.3
 
@@ -77,7 +83,7 @@ proc bloscSetLocal(dcpl, dtype, space: hid_t): herr_t =
   if ndims < 0:
     return -1
   if ndims > 32:
-    raise newException(HDF5LibraryError, "bloscSetLocal failed. " &
+    raise newException(HDF5BloscError, "bloscSetLocal failed. " &
       "Chunk rank exceeds limit")
 
   let typesize = H5Tget_size(dtype)
@@ -116,7 +122,6 @@ proc bloscSetLocal(dcpl, dtype, space: hid_t): herr_t =
 
   result = 1
 
-
 proc bloscFilter(flags: cuint, cd_nelmts: cint,
                   cd_values: ptr cuint, nbytes: csize_t,
                   buf_size: ptr cint, buf: ptr pointer):
@@ -142,7 +147,7 @@ proc bloscFilter(flags: cuint, cd_nelmts: cint,
     # bitshuffle is only meant for production in >= 1.8.0
     when BLOSC_VERSION_MAJOR <= 1 and BLOSC_VERSION_MINOR < 8:
       if doshuffle == BLOSC_BITSHUFFLE:
-        raise newException(HDF5LibaryError, "bloscFilter failed. " &
+        raise newException(HDF5BloscError, "bloscFilter failed. " &
           "this Blosc library version is not supported.  Please update to >= 1.8")
 
 
@@ -152,7 +157,7 @@ proc bloscFilter(flags: cuint, cd_nelmts: cint,
     let complist = blosc_list_compressors()
     let code = blosc_compcode_to_compname(compcode, addr compname)
     if code == -1.cint:
-      raise newException(HDF5LibraryError, "bloscFilter failed. " &
+      raise newException(HDF5BloscError, "bloscFilter failed. " &
         "this Blosc library does not have support for " &
         "the " & $compname & " compressor, but only for: " &
         $complist)
@@ -174,7 +179,7 @@ proc bloscFilter(flags: cuint, cd_nelmts: cint,
 
     if outbuf.isNil:
       free outbuf
-      raise newException(HDF5LibraryError, "bloscFilter failed. " &
+      raise newException(HDF5BloscError, "bloscFilter failed. " &
         "Can't allocate compression buffer")
 
     discard blosc_set_compressor(compname)
@@ -182,7 +187,7 @@ proc bloscFilter(flags: cuint, cd_nelmts: cint,
                             buf[], outbuf, nbytes)
     if status < 0:
       free outbuf
-      raise newException(HDF5LibraryError, "bloscFilter failed. " &
+      raise newException(HDF5BloscError, "bloscFilter failed. " &
         "Blosc compression error")
 
   else:
@@ -208,13 +213,13 @@ proc bloscFilter(flags: cuint, cd_nelmts: cint,
 
     if outbuf == nil:
       free outbuf
-      raise newException(HDF5LibraryError, "bloscFilter failed. " &
+      raise newException(HDF5BloscDecompressionError, "bloscFilter failed. " &
         "Can't allocate decompression buffer")
 
     status = blosc_decompress(buf[], cast[pointer](outbuf), outbuf_size)
     if status <= 0:    # decompression failed
       free outbuf
-      raise newException(HDF5LibraryError, "bloscFilter failed. " &
+      raise newException(HDF5BloscDecompressionError, "bloscFilter failed. " &
         "Blosc decompression error")
 
   # compressing vs decompressing
@@ -235,7 +240,7 @@ proc registerBlosc*(version: var string, date: var string):
 
   result = H5Zregister(addr filter_class)
   if result < 0:
-    raise newException(HDF5LibraryError, "registerBlosc failed. " &
+    raise newException(HDF5BloscError, "registerBlosc failed. " &
       "Can't register Blosc filter")
 
   # constants defined in blosc.nim

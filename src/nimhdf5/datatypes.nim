@@ -224,6 +224,12 @@ type
   ReadOnlyError* = object of CatchableError
   # raised if some part of code that is not yet implemented (but planned) is being called
   NotImplementedError* = object of Defect
+  # raised for generic exceptions in context of filters
+  HDF5FilterError* = object of HDF5LibraryError
+  # raised if decompression call fails
+  HDF5DecompressionError* = object of HDF5FilterError
+
+
 
   # enum which determines how the given H5 object should be flushed
   # corresponds to the H5F_SCOPE flags
