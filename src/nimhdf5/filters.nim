@@ -91,5 +91,5 @@ proc setFilters*(dset: H5DataSet, filter: H5Filter) =
     discard
 
   if status < 0:
-    raise newException(Hdf5LibraryError, "Call to hdf5 library failed in " &
+    raise newException(HDF5FilterError, "Call to hdf5 library failed in " &
       "`setFilters` trying to set " & $filter.kind & " filter.")
