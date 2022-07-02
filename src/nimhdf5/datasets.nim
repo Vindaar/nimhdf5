@@ -229,10 +229,8 @@ proc create_dataset*[T: (tuple | int | seq)](
   ## TODO: should create_dataset fail by default if the dataset exists?
 
   when T is int:
-    # in case we hand an int as the shape argument, it means we wish to write
-    # 1 column data to the file. In this case define the shape from here on
-    # as a (shape, 1) tuple instead.
-    let shape = (shape, 1)
+    # in this case deal with regular 1D array. Just keep it as 1 element tuple
+    let shape = (shape, )
     # need to deal with the shape of the dataset to be created
     let shape_seq = parseShapeTuple(shape)
   elif T is tuple:
@@ -581,9 +579,7 @@ proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) =
     # shapes. We compare shape[1] with 1, because atm we demand VLEN data to be
     # a 2D array with one column. While in principle it's a N element vector
     # it is always promoted to a (N, 1) array.
-    if (shape.len == 2 and shape[1] == 1 and shape(data)[0] == dset.shape[0]) or
-      data.shape == dset.shape:
-
+    if shape[0] == data.shape[0]:
       if dset.dtype_class == H5T_VLEN:
         # TODO: should we also check whether data really is 1D? or let user
         # deal with that? will flatten the array anyways, so in case on tries
