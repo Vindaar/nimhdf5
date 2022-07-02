@@ -1,3 +1,28 @@
+* v0.4.8
+- fix behavior of =delete= to make sure we also keep our internal
+  =TableRef= in line with the file
+- fully support writing datasets as =(N, )= instead of turning it into =(N,
+  1)= instead (especially for VLEN data).
+  This has big implications when reading 1D data using hyperslabs. If
+  instead of adding an extra dimension as:
+  #+begin_src nim
+  let data = dset.read_hyperslab(dtype, start = @[1000, 0], count = @[1000, 1])
+  #+end_src
+  instead of
+  #+begin_src nim
+  let data = dset.read_hyperslab(dtype, start = @[1000], count = @[1000])
+  #+end_src
+  reading performance is *orders of magnitudes* slower!
+  Essentially when handing an integer to =create_datasets= it is now
+  kept as such (and turned into a 1 element tuple). 
+  For non vlen data creating and writing such datasets correctly
+  worked correctly before if I'm not mistaken.
+- add more exception types for dealing with filters & in particular
+  =blosc=:
+  - =HDF5FilterError=
+  - =HDF5DecompressionError=
+  - =HDF5BloscFilterError=
+  - =HDF5BloscDecompressionError=
 * v0.4.7
 - add =overwrite= option to =write_dataset= convenience proc
 * v0.4.6
