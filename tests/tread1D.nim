@@ -13,7 +13,7 @@ proc create_dset(h5f: var H5File, name: string): H5DataSet =
   result[result.all] = data
 
 proc assert_fields(dset: H5DataSet) =
-  assert(dset.shape == @[10, 1])
+  assert(dset.shape == @[10])
   assert(dset.dtype == "int64")
 
 proc assert_data(dset: var H5DataSet) =
