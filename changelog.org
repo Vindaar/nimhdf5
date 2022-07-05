@@ -1,7 +1,7 @@
-* v0.4.8
+* v0.5.0
 - fix behavior of =delete= to make sure we also keep our internal
   =TableRef= in line with the file
-- fully support writing datasets as =(N, )= instead of turning it into =(N,
+- *BREAKING:* fully support writing datasets as =(N, )= instead of turning it into =(N,
   1)= instead (especially for VLEN data).
   This has big implications when reading 1D data using hyperslabs. If
   instead of adding an extra dimension as:
