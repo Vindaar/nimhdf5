@@ -481,12 +481,56 @@ proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) =
   ##         TODO: create an appropriate Exception for this case!
   dset.write(data)
 
+# Forward declare read and write hyperslab procedures for convenience
+# writing / reading procedures (for the case of slices)
+proc write_hyperslab*[T](dset: H5DataSet,
+                         data: seq[T],
+                         offset,
+                         count: seq[int],
+                         stride, blk: seq[int] = @[])
+proc read_hyperslab*[T](dset: H5DataSet, dtype: typedesc[T],
+                        offset, count: seq[int], stride, blk: seq[int] = @[],
+                        full_output = false): seq[T]
+proc read_hyperslab_vlen*[T](dset: H5DataSet, dtype: typedesc[T],
+                             offset, count: seq[int], stride, blk: seq[int] = @[],
+                             full_output = false): seq[seq[T]]
+
+
+proc write*[T](dset: H5DataSet, inds: HSlice[int, int], data: seq[T]) =
+  ## procedure to write a sequence to data at the slice index `inds`. This is
+  ## only valid for 1D datasets!
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##         about dataset shape, dtype etc. to write to
+  ##    inds: HSlice[int, int] = slice of a range, which to write in dataset
+  ##    data: openArray[T] = any array type containing the data to be written
+  ##         needs to be of the same size as the shape given during creation of
+  ##         the dataset or smaller
+  if dset.shape.len > 1:
+    raise newException(IndexError, "Slice assignment is only valid for 1D datasets. " &
+      "Given dataset has shape " & $dset.shape & ".")
+  dset.write_hyperslab(data,
+                       offset = @[inds.a],
+                       count = @[inds.b - inds.a + 1])
+
+proc `[]=`*[T](dset: H5DataSet, inds: HSlice[int, int], data: seq[T]) =
+  ## procedure to write a sequence to data at the slice index `inds`. This is
+  ## only valid for 1D datasets!
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##         about dataset shape, dtype etc. to write to
+  ##    inds: HSlice[int, int] = slice of a range, which to write in dataset
+  ##    data: openArray[T] = any array type containing the data to be written
+  ##         needs to be of the same size as the shape given during creation of
+  ##         the dataset or smaller
+  dset.write(inds, data)
+
 proc write_dataset*[TT](h5f: H5File, name: string, data: TT,
                         overwrite = false): H5DataSet =
   ## convenience proc to create a dataset and write data it immediately
   type T = getInnerType(TT)
   result = h5f.create_dataset(name, data.shape, T, overwrite = overwrite)
-  result[result.all] = data
+  result.write(data)
 
 proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
   ## procedure to write a raw `ptr T` to the H5 file.
@@ -531,7 +575,7 @@ proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
 
 proc select_elements[T](dset: H5DataSet, coord: seq[T]): DataspaceID {.inline, discardable.}
 proc write_vlen*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
-  ## check whether we have data for each coordinate
+  ## Writes the `data` of variable length type at `coord` to the dataset `dset`.
 
   var err: herr_t
   when U isnot seq:
@@ -613,7 +657,6 @@ proc write_norm*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
     msg = msg % [$coord.shape, $data.shape]
     raise newException(ValueError, msg)
 
-
 template write*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
   ## template around both write fns for normal and vlen data
   if dset.dtype_class == H5T_VLEN:
@@ -622,8 +665,8 @@ template write*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
     dset.write_norm(coord, data)
 
 proc write*[T: (SomeNumber | bool | char | string), U](dset: H5DataSet,
-                                                           coord: seq[T],
-                                                           data: seq[U]) =
+                                                       coord: seq[T],
+                                                       data: seq[U]) =
   ## template around both write fns for normal and vlen data in case
   ## the coordinates are given as a seq of numbers (i.e. for 1D datasets!)
   if dset.dtype_class == H5T_VLEN:
@@ -644,9 +687,9 @@ proc write*[T: (SomeNumber | bool | char | string), U](dset: H5DataSet,
       dset.write_norm(mapIt(coord, @[it, 0]), data)
 
 proc write*[T: (seq | SomeNumber | bool | char | string)](dset: H5DataSet,
-                                                              ind: int,
-                                                              data: T,
-                                                              column = false) =
+                                                          ind: int,
+                                                          data: T,
+                                                          column = false) =
   ## template around both write fns for normal and vlen data in case we're dealing with 1D
   ## arrays and want to write a single value at index `ind`. Allows for broadcasting along
   ## row or column
@@ -682,45 +725,6 @@ proc write*[T: (seq | SomeNumber | bool | char | string)](dset: H5DataSet,
     # in this case we're dealing with a single value for a single element
     # do not have to differentiate between VLEN and normal data
     dset.write(@[ind], @[data])
-
-
-proc `[]=`*[T](dset: H5DataSet, inds: HSlice[int, int], data: seq[T]) =
-  ## procedure to write a sequence of array to a dataset
-  ## will be given to HDF5 library upon call, H5DataSet object
-  ## does not store the data
-  ## inputs:
-  ##    dset: var H5DataSet = the dataset which contains the necessary information
-  ##         about dataset shape, dtype etc. to write to
-  ##    inds: HSlice[int, int] = slice of a range, which to write in dataset
-  ##    data: openArray[T] = any array type containing the data to be written
-  ##         needs to be of the same size as the shape given during creation of
-  ##         the dataset or smaller
-
-  # only write slice of dset by using hyperslabs
-  {.error: "This proc is not properly implemented!".}
-  #raise newException(NotImplementedError, "This proc is not properly implemented!")
-
-  # TODO: change this function to do what it's supposed to!
-  if dset.shape == data.shape:
-    # in this case run over all dimensions and flatten array
-    withDebug:
-      echo "shape before is ", data.shape
-      echo data
-    var data_write = flatten(data)
-    let err = H5Dwrite(dset.dataset_id.hid_t,
-                       dset.dtype_c.hid_t,
-                       H5S_ALL,
-                       H5S_ALL,
-                       H5P_DEFAULT,
-                       addr(data_write[0]))
-    if err < 0:
-      withDebug:
-        echo "Trying to write data_write from slice ", data_write
-      raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
-        "calling `H5Dwrite` in `[Slice]=`")
-  else:
-    raise newException(HDF5LibraryError, "Length of data " & data.len & " does " &
-      "not match number of given indices to write: " & inds.len)
 
 proc convertType*(h5dset: H5DataSet, dt: typedesc):
   proc(dset: H5DataSet): seq[dt] {.nimcall.} =
@@ -1052,11 +1056,41 @@ proc read*[T](dset: H5DataSet, t: typedesc[T], allowVlen = false): seq[T] =
       else:
         dset.read(result)
 
+proc read*[T](dset: H5DataSet, inds: HSlice[int, int], t: typedesc[T], allowVlen = false): seq[T] =
+  ## procedure to read a slice of an existing 1D dataset
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##         about dataset shape, dtype etc. to read from
+  ##    t: typedesc[T] = the Nim datatype of the dataset to be read. If type is given
+  ##         as a `seq[seq[T]]` the dataset has to be variable length.
+  ##    allowVlen: bool = if true it allows to read variable length data. Note this
+  ##         means the vlen data will be flattened to 1D!
+  ## outputs:
+  ##    seq[T]: a flattened sequence of the data in the (potentially) multidimensional
+  ##         dataset or a `seq[seq[T]]` for variable length data.
+  ## throws:
+  ##     ValueError: in case the given typedesc t is different than
+  ##         the datatype of the dataset
+  if dset.dtype_class == H5T_VLEN:
+    result = dset.read_hyperslab_vlen(
+      T,
+      offset = @[inds.a, 0], count = @[inds.b - inds.a + 1, 1]
+    ).flatten()
+  else:
+    result = dset.read_hyperslab(
+      T,
+      offset = @[inds.a], count = @[inds.b - inds.a + 1]
+    )
+
 proc `[]`*[T](dset: H5DataSet, t: typedesc[T]): seq[T] =
   ## Reads the given dataset into a `seq[T]`. If the given datatype does not
   ## match the datatype of the data stored in `dset`, a `ValueError` will be
   ## raised.
   result = dset.read(t)
+
+proc `[]`*[T](dset: H5DataSet, inds: HSlice[int, int], t: typedesc[T]): seq[T] =
+  ## Reads the given slice from the 1D dataset `dset`.
+  result = dset.read(inds, t)
 
 proc `[]`*[T](dset: H5DataSet, ind: int, t: typedesc[T]): T =
   ## convenience proc to return a single element from a dataset
