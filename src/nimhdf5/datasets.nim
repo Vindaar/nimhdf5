@@ -637,12 +637,11 @@ proc write_norm*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
     valid_data = if coord.len == mdata.len: true else: false
   if valid_coords == true and valid_data == true:
     let memspace_id = create_simple_memspace_1d(coord)
-    # TODO: !!! check if selection of `coord` actually works correctly!!
-    dset.select_elements(coord)
+    let dspace_id = dset.select_elements(coord)
     err = H5Dwrite(dset.dataset_id.hid_t,
                    dset.dtype_c.hid_t,
                    memspace_id.hid_t,
-                   dset.dataspace_id.hid_t,
+                   dspace_id.hid_t,
                    H5P_DEFAULT,
                    addr(mdata[0]))
     if err < 0:
