@@ -978,7 +978,19 @@ proc read*[T](dset: H5DataSet, t: DatatypeID, dtype: typedesc[T], indices: seq[i
   for idx in indices:
     result.add dset.read(t, dtype, idx)
 
-from std / strbasics import strip
+when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
+  from std / strbasics import strip
+else:
+  from strutils import strip
+  proc strip(s: var string, leading = true, trailing = true, chars: set[char] = Whitespace) =
+    # for older nim versions we ignore arguments. only for same resolution
+    var idx = 0
+    while idx < s.len:
+      if s[idx] in chars:
+        break
+      inc idx
+    s.setLen(idx)
+
 proc readFixedStringData[T: cstring | string](s: var seq[T], dset: H5Dataset) =
   # get size of stored strings
   doAssert not dset.dtype_c.isVariableString(), "String is variable! Read as `string`, not `cstring`."
