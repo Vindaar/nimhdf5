@@ -81,11 +81,14 @@ proc write_some() =
 
 
   # if we simply want to write over the whole dataset, use the .all field of
-  # the H5DataSet object. It's a simple enum, used to differentiate between
-  # this and using indices (which ironically isn't implemented...)
+  # the H5DataSet object. It's a distinct type to resolve overloads. It might be
+  # replaced by a simple `dset[_] = ` call in the future.
   dset3D[dset3D.all] = d_ar
   dset1D[dset1D.all] = d1d
   dset_broadcast[dset_broadcast.all] = d_br
+  # alternatively you can also just write using
+  # `dset.write(data)`
+
   # NOTE: if you call this programm twice in a row, dset_resize will already have been
   # resized to (9, 9). This means that the following line will instead of writing the
   # data to the top left (3, 3) array, it will now write all entries of the first
@@ -95,10 +98,10 @@ proc write_some() =
 
   # write values for multiple coordinates by handing sequences of coordinates and
   # one sequence of the values to write
-  #dset3D.write(@[@[0, 0, 2], @[1, 1, 3]], @[3'f64, 123'f64])
+  dset3D.write(@[@[0, 0, 2], @[1, 1, 3]], @[42'f64, 123'f64])
   # write single value by handing sequence of single coordinate and sequence of single
   # value
-  #dset3D.write(@[0, 1, 2], @[1337'f64])
+  dset3D.write(@[0, 1, 2], @[1337'f64])
 
   # write whole row by broadcasting one index
   #dset_broadcast.write(0, @[9, 9, 9])
@@ -106,9 +109,9 @@ proc write_some() =
   #dset_broadcast.write(2, @[7, 7, 7], column = true)
 
   # write 2 values into 1D data by handing sequence of indices to write
-  #dset1D.write(@[2, 4], @[8'f64, 21e9])
-  ## write single value to 1D dataset
-  #dset1D.write(0, 299792458'f64)
+  dset1D.write(@[2, 4], @[8'f64, 21e9])
+  # write single value to 1D dataset
+  dset1D.write(0, 299792458'f64)
 
   # write single or more elements of VLEN data
   #dset_vlen.write(@[1], @[8'f64, 3, 12, 3, 3, 555, 23234234])
@@ -148,7 +151,6 @@ proc read_some() =
   #
   # Open an existing file using default properties.
   #
-
   echo "Read some back from file"
 
   var file = H5File("dset.h5", "r")
@@ -196,6 +198,8 @@ proc read_some() =
   # the wrong data type is given to the proc. Unfortunately, we cannot dynamically check
   # the data type
   let data = dataset[float64]
+  # or alternatively:
+  # let data = dataset.read(float64)
   # reading a whole dataset normally simply returns a 1D flattened version of it
   # if desired you may reshape it to the correct dimensinos as follows
   # NOTE: this has to perform a whole copy of the data and thus might be very
