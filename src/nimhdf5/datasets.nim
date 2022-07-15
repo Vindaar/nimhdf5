@@ -847,7 +847,7 @@ proc readAs*[T: SomeNumber](h5f: H5File, dset: string, dtype: typedesc[T]): seq[
   let dset = h5f.get(dset.dset_str)
   result = dset.readAs(dtype)
 
-proc read*[T](dset: H5DataSet, buf: var seq[T]) =
+proc read*[T](dset: H5DataSet, buf: var seq[T], ignoreShapeCheck = false) =
   ## read whole dataset
   ## XXX: handle string fields instead of erroring!
   when T is object:
@@ -856,9 +856,9 @@ proc read*[T](dset: H5DataSet, buf: var seq[T]) =
         when typeof(field) is string:
           {.error: "Reading data of objects with string fields currently still unsupported! " &
             "The relevant type is: " & $T & " with string field: " & $astToStr(field).}
-  if buf.len == foldl(dset.shape, a * b, 1):
+  if ignoreShapeCheck or buf.len == foldl(dset.shape, a * b, 1):
     discard H5Dread(dset.dataset_id.hid_t, dset.dtype_c.hid_t, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                    addr(buf[0]))
+                      addr(buf[0]))
     # now write data back into the buffer
     # for ind in 0..data.high:
     #   let inds = getIndexSeq(ind, shape)
@@ -922,7 +922,10 @@ template readVlen*[T](dset: H5DataSet, dtype: typedesc[T]): seq[seq[T]] =
   if not dset.isVlen:
     raise newException(IOError, "Given datatype " & dset.name & " is not a " &
       "variable length dataset!")
-  dset.read(special_type(dtype), dtype)
+  when T is string:
+    dset.read(special_type(char), dtype)
+  else:
+    dset.read(special_type(dtype), dtype)
 
 proc read*[T](dset: H5DataSet, t: DatatypeID, dtype: typedesc[T], idx: int): seq[T] =
   ## procedure to read a single element form a variable length dataset.
@@ -959,6 +962,44 @@ proc read*[T](dset: H5DataSet, t: DatatypeID, dtype: typedesc[T], indices: seq[i
   for idx in indices:
     result.add dset.read(t, dtype, idx)
 
+from std / strbasics import strip
+proc readFixedStringData[T: cstring | string](s: var seq[T], dset: H5Dataset) =
+  # get size of stored strings
+  doAssert not dset.dtype_c.isVariableString(), "String is variable! Read as `string`, not `cstring`."
+  let size = H5Tget_size(dset.dtype_c.hid_t)
+  var buf = newSeq[char](s.len * size.int) #char](n_elements * size.int)
+  # read into `buf` ignoring the check of the shape
+  dset.read(buf, ignoreShapeCheck = true)
+  for i in 0 ..< s.len:
+    s[i] = T(newString(size.int))
+    copyMem(s[i][0].addr, buf[i * size.int].addr, size.int)
+    when T is string:
+      s[i].strip(leading = false, chars = {'\0'})
+
+proc readVlenStringData[T: cstring | string](s: var seq[T], dset: H5Dataset) =
+  # get size of stored strings
+  doAssert dset.dtype_c.isVariableString(), "String is variable! Read as `string`, not `cstring`."
+  let size = H5Tget_size(dset.dtype_c.hid_t)
+  var buf = newSeq[cstring](s.len)
+  # read into `buf` ignoring the check of the shape
+  dset.read(buf, ignoreShapeCheck = true)
+  for i in 0 ..< s.len:
+    s[i] = T(newString(buf[i].len))
+    copyMem(s[i][0].addr, buf[i][0].addr, buf[i].len)
+  # let H5 reclaim memory
+  let err = H5Dvlen_reclaim(dset.dtype_c.hid_t, dset.dataspace_id().hid_t, H5P_DEFAULT, addr(buf[0]))
+  if err < 0:
+    raise newException(HDF5LibraryError, "Failed to let HDF5 library reclaim variable length string " &
+      "buffer.")
+
+proc readStringData[T: cstring | string](s: var seq[T], dset: H5DataSet) =
+  ## Reads data from a string dataset. Takes care of dispatching to the correct procedure
+  ## depending on fixed lenth strings (flat data) or variable length strings.
+  if dset.dtype_c.isVariableString():
+    readVlenStringData(s, dset)
+  else:
+    readFixedStringData(s, dset)
+
 proc read*[T](dset: H5DataSet, t: typedesc[T], allowVlen = false): seq[T] =
   ## procedure to read the data of an existing dataset and return it as a 1D sequence.
   ## inputs:
@@ -994,7 +1035,10 @@ proc read*[T](dset: H5DataSet, t: typedesc[T], allowVlen = false): seq[T] =
         shape = dset.shape
         n_elements = foldl(shape, a * b)
       result = newSeq[T](n_elements)
-      dset.read(result)
+      when T is cstring or T is string:
+        result.readStringData(dset)
+      else:
+        dset.read(result)
 
 proc `[]`*[T](dset: H5DataSet, t: typedesc[T]): seq[T] =
   ## Reads the given dataset into a `seq[T]`. If the given datatype does not

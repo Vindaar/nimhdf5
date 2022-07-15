@@ -650,6 +650,13 @@ proc typeMatches*(dtype: typedesc, dstr: string): bool =
                false
   of dkObject:
     result = dtype is object or dtype is tuple
+  of dkString:
+    when isAnyArray(dtype, char) or dtype is string:
+      result = true
+    elif dtype is cstring:
+      result = true
+    else:
+      result = false
   else:
     # no size check necessary
     result = if dAnyKind == dstrAnyKind: true else: false
