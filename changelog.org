@@ -1,3 +1,35 @@
+* v0.5.1
+- (finally!) add support for =string= datasets
+  - fixed length string datasets, written by constructing a
+    =create_dataset("foo", <size>, array[N, char])= dataset (writing
+    is done by simply giving a =seq[string]=
+  - variable length string datasets, written by constructing a
+    =create_dataset("foo", <size>, string)= dataset (writing
+    is done by simply giving a =seq[string]=)
+  - support strings as variable length arrays of type =char=,
+    constructed by =create_dataset("foo", <size>, special_type(char))= dataset (writing
+    is done by simply giving a =seq[string]=
+- add missing overload for =write= for the most general case, which
+  was previously only possible via ~[]=~, so:
+  #+begin_src nim
+  let dset = ...
+  dset.write(data)
+  #+end_src
+  is now valid.
+- implement slicing =read= and =write= procedures for 1D datasets:
+  #+begin_src nim
+  let data = @[1, 2, 3]
+  var dset = h5f.create_dataset("foo", 3, int)
+  dset.write(data)
+  doAssert data[0 .. 1] == data[0 .. 1]
+  doAssert data.read(0 .. 1) == data[0 .. 1]
+  dset.write(1 .. 2) = @[4, 5]
+  doAssert dset[1 ..< 3] == @[4, 5]
+  dset[0 .. 1] = @[10, 11]
+  doAssert dset[int] == @[10, 11, 5]
+  #+end_src
+  is now also all valid. These are implemented by using hyperslab
+  reading / writing.
 * v0.5.0
 - fix behavior of =delete= to make sure we also keep our internal
   =TableRef= in line with the file
