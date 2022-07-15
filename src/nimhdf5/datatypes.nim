@@ -722,14 +722,30 @@ proc h5ToNimType*(dtype_id: DatatypeID): DtypeKind =
     raise newException(KeyError, "Warning: the following H5 type could not be converted: " &
       "$# of class $#" % [$(dtype_id.hid_t), $(H5Tget_class(dtypeHid_t))])
 
+proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID
 proc special_type*(dtype: typedesc): DatatypeID =
   ## calls the H5Tvlen_create() to create a special datatype
   ## for variable length data
   when dtype isnot string:
     result = H5Tvlen_create(nimToH5type(dtype).hid_t).DatatypeID
   else:
-    raise newException(ValueError, "Currently not implemented to create variable string datatype." &
-      " This does not raise at CT to avoid CT errors when using `withDset`.")
+    {.error: """To read/write a string as variable length data, treat it
+as a `char` dataset, i.e. `special_type(char)` during construction. Writing a `seq[string]`
+will work as expected. However, better simply create a regular dataset of type string
+`special_type` call, i.e. a '1D string' dataset.\n
+
+```nim
+let size = ... # some int size
+var dset = h5f.create_dataset("foo", size, special_type(char))
+dset[dset.all] = bar # some @["hello", "world", ...] `seq[string]`
+# or better
+var dset = h5f.create_dataset("foo", size, string)
+dset[dset.all] = bar # some @["hello", "world", ...] `seq[string]`
+```
+
+Also see the `twrite_string.nim` test case.
+""".}
+
 
 template insertType(res, nameStr, name, val: untyped): untyped =
   H5Tinsert(res, nameStr.cstring, offsetOf(val, name).csize_t,
