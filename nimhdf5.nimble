@@ -35,6 +35,7 @@ task test, "Runs all tests":
   exec "nim c -r tests/tStringAttributes.nim"
   exec "nim c -r tests/tCompound.nim"
   exec "nim c -r tests/tContainsIterator.nim"
+  exec "nim c -r tests/twrite_string.nim"
   # regression tests
   exec "nim c -r tests/tint64_dset.nim"
   exec "nim c -r tests/t17.nim"
