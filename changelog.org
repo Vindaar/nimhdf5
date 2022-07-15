@@ -30,6 +30,9 @@
   #+end_src
   is now also all valid. These are implemented by using hyperslab
   reading / writing.
+- fix bug in =write_norm= about coordinate selection, such that
+  writing specific indices now actually works correctly
+- fix bug in =write= when writing specific coordinates of a 1D dataset  
 * v0.5.0
 - fix behavior of =delete= to make sure we also keep our internal
   =TableRef= in line with the file
