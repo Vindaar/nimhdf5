@@ -677,13 +677,14 @@ proc write*[T: (SomeNumber | bool | char | string), U](dset: H5DataSet,
     # need to differentiate 2 cases:
     # - either normal data is N dimensional (N > 1) in which case
     #   coord is a SINGLE coordinate for the array
-    # - or data is 1D (read (N, 1) dimensional) in which case we have
+    # - or data is 1D (read (N, ) dimensional) in which case we have
     #   handed 1 or more indices to write 1 or more elements!
-    if dset.shape[1] != 1:
+    echo dset.shape, " and coord ", coord
+    if dset.shape.len != 1:
       dset.write_norm(@[coord], data)
     else:
       # in case of 1D data, need to separate each element into 1 element
-      dset.write_norm(mapIt(coord, @[it, 0]), data)
+      dset.write_norm(mapIt(coord, @[it]), data)
 
 proc write*[T: (seq | SomeNumber | bool | char | string)](dset: H5DataSet,
                                                           ind: int,
