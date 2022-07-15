@@ -613,6 +613,22 @@ macro name*(t: typed): untyped =
   ## returns name of given data type
   result = getTypeInst(t)[1].getType.toStrLit
 
+macro isAnyArray(dtype: typed, innerDtype: typed): untyped =
+  ## Returns `true` if the given type is an *array* (not a seq!) of type `innerDtype`
+  ## of any size.
+  doAssert dtype.typeKind == ntyTypeDesc
+  let typ = dtype.getType
+  result = newLit false
+  if typ[1].kind == nnkBracketExpr:
+    let arTyp = typ[1]
+    if arTyp[0].strVal == "array":
+      if arTyp[1].kind == nnkBracketExpr:
+        let innerTyp = arTyp[arTyp.len-1]
+        if innerTyp.strVal == innerDtype.strVal:
+          result = newLit true
+
+proc getArraySize[N: static int; T](ar: typedesc[array[N, T]]): int = N
+
 proc typeMatches*(dtype: typedesc, dstr: string): bool =
   ## returns true, if the given ``typedesc`` matches the descriptor in
   ## string
@@ -734,7 +750,7 @@ macro walkObjectAndInsert(dtype: typed,
     result.add quote do:
       discard insertType(`res`, `nStr`, `n`, `dtype`)
 
-proc nimToH5type*(dtype: typedesc): DatatypeID =
+proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
   ## given a typedesc, we return a corresponding
   ## H5 data type. This is a template, since we
   ## the compiler won't be able to determine
@@ -790,6 +806,12 @@ proc nimToH5type*(dtype: typedesc): DatatypeID =
   elif dtype is char:
     # Nim's char is an unsigned char!
     res = H5T_NATIVE_UCHAR
+  elif isAnyArray(dtype, char): ## check if `dtype` is any `array[N, char]`
+    res = H5Tcopy(H5T_C_S1)
+    # now get the size of the `array` and set it accordingly
+    if H5Tset_size(res, getArraySize(dtype).csize_t) < 0:
+      raise newException(HDF5LibraryError, "Call to `H5Tset_size` attempting to set " &
+        "fixed length string size to " & $getArraySize(dtype) & " failed.")
   elif dtype is string:
     # NOTE: in case a string is desired, we still have to prepare it later, because
     # a normal string will end up as a sequence of characters otherwise. Instead
@@ -799,6 +821,12 @@ proc nimToH5type*(dtype: typedesc): DatatypeID =
     # Also we need to copy the datatype, in order to be able to change its size
     # later
     res = H5Tcopy(H5T_C_S1)
+    if variableString:
+      ## Instead of the above comment, generate a variable length string. This is used to
+      ## write a dataset of type `string`.
+      if H5Tset_size(res, H5T_VARIABLE) < 0:
+        raise newException(HDF5LibraryError, "Call to H5Tset_size` attempting to define " &
+          "a variable length string failed.")
     # -> call string_dataspace(str: string, dtype: hid_t) with
     # `result` as the second argument and the string you wish to
     # write as 1st after the call to this fn
@@ -876,8 +904,9 @@ proc getH5read_non_exist_file*(filename: string): string =
   result = &"Cannot open a non-existing file {filename} with read only access. Write " &
     "access will create the file for you."
 
+import sequtils
 template toH5vlen*[T](data: seq[T]): untyped =
-  when T is seq:
+  when T is seq or T is string or T is cstring:
     mapIt(toSeq(0..data.high)) do:
       if data[it].len > 0:
         hvl_t(`len`: csize_t(data[it].len), p: unsafeAddr(data[it][0]))

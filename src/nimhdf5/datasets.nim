@@ -263,6 +263,10 @@ proc create_dataset*[T: (tuple | int | seq)](
   # first get the appropriate datatype for the given Nim type
   when dtype is DatatypeID:
     let dtype_c = dtype
+  elif dtype is string:
+    # user wishes to construct dataset of variable length strings. `variableString`
+    # takes care of turning the `DatatypeID` into a `H5T_VARIABLE` type
+    let dtype_c = nimToH5type(dtype, variableString = true)
   else:
     let dtype_c = nimToH5type(dtype)
   # set the datatype as H5 type here, as its needed to create the dataset
@@ -547,6 +551,28 @@ proc write*[T: (seq | SomeNumber | bool | char | string)](dset: H5DataSet,
     # do not have to differentiate between VLEN and normal data
     dset.write(@[ind], @[data])
 
+proc prepareData[T](data: seq[T], dset: H5Dataset): auto =
+  when T is string:
+    ## maps the given `seq[string]` to something that is flat in memory.
+    ## This is for the case of constructing a dataset of type `array[N, char]`.
+    ## We simply copy over the input string data to a flat `seq[char]` to
+    ## have a flat object to write. As the H5 library knows the fixed size of
+    ## each element, they can (and must) be flat in memory.
+    ##
+    ## i.e. corresponds to:
+    ## `create_dataset(..., array[N, char]); dset[all] = @["hello", "foo"]`
+    let size = H5Tget_size(dset.dtype_c.hid_t)
+    result = newSeq[char](data.len * size.int)
+    for i, el in data:
+      # only copy as many bytes as either in input string to write or
+      # as we have space in the allocated fixed length dataset
+      let copyLen = min(size.int,  el.len)
+      copyMem(result[i * size.int].addr, el[0].addr, copyLen)
+  else:
+    # just make sure the data is a flat `seq[T]`. If not, flatten to have
+    # flat memory to write
+    result = seqmath.flatten(data)
+
 proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) =
   ## procedure to write a sequence of array to a dataset
   ## will be given to HDF5 library upon call, H5DataSet object
@@ -586,7 +612,8 @@ proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) =
         # to write a 2D array as vlen, the flattened array will end up as vlen
         # in the file in this case we need to prepare the data further by
         # assigning the data to a hvl_t struct
-        when T is seq:
+        when T is seq or T is string:
+          # strings as variable length data are written as VLEN arrays of `char`!
           var data_hvl = data.toH5vlen
           err = H5Dwrite(dset.dataset_id.hid_t,
                          dset.dtype_c.hid_t,
@@ -603,10 +630,29 @@ proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) =
           echo "VLEN datatype does not make sense, if the data is of type seq[$#]" % T.name
           echo "Use normal datatype instead. Or did you only hand a single element"
           echo "of your vlen data?"
+      elif dset.dtype_class == H5T_STRING and dset.dtype_c.isVariableString:
+        # This branch corresponds to writing variable length strings (*not* variable length
+        # data of type `char`!). Data is converted to `cstring` to have data that is flat
+        # in memory (which `seq[string]` is not!)
+        when T is string:
+          var cstringData = data.mapIt(it.cstring)
+          err = H5Dwrite(dset.dataset_id.hid_t,
+                         dset.dtype_c.hid_t,
+                         H5S_ALL,
+                         H5S_ALL,
+                         H5P_DEFAULT,
+                         addr(cstringData[0]))
+          if err < 0:
+            withDebug:
+              echo "Trying to write data_hvl ", data_hvl
+            raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
+                               "while calling `H5Dwrite` in `[All]=`")
+        else:
+          raise newException(ValueError, "Writing a `seq[" & $T & "] to a string dataset not possible.")
       else:
         # NOTE: for some reason if we don't specify `seqmath` for `flatten`, the
         # correct proc is not found
-        var data_write = seqmath.flatten(data)
+        var data_write = prepareData(data, dset)
         err = H5Dwrite(dset.dataset_id.hid_t,
                        dset.dtype_c.hid_t,
                        H5S_ALL,
