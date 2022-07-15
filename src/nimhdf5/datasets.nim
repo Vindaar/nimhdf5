@@ -365,7 +365,10 @@ proc prepareData[T](data: seq[T], dset: H5Dataset): auto =
       # only copy as many bytes as either in input string to write or
       # as we have space in the allocated fixed length dataset
       let copyLen = min(size.int,  el.len)
-      copyMem(result[i * size.int].addr, el[0].addr, copyLen)
+      when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
+        copyMem(result[i * size.int].addr, el[0].addr, copyLen)
+      else:
+        copyMem(result[i * size.int].addr, el[0].unsafeAddr, copyLen)
   else:
     # just make sure the data is a flat `seq[T]`. If not, flatten to have
     # flat memory to write
