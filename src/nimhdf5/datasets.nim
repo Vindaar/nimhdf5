@@ -349,6 +349,138 @@ proc create_dataset*[T: (tuple | int | seq)](
                               filter,
                               overwrite = overwrite)
 
+proc prepareData[T](data: seq[T], dset: H5Dataset): auto =
+  when T is string:
+    ## maps the given `seq[string]` to something that is flat in memory.
+    ## This is for the case of constructing a dataset of type `array[N, char]`.
+    ## We simply copy over the input string data to a flat `seq[char]` to
+    ## have a flat object to write. As the H5 library knows the fixed size of
+    ## each element, they can (and must) be flat in memory.
+    ##
+    ## i.e. corresponds to:
+    ## `create_dataset(..., array[N, char]); dset[all] = @["hello", "foo"]`
+    let size = H5Tget_size(dset.dtype_c.hid_t)
+    result = newSeq[char](data.len * size.int)
+    for i, el in data:
+      # only copy as many bytes as either in input string to write or
+      # as we have space in the allocated fixed length dataset
+      let copyLen = min(size.int,  el.len)
+      copyMem(result[i * size.int].addr, el[0].addr, copyLen)
+  else:
+    # just make sure the data is a flat `seq[T]`. If not, flatten to have
+    # flat memory to write
+    result = seqmath.flatten(data)
+
+proc write*[T](dset: H5DataSet, data: seq[T]) =
+  ## procedure to write the full dataset `data` to `dset`. The data must
+  ## match the type & shape of the dataset.
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##          about dataset shape, dtype etc. to write to
+  ##    data: openArray[T] = any array type containing the data to be written
+  ##         needs to be of the same size as the shape given during creation of
+  ##         the dataset or smaller
+  ## throws:
+  ##    ValueError: if the shape of the input dataset is different from the reserved
+  ##         size of the dataspace on which we wish to write in the H5 file
+  ##         TODO: create an appropriate Exception for this case!
+  # TODO: IMPORTANT: think about whether we should be using array types instead
+  # of a dataspace of certain dimensions for arrays / nested seqs we're handed
+
+  var err: herr_t
+  let shape = dset.shape
+  withDebug:
+    echo "shape is ", shape, " of dset ", dset.name
+    echo "shape is a ", type(shape).name, " and data is a "
+    echo type(data).name, " and data.shape = ", data.shape
+  # check whether we will write a 1 column dataset. If so, relax
+  # requirements of shape check. In this case only compare 1st element of
+  # shapes. We compare shape[1] with 1, because atm we demand VLEN data to be
+  # a 2D array with one column. While in principle it's a N element vector
+  # it is always promoted to a (N, 1) array.
+  if shape[0] == data.shape[0]:
+    if dset.dtype_class == H5T_VLEN:
+      # TODO: should we also check whether data really is 1D? or let user
+      # deal with that? will flatten the array anyways, so in case on tries
+      # to write a 2D array as vlen, the flattened array will end up as vlen
+      # in the file in this case we need to prepare the data further by
+      # assigning the data to a hvl_t struct
+      when T is seq or T is string:
+        # strings as variable length data are written as VLEN arrays of `char`!
+        var data_hvl = data.toH5vlen
+        err = H5Dwrite(dset.dataset_id.hid_t,
+                       dset.dtype_c.hid_t,
+                       H5S_ALL,
+                       H5S_ALL,
+                       H5P_DEFAULT,
+                       addr(data_hvl[0]))
+        if err < 0:
+          withDebug:
+            echo "Trying to write data_hvl ", data_hvl
+          raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
+                             "while calling `H5Dwrite` in `[All]=`")
+      else:
+        echo "VLEN datatype does not make sense, if the data is of type seq[$#]" % T.name
+        echo "Use normal datatype instead. Or did you only hand a single element"
+        echo "of your vlen data?"
+    elif dset.dtype_class == H5T_STRING and dset.dtype_c.isVariableString:
+      # This branch corresponds to writing variable length strings (*not* variable length
+      # data of type `char`!). Data is converted to `cstring` to have data that is flat
+      # in memory (which `seq[string]` is not!)
+      when T is string:
+        var cstringData = data.mapIt(it.cstring)
+        err = H5Dwrite(dset.dataset_id.hid_t,
+                       dset.dtype_c.hid_t,
+                       H5S_ALL,
+                       H5S_ALL,
+                       H5P_DEFAULT,
+                       addr(cstringData[0]))
+        if err < 0:
+          withDebug:
+            echo "Trying to write data_hvl ", data_hvl
+          raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
+                             "while calling `H5Dwrite` in `[All]=`")
+      else:
+        raise newException(ValueError, "Writing a `seq[" & $T & "] to a string dataset not possible.")
+    else:
+      # NOTE: for some reason if we don't specify `seqmath` for `flatten`, the
+      # correct proc is not found
+      var data_write = prepareData(data, dset)
+      err = H5Dwrite(dset.dataset_id.hid_t,
+                     dset.dtype_c.hid_t,
+                     H5S_ALL,
+                     H5S_ALL,
+                     H5P_DEFAULT,
+                     addr(data_write[0]))
+      if err < 0:
+        withDebug:
+          echo "Trying to write data_write ", data_write
+        raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
+          "while calling `H5Dwrite` in `[All]=`")
+  else:
+    var msg = "Wrong input shape of data to write in `[]=` while accessing " &
+      "`$#`. Given shape `$#`, dataset has shape `$#`"
+    msg = msg % [$dset.name, $data.shape, $dset.shape]
+    raise newException(ValueError, msg)
+
+proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) =
+  ## procedure to write a sequence of array to a dataset
+  ## will be given to HDF5 library upon call, H5DataSet object
+  ## does not store the data
+  ## inputs:
+  ##    dset: var H5DataSet = the dataset which contains the necessary information
+  ##          about dataset shape, dtype etc. to write to
+  ##    ind: DsetReadWrite = indicator telling us to write whole dataset,
+  ##         used to differentiate from the case in which we only write a hyperslab
+  ##    data: openArray[T] = any array type containing the data to be written
+  ##         needs to be of the same size as the shape given during creation of
+  ##         the dataset or smaller
+  ## throws:
+  ##    ValueError: if the shape of the input dataset is different from the reserved
+  ##         size of the dataspace on which we wish to write in the H5 file
+  ##         TODO: create an appropriate Exception for this case!
+  dset.write(data)
+
 proc write_dataset*[TT](h5f: H5File, name: string, data: TT,
                         overwrite = false): H5DataSet =
   ## convenience proc to create a dataset and write data it immediately
@@ -551,126 +683,6 @@ proc write*[T: (seq | SomeNumber | bool | char | string)](dset: H5DataSet,
     # do not have to differentiate between VLEN and normal data
     dset.write(@[ind], @[data])
 
-proc prepareData[T](data: seq[T], dset: H5Dataset): auto =
-  when T is string:
-    ## maps the given `seq[string]` to something that is flat in memory.
-    ## This is for the case of constructing a dataset of type `array[N, char]`.
-    ## We simply copy over the input string data to a flat `seq[char]` to
-    ## have a flat object to write. As the H5 library knows the fixed size of
-    ## each element, they can (and must) be flat in memory.
-    ##
-    ## i.e. corresponds to:
-    ## `create_dataset(..., array[N, char]); dset[all] = @["hello", "foo"]`
-    let size = H5Tget_size(dset.dtype_c.hid_t)
-    result = newSeq[char](data.len * size.int)
-    for i, el in data:
-      # only copy as many bytes as either in input string to write or
-      # as we have space in the allocated fixed length dataset
-      let copyLen = min(size.int,  el.len)
-      copyMem(result[i * size.int].addr, el[0].addr, copyLen)
-  else:
-    # just make sure the data is a flat `seq[T]`. If not, flatten to have
-    # flat memory to write
-    result = seqmath.flatten(data)
-
-proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) =
-  ## procedure to write a sequence of array to a dataset
-  ## will be given to HDF5 library upon call, H5DataSet object
-  ## does not store the data
-  ## inputs:
-  ##    dset: var H5DataSet = the dataset which contains the necessary information
-  ##          about dataset shape, dtype etc. to write to
-  ##    ind: DsetReadWrite = indicator telling us to write whole dataset,
-  ##         used to differentiate from the case in which we only write a hyperslab
-  ##    data: openArray[T] = any array type containing the data to be written
-  ##         needs to be of the same size as the shape given during creation of
-  ##         the dataset or smaller
-  ## throws:
-  ##    ValueError: if the shape of the input dataset is different from the reserved
-  ##         size of the dataspace on which we wish to write in the H5 file
-  ##         TODO: create an appropriate Exception for this case!
-  # TODO: IMPORTANT: think about whether we should be using array types instead
-  # of a dataspace of certain dimensions for arrays / nested seqs we're handed
-
-  var err: herr_t
-
-  if ind == RW_ALL:
-    let shape = dset.shape
-    withDebug:
-      echo "shape is ", shape, " of dset ", dset.name
-      echo "shape is a ", type(shape).name, " and data is a "
-      echo type(data).name, " and data.shape = ", data.shape
-    # check whether we will write a 1 column dataset. If so, relax
-    # requirements of shape check. In this case only compare 1st element of
-    # shapes. We compare shape[1] with 1, because atm we demand VLEN data to be
-    # a 2D array with one column. While in principle it's a N element vector
-    # it is always promoted to a (N, 1) array.
-    if shape[0] == data.shape[0]:
-      if dset.dtype_class == H5T_VLEN:
-        # TODO: should we also check whether data really is 1D? or let user
-        # deal with that? will flatten the array anyways, so in case on tries
-        # to write a 2D array as vlen, the flattened array will end up as vlen
-        # in the file in this case we need to prepare the data further by
-        # assigning the data to a hvl_t struct
-        when T is seq or T is string:
-          # strings as variable length data are written as VLEN arrays of `char`!
-          var data_hvl = data.toH5vlen
-          err = H5Dwrite(dset.dataset_id.hid_t,
-                         dset.dtype_c.hid_t,
-                         H5S_ALL,
-                         H5S_ALL,
-                         H5P_DEFAULT,
-                         addr(data_hvl[0]))
-          if err < 0:
-            withDebug:
-              echo "Trying to write data_hvl ", data_hvl
-            raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
-                               "while calling `H5Dwrite` in `[All]=`")
-        else:
-          echo "VLEN datatype does not make sense, if the data is of type seq[$#]" % T.name
-          echo "Use normal datatype instead. Or did you only hand a single element"
-          echo "of your vlen data?"
-      elif dset.dtype_class == H5T_STRING and dset.dtype_c.isVariableString:
-        # This branch corresponds to writing variable length strings (*not* variable length
-        # data of type `char`!). Data is converted to `cstring` to have data that is flat
-        # in memory (which `seq[string]` is not!)
-        when T is string:
-          var cstringData = data.mapIt(it.cstring)
-          err = H5Dwrite(dset.dataset_id.hid_t,
-                         dset.dtype_c.hid_t,
-                         H5S_ALL,
-                         H5S_ALL,
-                         H5P_DEFAULT,
-                         addr(cstringData[0]))
-          if err < 0:
-            withDebug:
-              echo "Trying to write data_hvl ", data_hvl
-            raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
-                               "while calling `H5Dwrite` in `[All]=`")
-        else:
-          raise newException(ValueError, "Writing a `seq[" & $T & "] to a string dataset not possible.")
-      else:
-        # NOTE: for some reason if we don't specify `seqmath` for `flatten`, the
-        # correct proc is not found
-        var data_write = prepareData(data, dset)
-        err = H5Dwrite(dset.dataset_id.hid_t,
-                       dset.dtype_c.hid_t,
-                       H5S_ALL,
-                       H5S_ALL,
-                       H5P_DEFAULT,
-                       addr(data_write[0]))
-        if err < 0:
-          withDebug:
-            echo "Trying to write data_write ", data_write
-          raise newException(HDF5LibraryError, "Call to HDF5 library failed " &
-            "while calling `H5Dwrite` in `[All]=`")
-    else:
-      var msg = "Wrong input shape of data to write in `[]=` while accessing " &
-        "`$#`. Given shape `$#`, dataset has shape `$#`"
-      msg = msg % [$dset.name, $data.shape, $dset.shape]
-      raise newException(ValueError, msg)
-  else:
-    echo "Dataset not assigned anything, ind: DsetReadWrite invalid"
 
 proc `[]=`*[T](dset: H5DataSet, inds: HSlice[int, int], data: seq[T]) =
   ## procedure to write a sequence of array to a dataset
