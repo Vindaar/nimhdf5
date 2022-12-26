@@ -10,7 +10,7 @@ skipExt       = @["nim~"]
 
 # Dependencies
 
-requires "nim >= 1.0.0"
+requires "nim >= 1.6.0"
 requires "https://github.com/vindaar/seqmath >= 0.1.17"
 # for blosc support install:
 # requires "nblosc >= 1.15.0"
