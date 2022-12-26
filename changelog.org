@@ -1,3 +1,12 @@
+* v0.5.2
+- remove support for reading into a ~cstring~, as this is not well
+  defined. A local cstring that needs to be created cannot be returned
+  (without dealing manually with allocations)
+- add ~add~, ~write_hyperslab~, ~read~ working with ~ptr T~ for direct
+  access with a manual memory region (useful when working with things
+  like ~Tensors~)
+- reorder ~dataset.nim~ code a little bit
+- support ~openArray~ in more places    
 * v0.5.1
 - (finally!) add support for =string= datasets
   - fixed length string datasets, written by constructing a
