@@ -503,7 +503,7 @@ proc `[]=`*[T](dset: H5DataSet, ind: DsetReadWrite, data: seq[T]) =
 # Forward declare read and write hyperslab procedures for convenience
 # writing / reading procedures (for the case of slices)
 proc write_hyperslab*[T](dset: H5DataSet,
-                         data: seq[T],
+                         data: openArray[T],
                          offset,
                          count: seq[int],
                          stride, blk: seq[int] = @[])
