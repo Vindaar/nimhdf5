@@ -570,7 +570,7 @@ proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
     echo "data is of ", type(data).name, " and length = ", length
 
   # only write pointer data if shorter than size of dataset
-  if dset.shape.foldl(a * b) <= length:
+  if shape.foldl(a * b) <= length:
     if dset.isVlen():
       raise newException(ValueError, "Cannot write variable length data " &
         "using `unsafeWrite`!")
@@ -881,9 +881,20 @@ proc readAs*[T: SomeNumber](h5f: H5File, dset: string, dtype: typedesc[T]): seq[
   let dset = h5f.get(dset.dset_str)
   result = dset.readAs(dtype)
 
+proc read*[T](dset: H5DataSet, buf: ptr T) =
+  ## read whole dataset into buffer `ptr T`. Unsafe and the caller needs to make sure
+  ## the buffer can hold the data and possibly check the types!
+  let err = H5Dread(dset.dataset_id.hid_t, dset.dtype_c.hid_t, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                    buf)
+  if err < 0:
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+        "calling `H5Dread` in full `read`")
+
+proc read*[T](h5f: H5File, dset: string, buf: ptr T) =
+  let dset = h5f[dset.dset_str]
+  dset.read(buf)
+
 proc read*[T](dset: H5DataSet, buf: var seq[T], ignoreShapeCheck = false) =
-  ## read whole dataset
-  ## XXX: handle string fields instead of erroring!
   when T is object:
     if buf.len > 0:
       for field in fields(buf[0]):
@@ -891,8 +902,7 @@ proc read*[T](dset: H5DataSet, buf: var seq[T], ignoreShapeCheck = false) =
           {.error: "Reading data of objects with string fields currently still unsupported! " &
             "The relevant type is: " & $T & " with string field: " & $astToStr(field).}
   if ignoreShapeCheck or buf.len == foldl(dset.shape, a * b, 1):
-    discard H5Dread(dset.dataset_id.hid_t, dset.dtype_c.hid_t, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                      addr(buf[0]))
+    dset.read(buf[0].addr)
     # now write data back into the buffer
     # for ind in 0..data.high:
     #   let inds = getIndexSeq(ind, shape)
@@ -1406,80 +1416,80 @@ proc select_hyperslab(dset: H5DataSet,
       "calling `H5Sselect_hyperslab` in `select_hyperslab`")
 
 proc write_hyperslab*[T](dset: H5DataSet,
-                         data: seq[T],
+                         data: ptr T,
+                         shape: seq[int],
                          offset,
                          count: seq[int],
                          stride, blk: seq[int] = @[]) =
-  ## proc to select a hyperslab and write to it
+  ## proc to select a hyperslab and write to it.
+  ## The input data must be a pointer to a contiguous memory array!
+  ##
   ## The HDF5 notation for hyperslabs is used.
   ## See sec. 7.4.1.1 in the HDF5 user's guide:
   ## https://support.hdfgroup.org/HDF5/doc/UG/HDF5_Users_Guide-Responsive%20HTML5/index.html
   # if no data given, simply return
   # TODO: parse hyperslab selection and make sure data is same number as hyperslab
   # covers!
-  if data.len == 0:
+  if shape.len == 0 :
     return
-
-  var err: herr_t
-
-  var memspace_id: MemspaceID
-  if dset.dtype_class == H5T_VLEN:
-    # in case of variable length data, the dataspace should be of layout
-    # (# VLEN elements, 1)
-    let memspaceShape = @[data.shape[0], 1]
-    memspace_id = simple_memspace(memspaceShape)
-    withDebug:
-      echo "Data shape ", data.shape
-      echo "Data type class ", dset.dtype_class
-      echo "memspace select ", H5Sget_select_npoints(memspace_id.hid_t)
-      echo "dataspace is valid ", H5Sselect_valid(dset.dataspace_id.hid_t)
-      echo "memspace is valid ", H5Sselect_valid(memspace_id.hid_t)
-      var start: seq[hsize_t] = @[hsize_t(999), 999]
-      var ending: seq[hsize_t] = @[hsize_t(999), 999]
-      echo H5Sget_select_bounds(dset.dataspace_id.hid_t, addr(start[0]), addr(ending[0]))
-      echo "start and ending ", start, " ", ending
-
-    var md = data
-    when T is seq:
-      # in case we're dealing with variable length data, we know that the `data` is always
-      # a nested `seq`, i.e. `T` is a `seq`. Need this guard, because otherwise code, which
-      # does not actually run into the "VLEN" branch here will still be compiled against
-      # it. The call to `toH5vlen` will fail, since it's a template which does not return
-      # anything for `T isnot seq`.
-      # TODO: replace template by typed template / proc?
-      var mdata_hvl = md.toH5vlen
-      let hyperslab_id = dset.select_hyperslab(offset, count, stride, blk)
-      err = H5Dwrite(dset.dataset_id.hid_t,
+  # flatten the data array to be written
+  let memspace_id = simple_memspace(shape)
+  let hyperslab_id = dset.select_hyperslab(offset, count, stride, blk)
+  withDebug:
+    echo "Selected now write space id ", hyperslab_id
+  let err = H5Dwrite(dset.dataset_id.hid_t,
                      dset.dtype_c.hid_t,
                      memspace_id.hid_t,
                      hyperslab_id.hid_t,
                      H5P_DEFAULT,
-                     addr(mdata_hvl[0]))
-      if err < 0:
-        withDebug:
-          echo "Trying to write VLEN data with shape ", memspaceShape
-        raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
-          "calling `H5Dwrite` in `write_hyperslab` trying to write VLEN data.")
-  else:
-    # flatten the data array to be written
-    var mdata = data.flatten
-
-    memspace_id = simple_memspace(data.shape)
-    let hyperslab_id = dset.select_hyperslab(offset, count, stride, blk)
+                     data)
+  if err < 0:
     withDebug:
-      echo "Selected now write space id ", hyperslab_id
-    err = H5Dwrite(dset.dataset_id.hid_t,
-                   dset.dtype_c.hid_t,
-                   memspace_id.hid_t,
-                   hyperslab_id.hid_t,
-                   H5P_DEFAULT,
-                   addr(mdata[0]))
-    if err < 0:
-      withDebug:
-        echo "Trying to write mdata with shape ", mdata.shape
-      raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
-        "calling `H5Dwrite` in `write_hyperslab`")
+      echo "Trying to write mdata with shape ", mdata.shape
+    raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
+      "calling `H5Dwrite` in `write_hyperslab`")
   memspace_id.close()
+
+proc write_hyperslab*[T](
+  dset: H5DataSet,
+  data: openArray[T],
+  offset,
+  count: seq[int],
+  stride, blk: seq[int] = @[]) =
+  ## proc to select a hyperslab and write to it for 1D data.
+  ## The HDF5 notation for hyperslabs is used.
+  ## See sec. 7.4.1.1 in the HDF5 user's guide:
+  ## https://support.hdfgroup.org/HDF5/doc/UG/HDF5_Users_Guide-Responsive%20HTML5/index.html
+  if data.len == 0 :
+    return
+  if dset.isVlen():
+    # in case of variable length data, the dataspace should be of layout
+    # (# VLEN elements, 1)
+    let shape = @[data.shape[0], 1]
+    # in case we're dealing with variable length data, we know that the `data` is always
+    # a nested `seq`, i.e. `T` is a `seq`. Need this guard, because otherwise code, which
+    # does not actually run into the "VLEN" branch here will still be compiled against
+    # it. The call to `toH5vlen` will fail, since it's a template which does not return
+    # anything for `T isnot seq`.
+    # TODO: replace template by typed template / proc?
+    when T is seq:
+      var mdata_hvl = data.toH5vlen
+      write_hyperslab(dset,
+                      mdata_hvl[0].addr,
+                      shape,
+                      offset, count, stride, blk)
+    else:
+      raise newException(ValueError, "Writing to variable length data with a 1D input is " &
+        "not possible.")
+  else:
+    when T is seq:
+      var mdata = data.flatten
+    else:
+      template mdata(): untyped = data # already flat!
+    write_hyperslab(dset,
+                    mdata[0].addr,
+                    data.shape,
+                    offset, count, stride, blk)
 
 proc sizeOfHyperslab(offset, count, stride, blk: seq[hsize_t]): int =
   ## proc to calculate the number of elements in a defined
@@ -1680,7 +1690,9 @@ proc resize*[T: tuple | seq](dset: H5DataSet, shape: T) =
     raise newException(ImmutableDatasetError, "Cannot resize a non-chunked " &
                        " (i.e. contiguous) dataset!")
 
-proc add*[T](dset: H5DataSet, data: T, axis = 0, rewriteAsChunked = false) =
+proc add*[T](dset: H5DataSet, data: ptr T,
+             shape: seq[int],
+             axis = 0, rewriteAsChunked = false) =
   ## Adds the `data` to the `dset` thereby resizing the dataset to fit
   ## the additional data. For this `data` must be compatible with the
   ## existing dataset.
@@ -1692,7 +1704,7 @@ proc add*[T](dset: H5DataSet, data: T, axis = 0, rewriteAsChunked = false) =
     # simply resize and write the hyperslab
     let oldShape = dset.shape
     var newShape = oldShape
-    newShape[axis] = oldShape[axis] + data.shape[axis]
+    newShape[axis] = oldShape[axis] + shape[axis]
     # before resizing, check that newShape <= maxShape
     if zip(newShape, dset.maxShape).anyIt(it[0].int > it[1].int):
       raise newException(ImmutableDatasetError, "The new required shape to " &
@@ -1702,8 +1714,9 @@ proc add*[T](dset: H5DataSet, data: T, axis = 0, rewriteAsChunked = false) =
     var offset = newSeq[int](oldShape.len)
     offset[axis] = oldShape[axis]
     var count = oldShape
-    count[axis] = data.shape[axis]
+    count[axis] = shape[axis]
     dset.write_hyperslab(data,
+                         shape,
                          offset = offset,
                          count = count)
   elif rewriteAsChunked:
@@ -1713,7 +1726,37 @@ proc add*[T](dset: H5DataSet, data: T, axis = 0, rewriteAsChunked = false) =
     raise newException(ImmutableDatasetError, "Cannot add data to a non-chunked " &
       "dataset, unless the `rewriteAsChunked` option is set to true!")
 
+proc add*[T: seq|openArray](dset: H5DataSet, data: openArray[T], axis = 0, rewriteAsChunked = false) =
+  ## Note: for nested data (VLEN or ND via seq[seq[...]])
+  ##
+  ## Adds the `data` to the `dset` thereby resizing the dataset to fit
+  ## the additional data. For this `data` must be compatible with the
+  ## existing dataset.
+  ## The data is added along `axis`.
+  ## If the rewriteAsChunked flag is set to true, the existing dataset
+  ## will be read to memory, removed from file, recreated as chunked and
+  ## written back to file.
+  if dset.isVlen:
+    let data_hvl = data.toH5vlen()
+    dset.add(data_hvl[0].addr, @[data.shape[0], 1], axis, rewriteAsChunked)
+  else:
+    let flat = data.flatten
+    dset.add(flat[0].addr, data.shape, axis, rewriteAsChunked)
 
+proc add*[T: not (seq|openArray)](dset: H5DataSet, data: openArray[T], axis = 0, rewriteAsChunked = false) =
+  ## Note: for 1D data (not VLEN)
+  ##
+  ## Adds the `data` to the `dset` thereby resizing the dataset to fit
+  ## the additional data. For this `data` must be compatible with the
+  ## existing dataset.
+  ## The data is added along `axis`.
+  ## If the rewriteAsChunked flag is set to true, the existing dataset
+  ## will be read to memory, removed from file, recreated as chunked and
+  ## written back to file.
+  if dset.isVlen:
+    raise newException(ValueError, "Cannot write 1D data to a VLEN dataset " & $dset.name)
+  else:
+    dset.add(data[0].addr, data.shape, axis, rewriteAsChunked)
 
 proc open*(h5f: H5File, dset: dset_str) =
   ## Opens the given `dset` and updates the data stored in the `datasets` table of
