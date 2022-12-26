@@ -1738,10 +1738,10 @@ proc add*[T: seq|openArray](dset: H5DataSet, data: openArray[T], axis = 0, rewri
   ## written back to file.
   if dset.isVlen:
     let data_hvl = data.toH5vlen()
-    dset.add(data_hvl[0].addr, @[data.shape[0], 1], axis, rewriteAsChunked)
+    dset.add(data_hvl[0].unsafeAddr, @[data.shape[0], 1], axis, rewriteAsChunked)
   else:
     let flat = data.flatten
-    dset.add(flat[0].addr, data.shape, axis, rewriteAsChunked)
+    dset.add(flat[0].unsafeAddr, data.shape, axis, rewriteAsChunked)
 
 proc add*[T: not (seq|openArray)](dset: H5DataSet, data: openArray[T], axis = 0, rewriteAsChunked = false) =
   ## Note: for 1D data (not VLEN)
@@ -1756,7 +1756,7 @@ proc add*[T: not (seq|openArray)](dset: H5DataSet, data: openArray[T], axis = 0,
   if dset.isVlen:
     raise newException(ValueError, "Cannot write 1D data to a VLEN dataset " & $dset.name)
   else:
-    dset.add(data[0].addr, data.shape, axis, rewriteAsChunked)
+    dset.add(data[0].unsafeAddr, data.shape, axis, rewriteAsChunked)
 
 proc open*(h5f: H5File, dset: dset_str) =
   ## Opens the given `dset` and updates the data stored in the `datasets` table of
