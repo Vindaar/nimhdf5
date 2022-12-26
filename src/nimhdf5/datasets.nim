@@ -1487,7 +1487,7 @@ proc write_hyperslab*[T](
     else:
       template mdata(): untyped = data # already flat!
     write_hyperslab(dset,
-                    mdata[0].addr,
+                    mdata[0].unsafeAddr,
                     data.shape,
                     offset, count, stride, blk)
 
