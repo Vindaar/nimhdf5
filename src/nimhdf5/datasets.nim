@@ -25,6 +25,22 @@ import hdf5_wrapper, H5nimtypes, datatypes, dataspaces,
        attributes, filters, util, h5util
 from groups import create_group
 
+
+proc high*(dset: H5DataSet, axis = 0): int =
+  ## convenience proc to return the highest possible index of
+  ## the dataset along a given axis (in a given dimension)
+  ## inputs:
+  ##   dset: var H5DataSet = dataset for which to return index
+  ##   axis: int = axis for which to return highest index. By default
+  ##     first axis is used. Mostly useful for 1D datasets
+  ## outputs:
+  ##   int = highest index along `axis`
+  result = dset.shape[axis] - 1
+
+proc isVlen*(dset: H5Dataset): bool =
+  ## Returns true if the dataset is a variable length dataset
+  result = dset.dtype_class == H5T_VLEN
+
 when false:
   ## XXX: this was an idea to add a non raising API at some point. Guess I never finished that.
   proc getDset(h5f: H5File, dsetName: string): Option[H5DataSet] =
@@ -402,7 +418,7 @@ proc write*[T](dset: H5DataSet, data: seq[T]) =
   # a 2D array with one column. While in principle it's a N element vector
   # it is always promoted to a (N, 1) array.
   if shape[0] == data.shape[0]:
-    if dset.dtype_class == H5T_VLEN:
+    if dset.isVlen():
       # TODO: should we also check whether data really is 1D? or let user
       # deal with that? will flatten the array anyways, so in case on tries
       # to write a 2D array as vlen, the flattened array will end up as vlen
@@ -555,7 +571,7 @@ proc unsafeWrite*[T](dset: H5DataSet, data: ptr T, length: int) =
 
   # only write pointer data if shorter than size of dataset
   if dset.shape.foldl(a * b) <= length:
-    if dset.dtype_class == H5T_VLEN:
+    if dset.isVlen():
       raise newException(ValueError, "Cannot write variable length data " &
         "using `unsafeWrite`!")
     else:
@@ -661,7 +677,7 @@ proc write_norm*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
 
 template write*[T: seq, U](dset: H5DataSet, coord: seq[T], data: seq[U]) =
   ## template around both write fns for normal and vlen data
-  if dset.dtype_class == H5T_VLEN:
+  if dset.isVlen():
     dset.write_vlen(coord, data)
   else:
     dset.write_norm(coord, data)
@@ -671,7 +687,7 @@ proc write*[T: (SomeNumber | bool | char | string), U](dset: H5DataSet,
                                                        data: seq[U]) =
   ## template around both write fns for normal and vlen data in case
   ## the coordinates are given as a seq of numbers (i.e. for 1D datasets!)
-  if dset.dtype_class == H5T_VLEN:
+  if dset.isVlen():
     # we convert the list of indices to corresponding (y, x) coordinates, because
     # each VLEN table with 1 column, still is a 2D array, which only has the
     # x == 0 column
@@ -682,7 +698,6 @@ proc write*[T: (SomeNumber | bool | char | string), U](dset: H5DataSet,
     #   coord is a SINGLE coordinate for the array
     # - or data is 1D (read (N, ) dimensional) in which case we have
     #   handed 1 or more indices to write 1 or more elements!
-    echo dset.shape, " and coord ", coord
     if dset.shape.len != 1:
       dset.write_norm(@[coord], data)
     else:
@@ -703,7 +718,7 @@ proc write*[T: (seq | SomeNumber | bool | char | string)](dset: H5DataSet,
   when T is seq:
     # if this is the case we either want to write a whole row (2D array) or
     # a single value in VLEN data
-    if dset.dtype_class == H5T_VLEN:
+    if dset.isVlen():
       # does not make sense for tensor
       dset.write(@[ind], data)
     else:
@@ -1086,7 +1101,7 @@ proc read*[T](dset: H5DataSet, inds: HSlice[int, int], t: typedesc[T], allowVlen
   ## throws:
   ##     ValueError: in case the given typedesc t is different than
   ##         the datatype of the dataset
-  if dset.dtype_class == H5T_VLEN:
+  if dset.isVlen():
     result = dset.read_hyperslab_vlen(
       T,
       offset = @[inds.a, 0], count = @[inds.b - inds.a + 1, 1]
@@ -1605,7 +1620,7 @@ proc read_hyperslab_vlen*[T](dset: H5DataSet, dtype: typedesc[T],
                                     blk,
                                     full_output)
 
-  doAssert dset.dtype_class == H5T_VLEN
+  doAssert dset.isVlen()
   var mdata = newSeq[hvl_t](n_elements)
   err = H5Dread(dset.dataset_id.hid_t,
                 dset.dtype_c.hid_t,
@@ -1696,20 +1711,7 @@ proc add*[T](dset: H5DataSet, data: T, axis = 0, rewriteAsChunked = false) =
     raise newException(ImmutableDatasetError, "Cannot add data to a non-chunked " &
       "dataset, unless the `rewriteAsChunked` option is set to true!")
 
-proc high*(dset: H5DataSet, axis = 0): int =
-  ## convenience proc to return the highest possible index of
-  ## the dataset along a given axis (in a given dimension)
-  ## inputs:
-  ##   dset: var H5DataSet = dataset for which to return index
-  ##   axis: int = axis for which to return highest index. By default
-  ##     first axis is used. Mostly useful for 1D datasets
-  ## outputs:
-  ##   int = highest index along `axis`
-  result = dset.shape[axis] - 1
 
-proc isVlen*(dset: H5Dataset): bool =
-  ## Returns true if the dataset is a variable length dataset
-  result = dset.dtype_class == H5T_VLEN
 
 proc open*(h5f: H5File, dset: dset_str) =
   ## Opens the given `dset` and updates the data stored in the `datasets` table of
