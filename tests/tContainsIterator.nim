@@ -1,5 +1,7 @@
 import nimhdf5, sets, unittest, sets, strutils
+from os import removeFile
 
+const File = "tests/tContainsIterator.h5"
 var expDsets = initHashSet[string]()
 var expGroups = initHashSet[string]()
 proc createDatasets(h5f: H5File) =
@@ -25,7 +27,7 @@ proc createDatasets(h5f: H5File) =
   expGroups.incl "/baz"
 
 when isMainModule:
-  var h5f = H5open("tContainsIterator.h5", "w")
+  var h5f = H5open(File, "w")
   h5f.createDatasets()
 
   block Groups:
@@ -106,3 +108,8 @@ when isMainModule:
     check "foo/data" in h5f
     check "data" in rootGrp # insensitive to `/` as there is a data in the root
     check "foo/data" in rootGrp
+
+  let err = h5f.close()
+  assert err >= 0
+
+  removeFile(File)
