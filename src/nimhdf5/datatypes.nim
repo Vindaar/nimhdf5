@@ -928,8 +928,8 @@ proc getH5read_non_exist_file*(filename: string): string =
     "access will create the file for you."
 
 import sequtils
-template toH5vlen*[T](data: seq[T]): untyped =
-  when T is seq or T is string or T is cstring:
+template toH5vlen*[T](data: openArray[T]): untyped =
+  when T is (seq|openArray) or T is string or T is cstring:
     mapIt(toSeq(0..data.high)) do:
       if data[it].len > 0:
         hvl_t(`len`: csize_t(data[it].len), p: unsafeAddr(data[it][0]))
