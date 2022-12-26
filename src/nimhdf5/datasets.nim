@@ -1009,20 +1009,19 @@ else:
       inc idx
     s.setLen(idx)
 
-proc readFixedStringData[T: cstring | string](s: var seq[T], dset: H5Dataset) =
+proc readFixedStringData(s: var seq[string], dset: H5Dataset) =
   # get size of stored strings
-  doAssert not dset.dtype_c.isVariableString(), "String is variable! Read as `string`, not `cstring`."
+  doAssert not dset.dtype_c.isVariableString(), "String is variable! Read using `readVlenStringData`."
   let size = H5Tget_size(dset.dtype_c.hid_t)
   var buf = newSeq[char](s.len * size.int) #char](n_elements * size.int)
   # read into `buf` ignoring the check of the shape
   dset.read(buf, ignoreShapeCheck = true)
   for i in 0 ..< s.len:
-    s[i] = T(newString(size.int))
+    s[i] = newString(size.int)
     copyMem(s[i][0].addr, buf[i * size.int].addr, size.int)
-    when T is string:
-      s[i].strip(leading = false, chars = {'\0'})
+    s[i].strip(leading = false, chars = {'\0'})
 
-proc readVlenStringData[T: cstring | string](s: var seq[T], dset: H5Dataset) =
+proc readVlenStringData(s: var seq[string], dset: H5Dataset) =
   # get size of stored strings
   doAssert dset.dtype_c.isVariableString(), "String is variable! Read as `string`, not `cstring`."
   let size = H5Tget_size(dset.dtype_c.hid_t)
@@ -1030,7 +1029,7 @@ proc readVlenStringData[T: cstring | string](s: var seq[T], dset: H5Dataset) =
   # read into `buf` ignoring the check of the shape
   dset.read(buf, ignoreShapeCheck = true)
   for i in 0 ..< s.len:
-    s[i] = T(newString(buf[i].len))
+    s[i] = newString(buf[i].len)
     copyMem(s[i][0].addr, buf[i][0].addr, buf[i].len)
   # let H5 reclaim memory
   let err = H5Dvlen_reclaim(dset.dtype_c.hid_t, dset.dataspace_id().hid_t, H5P_DEFAULT, addr(buf[0]))
@@ -1038,7 +1037,7 @@ proc readVlenStringData[T: cstring | string](s: var seq[T], dset: H5Dataset) =
     raise newException(HDF5LibraryError, "Failed to let HDF5 library reclaim variable length string " &
       "buffer.")
 
-proc readStringData[T: cstring | string](s: var seq[T], dset: H5DataSet) =
+proc readStringData(s: var seq[string], dset: H5DataSet) =
   ## Reads data from a string dataset. Takes care of dispatching to the correct procedure
   ## depending on fixed lenth strings (flat data) or variable length strings.
   if dset.dtype_c.isVariableString():
@@ -1081,7 +1080,10 @@ proc read*[T](dset: H5DataSet, t: typedesc[T], allowVlen = false): seq[T] =
         shape = dset.shape
         n_elements = foldl(shape, a * b)
       result = newSeq[T](n_elements)
-      when T is cstring or T is string:
+      when T is cstring:
+        {.error: "Cannot read into a `cstring` as we cannot return a cstring without manual " &
+          "allocation in the calling scope. Use the `ptr T` (using `char`) `read` procedure.".}
+      when T is string:
         result.readStringData(dset)
       else:
         dset.read(result)

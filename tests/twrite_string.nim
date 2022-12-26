@@ -16,12 +16,19 @@ proc writeFixed(h5f: H5File) =
   dset[dset.all] = Data
 
 proc readFixed(h5f: H5File) =
+  ## NOTE: We cannot read into a `cstring` directly!
   let data = h5f["fixed_strings", array[5, char]]
   doAssert data == DataAr
 
-  # alternative try to read as cstring
-  let dataC = h5f["fixed_strings", cstring]
-  doAssert dataC == Data.mapIt(it.cstring)
+  # read manually using `ptr T` interface
+  var cbuf = cstring(newString(15))
+  block:
+    let dset = h5f["fixed_strings".dset_str]
+    dset.read(cbuf[0].addr)
+    doAssert cbuf == cstring("helloworldfoo\0\0")
+  block:
+    h5f.read("fixed_strings", cbuf[0].addr)
+    doAssert cbuf == cstring("helloworldfoo\0\0")
 
   # alternative try to read as string
   let dataS = h5f["fixed_strings", string]
@@ -34,11 +41,9 @@ proc writeVlenString(h5f: H5File) =
   dset[dset.all] = Data
 
 proc readVlenString(h5f: H5File) =
+  ## NOTE: We cannot read into a `cstring` directly!
   let data = h5f["vlen_strings", string]
   doAssert data == Data
-  # alternatively as `cstring`
-  let dataC = h5f["vlen_strings", cstring]
-  doAssert dataC == Data.mapIt(it.cstring)
 
 proc writeAsVlen(h5f: H5File) =
   ## NOTE: writing a string as such will make it appear as pure `uint8` VLEN data in the file. Not
