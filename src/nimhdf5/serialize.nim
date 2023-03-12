@@ -46,7 +46,7 @@ proc toH5*[T: seq](h5f: H5File, x: T, name = "", path = "/") =
     dset[dset.all] = x
   else:
     raise newException(ValueError, "For now cannot serialize a nested sequence. Argument of shape " &
-      x.shape & " and type " & $T)
+      $x.shape & " and type " & $T)
 
 proc toH5*[T: object](h5f: H5File, x: T, name = "", path = "/") =
   # construct group of the name under `path`

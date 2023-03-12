@@ -754,9 +754,8 @@ Also see the `twrite_string.nim` test case.
 """.}
 
 
-template insertType(res, nameStr, name, val: untyped): untyped =
-  H5Tinsert(res, nameStr.cstring, offsetOf(val, name).csize_t,
-            nimToH5type(typeof(val.name)).hid_t)
+template insertType(res, nameStr, offset, fieldTyp: untyped): untyped =
+  H5Tinsert(res, nameStr.cstring, offset.csize_t, nimToH5type(fieldTyp).hid_t)
 
 macro walkObjectAndInsert(dtype: typed,
                           res: untyped): untyped =
@@ -765,13 +764,29 @@ macro walkObjectAndInsert(dtype: typed,
   ## in an object to construct a compound datatype for the object
   result = newStmtList()
   let typ = dtype.getTypeImpl
-  doAssert typ.kind in {nnkObjectTy, nnkTupleTy}
+  doAssert typ.kind in {nnkObjectTy, nnkTupleTy, nnkTupleConstr}
   let implNode = if typ.kind == nnkObjectTy: typ[2] else: typ
-  for ch in implNode:
-    let nStr = ch[0].strVal
-    let n = ch[0]
+  # If we have an unnamed tuple count the fields and (at runtime) add the
+  # size of the last field to an `offset` variable to keep the offset info
+  # for the next field
+  var idx = 0
+  var offsetId = genSym(nskVar, "offset")
+  if typ.kind == nnkTupleConstr:
     result.add quote do:
-      discard insertType(`res`, `nStr`, `n`, `dtype`)
+      var `offsetId` = 0
+  for ch in implNode:
+    if typ.kind != nnkTupleConstr:
+      let nStr = ch[0].strVal
+      let n = ch[0]
+      result.add quote do:
+        discard insertType(`res`, `nStr`, offsetOf(`dtype`, `n`), typeof(`dtype`.`n`))
+    else: # unnamed tuple
+      let nStr = "Field_" & $idx
+      # calculate offset manually
+      result.add quote do:
+        discard insertType(`res`, `nStr`, `offsetId`, typeof(`ch`))
+        `offsetId` += sizeof(`ch`)
+    inc idx
 
 proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
   ## given a typedesc, we return a corresponding
