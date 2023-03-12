@@ -15,7 +15,10 @@ requires "https://github.com/vindaar/seqmath >= 0.1.17"
 # for blosc support install:
 # requires "nblosc >= 1.15.0"
 
-task test, "Runs all tests":
+task testDeps, "Install dependencies for tests":
+  exec "nimble install -y datamancer"
+
+template tests(): untyped {.dirty.} =
   exec "nim c -r tests/tbasic.nim"
   exec "nim c -r tests/tdset.nim"
   exec "nim c -r tests/tread_write1D.nim"
@@ -45,3 +48,12 @@ task test, "Runs all tests":
   if fileExists("dset.h5"): # as a test, we need to get rid of the high level H5 output file
     rmFile("dset.h5")
   exec "nim c -r examples/h5_high_level_example.nim"
+
+task test, "Runs all tests":
+  tests()
+
+task testCI, "Run all tests in CI, including serialization":
+  # For the following we need to add a nimble task to install test dependencies
+  tests()
+  # and the serialization test requiring `datamancer`
+  exec "nim c -r tests/tSerialize.nim"

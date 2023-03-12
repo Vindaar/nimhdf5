@@ -55,12 +55,13 @@ jobs:
           cd nimhdf5
           nimble refresh -y
           nimble install -y
+          nimble -y testDeps
 
       - name: Run tests
         shell: bash
         run: |
           cd nimhdf5
-          nimble -y test
+          nimble -y testCI
 
       #- name: Build docs
       #  if: >

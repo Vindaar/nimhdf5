@@ -1,3 +1,12 @@
+* v0.5.3
+- add basic serialization submodule to auto serialize most objects to
+  a H5 file. Scalar types are written as attributes and non scalar as
+  datasets.
+  Can be extended for complicated custom types by using the ~toH5~
+  hook. See the ~tSerialize.nim~ test and the ~serialize.nim~ file.
+  Note: currently no deserialization is supported. You need to parse
+  the data back into your file if needed. An equivalent inverse can be
+  added, but has no priority at the moment.
 * v0.5.2
 - remove support for reading into a ~cstring~, as this is not well
   defined. A local cstring that needs to be created cannot be returned
