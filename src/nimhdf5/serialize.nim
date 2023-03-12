@@ -32,17 +32,31 @@ proc toH5*[T: enum](h5f: H5File, x: T, name = "", path = "/") =
   let obj = h5f[path.grp_str]
   obj.attrs[name] = $x
 
+template innerTyp(x: typed): untyped =
+  ## Argument should be a `seq`, but at least iterable via `[]`
+  typeof(x[0])
+
 proc toH5*[T: seq](h5f: H5File, x: T, name = "", path = "/") =
   ## A sequence is stored as a 1D dataset if it is a flat sequence, else we
   ## raise an exception.
   ##
+  ## For sequences of tuples the same remark as for raw tuples hold: they should
+  ## be flat types. Otherwise runtime or compile time errors may occur.
+  ##
   ## XXX: We could check manually if the sequence can be flattened (all sub elements
   ## same length) or just default to assume it is not flat and store as variable length.
   ## But what to do for 3D, 4D etc?
-  when getInnerType(x) is SomeNumber | char | string | cstring:
+  # first check for tuple, as in this case
+  when innerTyp(x) is SomeNumber | char | string | cstring:
     let dset = h5f.create_dataset(path / name,
                                   x.len, # 1D, so use length
-                                  getInnerType(x))
+                                  innerTyp(x))
+    dset[dset.all] = x
+  elif innerTyp(x) is tuple:
+    ## Tuples are written as composite data types!
+    let dset = h5f.create_dataset(path / name,
+                                  x.len, # 1D, so use length
+                                  innerTyp(x))
     dset[dset.all] = x
   else:
     raise newException(ValueError, "For now cannot serialize a nested sequence. Argument of shape " &
