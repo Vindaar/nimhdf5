@@ -26,7 +26,7 @@ proc formatName*(name: string): string =
   # do this by trying to strip any leading and trailing / from name (plus newline,
   # whitespace, if any) and then prepending a leading /
   # Note: we use `normalizePath` only for the behavior of `./`, `..` and multiple `/`
-  result = "/" & name.normalizePath().strip(chars = ({'/'} + Whitespace + NewLines))
+  result = "/" & name.replace(" ", "_").normalizePath().strip(chars = ({'/'} + Whitespace + NewLines))
 
 template getParent*(dset_name: string): string =
   ## given a `dset_name` after formating (!), return the parent name,
