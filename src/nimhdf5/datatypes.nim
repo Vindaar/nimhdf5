@@ -1,7 +1,4 @@
-import strutils
-import tables
-import strformat
-import macros
+import std / [strutils, tables, strformat, macros, typetraits]
 
 import hdf5_wrapper, H5nimtypes, util
 
@@ -803,40 +800,41 @@ proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
   # (64 bit) anyways.
 
   var res = -1.hid_t
-  when dtype is int8:
-    # for 8 bit int we take the STD LE one, since there is no
-    # native type available (besides char)
-    # TODO: are we doing this the correct way round? maybe only relevant, if
-    # we read data, as the data is STORED in some byte order...!
-    when cpuEndian == littleEndian:
-      res = H5T_STD_I8LE
+  when dtype is SomeInteger:
+    when dtype is int8:
+      # for 8 bit int we take the STD LE one, since there is no
+      # native type available (besides char)
+      # TODO: are we doing this the correct way round? maybe only relevant, if
+      # we read data, as the data is STORED in some byte order...!
+      when cpuEndian == littleEndian:
+        res = H5T_STD_I8LE
+      else:
+        res = H5T_STD_I8BE
+    elif dtype is int16:
+      res = H5T_NATIVE_SHORT
+    elif dtype is int32:
+      res = H5T_NATIVE_INT # H5T_STD_I32LE
+    when sizeOf(int) == 8:
+      if dtype is int:
+        res = H5T_NATIVE_LONG
     else:
-      res = H5T_STD_I8BE
-  elif dtype is int16:
-    res = H5T_NATIVE_SHORT
-  elif dtype is int32:
-    res = H5T_NATIVE_INT # H5T_STD_I32LE
-  when sizeOf(int) == 8:
-    if dtype is int:
+      if dtype is int:
+        res = H5T_NATIVE_INT
+    when dtype is int64:
       res = H5T_NATIVE_LONG
-  else:
-    if dtype is int:
-      res = H5T_NATIVE_INT
-  when dtype is int64:
-    res = H5T_NATIVE_LONG
-  elif dtype is uint8:
-    # for 8 bit int we take the STD LE one, since there is no
-    # native type available (besides char)
-    when cpuEndian == littleEndian:
-      res = H5T_STD_U8LE
-    else:
-      res = H5T_STD_U8BE
-  elif dtype is uint16:
-    res = H5T_NATIVE_USHORT
-  elif dtype is uint32:
-    res = H5T_NATIVE_UINT # H5T_STD_I32LE
-  elif dtype is uint or dtype is uint64:
-    res = H5T_NATIVE_ULLONG # H5T_STD_I64LE
+    elif dtype is uint8:
+      # for 8 bit int we take the STD LE one, since there is no
+      # native type available (besides char)
+      when cpuEndian == littleEndian:
+        res = H5T_STD_U8LE
+      else:
+        res = H5T_STD_U8BE
+    elif dtype is uint16:
+      res = H5T_NATIVE_USHORT
+    elif dtype is uint32:
+      res = H5T_NATIVE_UINT # H5T_STD_I32LE
+    elif dtype is uint or dtype is uint64:
+      res = H5T_NATIVE_ULLONG # H5T_STD_I64LE
   elif dtype is float32:
     res = H5T_NATIVE_FLOAT # H5T_STD_
   elif dtype is float or dtype is float64:
@@ -874,6 +872,13 @@ proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
     walkObjectAndInsert(tmpH5, res)
   elif dtype is seq:
     res = special_type(getInnerType(dtype)).hid_t ## NOTE: back conversion to hid_t
+  elif dtype is bool:
+    ## XXX: handle bool!
+    raise newException(ValueError, "Boolean types cannot be stored in HDF5 yet.")
+  elif dtype is distinct:
+    return nimToH5Type(distinctBase(dtype), variableString)
+  else:
+    {.error: "Invalid type " & $dtype & " for `nimToH5Type`.".}
   result = res.DatatypeID
 
 template anyTypeToString*(dtype: DtypeKind): string =
