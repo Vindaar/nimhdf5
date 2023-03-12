@@ -70,11 +70,13 @@ proc toH5*[T: seq](h5f: H5File, x: T, name = "", path = "/") =
       $x.shape & " and type " & $T)
 
 proc toH5*[T: object](h5f: H5File, x: T, name = "", path = "/") =
+  ## XXX: In principle we could have a check / option that allows to
+  ## store fully flat `objects` as a composite type (via the already
+  ## supported functionality).
   # construct group of the name under `path`
-  let grp = path / name / $typeof(T)
+  let grp = path / name
   discard h5f.create_group(grp)
   for field, val in fieldPairs(x):
-    echo "Field: ", field
     h5f.toH5(val, field, grp)
 
 proc toH5*[T: ref object](h5f: H5File, x: T, name = "", path = "/") =
