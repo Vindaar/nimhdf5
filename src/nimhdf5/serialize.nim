@@ -32,6 +32,13 @@ proc toH5*[T: enum](h5f: H5File, x: T, name = "", path = "/") =
   let obj = h5f[path.grp_str]
   obj.attrs[name] = $x
 
+proc toH5*[T: tuple](h5f: H5File, x: T, name = "", path = "/") =
+  ## An tuple is stored as an attribute with `name` under `path`. It is stored
+  ## as a composite datatype. If each field of the tuple is not a supported
+  ## flat object, this may raise or yield a compile time error.
+  let obj = h5f[path.grp_str]
+  obj.attrs[name] = x
+
 template innerTyp(x: typed): untyped =
   ## Argument should be a `seq`, but at least iterable via `[]`
   typeof(x[0])
