@@ -45,7 +45,6 @@ proc toH5[T](h5f: H5File, x: Tensor[T], name = "", path = "/") =
   else:
     dset[dset.all] = x.toSeq1D
 
-
 proc toH5(h5f: H5File, x: DataFrame, name = "", path = "/") =
   ## Stores the given datamancer `DataFrame` as in the H5 file.
   ## This is done by constructing a group for the dataframe and then adding
@@ -63,15 +62,6 @@ proc toH5(h5f: H5File, x: DataFrame, name = "", path = "/") =
       else:
         echo "[WARNING]: writing object column " & $k & " as string values!"
         h5f.toH5(val.valueTo(string), k, grp)
-
-proc toH5[T](x: T,
-             file: string,
-             path: string = "/") = # group in the file (to add to an existing file for example
-  var h5f = H5File(file, "rw")
-  h5f.toH5(x, path)
-  let err = h5f.close()
-  if err != 0:
-    raise newException(IOError, "Failed to close the H5 file " & $file & " after writing.")
 
 let b = Bar(a: 123, c: 'x')
 let df = toDf({"x" : @[1, 2, 3], "y" : @["a", "b", "c"]})

@@ -62,9 +62,9 @@ proc toH5*[T: ref object](h5f: H5File, x: T, name = "", path = "/") =
   h5f.toH5(x[], name, path)
 
 proc toH5*[T](x: T,
-             file: string,
-             path: string = "/") = # group in the file (to add to an existing file for example
-  var h5f = H5File(file, "rw")
+              file: string,
+              path: string = "/") = # group in the file (to add to an existing file for example
+  var h5f = H5open(file, "rw")
   h5f.toH5(x, path)
   let err = h5f.close()
   if err != 0:
