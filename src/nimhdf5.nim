@@ -45,3 +45,7 @@ export filters
 
 import nimhdf5/blosc_filter
 export blosc_filter
+
+# serialization
+import nimhdf5 / serialize
+export serialize
