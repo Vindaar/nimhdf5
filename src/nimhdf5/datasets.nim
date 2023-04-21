@@ -57,13 +57,14 @@ proc read*[T](h5f: H5File, dset: string, buf: ptr T) =
 
 proc read*[T](dset: H5DataSet, buf: var seq[T], ignoreShapeCheck = false) =
   when T is object:
-    if buf.len > 0:
+    if buf.len > 0: # dataset can be empty
       for field in fields(buf[0]):
         when typeof(field) is string:
           {.error: "Reading data of objects with string fields currently still unsupported! " &
             "The relevant type is: " & $T & " with string field: " & $astToStr(field).}
   if ignoreShapeCheck or buf.len == foldl(dset.shape, a * b, 1):
-    dset.read(buf[0].addr)
+    if buf.len > 0: # dataset can be empty
+      dset.read(buf[0].addr)
     # now write data back into the buffer
     # for ind in 0..data.high:
     #   let inds = getIndexSeq(ind, shape)
@@ -238,10 +239,11 @@ proc readVlenStringData(s: var seq[string], dset: H5Dataset) =
     s[i] = newString(buf[i].len)
     copyMem(s[i][0].addr, buf[i][0].addr, buf[i].len)
   # let H5 reclaim memory
-  let err = H5Dvlen_reclaim(dset.dtype_c.hid_t, dset.dataspace_id().hid_t, H5P_DEFAULT, addr(buf[0]))
-  if err < 0:
-    raise newException(HDF5LibraryError, "Failed to let HDF5 library reclaim variable length string " &
-      "buffer.")
+  if buf.len > 0: # if we didn't read anything, nothing to reclaim
+    let err = H5Dvlen_reclaim(dset.dtype_c.hid_t, dset.dataspace_id().hid_t, H5P_DEFAULT, addr(buf[0]))
+    if err < 0:
+      raise newException(HDF5LibraryError, "Failed to let HDF5 library reclaim variable length string " &
+        "buffer.")
 
 proc readStringData(s: var seq[string], dset: H5DataSet) =
   ## Reads data from a string dataset. Takes care of dispatching to the correct procedure
