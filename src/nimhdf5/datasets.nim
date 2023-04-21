@@ -406,7 +406,8 @@ proc parseShapeTuple[T: tuple](dims: T): seq[int] =
   for el in dims.fields:
     result.add int(el)
 
-proc parseChunkSizeAndMaxShape(dset: H5DataSet, chunksize, maxshape: seq[int]): hid_t =
+proc parseChunkSizeAndMaxShape(dset: H5DataSet, chunksize, maxshape: seq[int],
+                               filter: H5Filter, autoChunkIfFilter: bool): hid_t =
   ## proc to parse the chunk size and maxhshape arguments handed to the create_dataset()
   ## Takes into account the different possible scenarios:
   ##    chunksize: seq[int] = a sequence containing the chunksize: the dataset should be
@@ -416,6 +417,17 @@ proc parseChunkSizeAndMaxShape(dset: H5DataSet, chunksize, maxshape: seq[int]): 
   ##            - If empty sequence and chunksize == @[] -> no chunking, maxshape == shape
   ##            - If empty sequence and chunksize != @[] -> chunking, maxshape == shape
   ##            To set a specific dimension to unlimited set that dimensions value to `int.high`.
+
+  var chunksize = chunksize
+  if filter.kind != fkNone and chunksize.len == 0:
+    ## In this case we must modify the chunk size
+    if not autoChunkIfFilter:
+      raise newException(ValueError, "Cannot apply compression filter " & $filter.kind & " to the " &
+        "dataset " & $dset.name & " without a chunk size. Automatic chunking is disabled.")
+    ## Compute a chunk size that is O(64KB) chunks
+    let dims = dset.shape.len
+    for x in dset.shape:
+      chunksize.add min(pow(8192.float, 1 / dims.float).ceil.int, x)
 
   template invalidSize(s: seq[int]) =
     if s.len > 0:
@@ -539,10 +551,11 @@ proc create_dataset*[T: (tuple | int | seq)](
     dset: string,
     shape: T,
     dtype: (typedesc | DatatypeID),
-    chunksize: seq[int],
-    maxshape: seq[int],
-    filter: H5Filter,
-    overwrite = false): H5DataSet =
+    chunksize: seq[int] = @[],
+    maxshape: seq[int] = @[],
+    filter: H5Filter = H5Filter(kind: fkNone),
+    overwrite = false,
+    autoChunkIfFilter = true): H5DataSet =
   ## procedure to create a dataset given a H5file object. The shape of
   ## that type is given as a tuple, the datatype as a typedescription
   ## inputs:
@@ -562,6 +575,9 @@ proc create_dataset*[T: (tuple | int | seq)](
   ##            - If empty sequence and chunksize == @[] -> no chunking, maxshape == shape
   ##            - If empty sequence and chunksize != @[] -> chunking, maxshape == shape
   ##            To set a specific dimension to unlimited set that dimensions value to `int.high`.
+  ##    filter: The filter to apply to the dataset for compression.
+  ##    autoChunkIfFilter: Automatically chunk the data if a filter is used. This is mandatory
+  ##            to use filters. Disabling this will raise an exception in this case.
   ## outputs:
   ##    ... some dataset object, part of the file?!
   ## throws:
@@ -631,7 +647,7 @@ proc create_dataset*[T: (tuple | int | seq)](
   # in case we wish to use chunked storage (either resizable or unlimited size)
   # we need to set the chunksize on the dataset create property list
   try:
-    let status = result.parseChunkSizeAndMaxShape(chunksize, maxshape)
+    let status = result.parseChunkSizeAndMaxShape(chunksize, maxshape, filter, autoChunkIfFilter)
     if status >= 0:
       # potentially apply filters
       result.setFilters(filter)
@@ -674,28 +690,9 @@ proc create_dataset*[T: (tuple | int | seq)](
   # now create attributes field
   result.attrs = initH5Attributes(ParentID(kind: okDataset,
                                          did: result.dataset_id),
-                                result.name,
-                                "H5DataSet")
+                                  result.name,
+                                  "H5DataSet")
   h5f.datasets[dsetName] = result
-
-proc create_dataset*[T: (tuple | int | seq)](
-    h5f: H5File,
-    dset: string,
-    shape: T,
-    dtype: (typedesc | DatatypeID),
-    chunksize: seq[int] = @[],
-    maxshape: seq[int] = @[],
-    overwrite = false): H5DataSet {.inline.} =
-  ## Wrapper around full `create_dataset` proc if no filter is being used.
-  ## In this case chunksize and maxshape are optional
-  let filter = H5Filter(kind: fkNone)
-  result = h5f.create_dataset(dset,
-                              shape,
-                              dtype,
-                              chunksize,
-                              maxshape,
-                              filter,
-                              overwrite = overwrite)
 
 proc prepareData[T](data: seq[T], dset: H5Dataset): auto =
   when T is string:
