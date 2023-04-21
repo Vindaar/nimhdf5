@@ -316,6 +316,7 @@ proc getNumberOpenObject*(h5id: FileID, objectKinds: set[ObjectKind]): int =
   let err = H5Fget_obj_count(h5id.hid_t, objectKinds.toH5())
   if err < 0:
     raise newException(HDF5LibraryError, "Call to `H5get_obj_count` failed in `getNumberOpenObjects`.")
+  result = err.int
 
 proc getOpenObjectIds*(h5id: FileID, objectKinds: set[ObjectKind]): seq[hid_t] =
   ## Return all IDs of objects of `kind` that are still open in the file.
