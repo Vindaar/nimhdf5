@@ -316,16 +316,11 @@ func getH5Id*[T: H5File | H5DataSet | H5DatasetObj | H5Group | H5GroupObj | H5At
   else:
     {.error: "Invalid branch!".}
 
-proc isObjectOpen*(h5id: hid_t): bool =
-  ## Determines whether the object associated with the given ID is still open.
+proc isValidID*(h5id: hid_t): bool =
+  ## Determines whether the given ID is still valid.
   ##
   ## This procedure is valid for *any* H5 identifier, including attributes, dataspaces
   ## access property lists, etc.
-  ##
-  ## This is achieved by checking if the identifier is valid. An identifier is valid only
-  ## as long as the object is open. Note: this is sane, because we assign the ID fields
-  ## of the objects only based on calls to the H5 library, so we know these IDs are
-  ## valid at some point.
   let err = H5Iis_valid(h5id)
   if err > 0:
     result = true
@@ -335,13 +330,48 @@ proc isObjectOpen*(h5id: hid_t): bool =
     raise newException(HDF5LibraryError, "Call to `H5Iis_valid` failed calling with identifier: " &
       $h5id)
 
+proc isValidID*(h5id: ParentID): bool {.inline.} =
+  ## Determines whether the ID is still valid.
+  ##
+  ## See the docs of the overload taking a `hid_t` for more information.
+  result = h5id.to_hid_t.isValidID()
+
+proc isValidID*[T: H5File | H5Group | H5GroupObj | H5Dataset | H5DatasetObj](h5o: T): bool {.inline.} =
+  ## Determines whether the ID of the given object is still valid.
+  ##
+  ## See the docs of the overload taking a `hid_t` for more information.
+  result = h5o.getH5ID.isValidID()
+
+proc getRefCount*(h5id: hid_t): int =
+  ## Returns the reference count on the object associated with the given ID.
+  ##
+  ## This procedure is valid for *any* H5 identifier, including attributes, dataspaces
+  ## access property lists, etc.
+  if h5id.isValidID:
+    result = H5Iget_ref(h5id).int
+
+proc getRefCount*(h5id: ParentID): int {.inline.} =
+  ## Returns the reference count on the object associated with the given ID.
+  result = h5id.to_hid_t.getRefCount()
+
+proc getRefCount*[T: H5File | H5Group | H5GroupObj | H5Dataset | H5DatasetObj](h5o: T): int {.inline.} =
+  ## Returns the reference count on the object associated with the given ID.
+  result = h5o.getH5ID.getRefCount()
+
+proc isObjectOpen*(h5id: hid_t): bool =
+  ## Determines whether the object associated with the given ID is still open.
+  ##
+  ## This procedure is valid for *any* H5 identifier, including attributes, dataspaces
+  ## access property lists, etc.
+  result = h5id.getRefCount() > 0
+
 proc isObjectOpen*(h5id: ParentID): bool {.inline.} =
   ## Determines whether the object associated with the given `ParentID` still open.
   ##
   ## See the docs of the overload taking a `hid_t` for more information.
-  result = h5id.to_hid_t.isObjectOpen
+  result = h5id.to_hid_t.isObjectOpen()
 
-proc isObjectOpen*[T: H5File | H5Group | H5GroupObj | H5Dataset | H5DatasetObj](h5o: T): bool {.inline.} =
+proc isObjectOpen*[T: H5File | H5Group | H5GroupObj | H5Dataset | H5DatasetObj | H5Attr | H5AttrObj](h5o: T): bool {.inline.} =
   ## Determines whether the given object is still open.
   ##
   ## See the docs of the overload taking a `hid_t` for more information.
