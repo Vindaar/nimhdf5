@@ -302,7 +302,7 @@ proc to_hid_t*(p: ParentID): hid_t =
     raise newException(ValueError, "Cannot convert ParentID of kind " & $p.kind &
       " to a `hid_t` value.")
 
-func getH5Id*[T: H5File | H5DataSet | H5DatasetObj | H5Group | H5GroupObj](h5o: T): ParentID =
+func getH5Id*[T: H5File | H5DataSet | H5DatasetObj | H5Group | H5GroupObj | H5Attr | H5AttrObj](h5o: T): ParentID =
   ## this func returns the ID of the given object as a `ParentID`
   ## of the correct kind.
   when h5o is H5File:
@@ -311,6 +311,8 @@ func getH5Id*[T: H5File | H5DataSet | H5DatasetObj | H5Group | H5GroupObj](h5o: 
     result = ParentID(kind: okGroup, gid: h5o.group_id)
   elif h5o is H5DataSet or h5o is H5DatasetObj:
     result = ParentID(kind: okDataset, did: h5o.dataset_id)
+  elif h5o is H5AttrObj or h5o is H5Attr:
+    result = ParentID(kind: okAttr, attrId: h5o.attr_id)
   else:
     {.error: "Invalid branch!".}
 
