@@ -1167,7 +1167,7 @@ proc `[]`*[T](dset: H5DataSet, ind: int, t: typedesc[T]): T =
   # return element of bufer
   result = buf[0]
 
-proc `[]`*[T](dset: H5DataSet, indices: seq[int], t: typedesc[T]): seq[T] =
+proc read*[T](dset: H5DataSet, indices: seq[int], t: typedesc[T]): seq[T] =
   ## Same as above proc, but reads several indices at once
   ## inputs:
   ##   dset: var H5DataSet = the dataset from which to read an element
@@ -1193,9 +1193,25 @@ proc `[]`*[T](dset: H5DataSet, indices: seq[int], t: typedesc[T]): seq[T] =
   # return element of bufer
   result = buf
 
+proc `[]`*[T](h5f: H5File, name: string, dtype: typedesc[T]): seq[T] =
+  ## reads data from the H5file without an intermediate return of a `H5DataSet`
+  result = h5f.get(name.dset_str).read(dtype)
+
+proc `[]`*[T](dset: H5DataSet, indices: seq[int], t: typedesc[T]): seq[T] =
+  ## convenience overload for `dset.read(indices, t)`
+  dset.read(indices, t)
+
 proc `[]`*[T](dset: H5DataSet, indices: seq[int], t: DatatypeID, dtype: typedesc[T]): seq[seq[T]] =
   ## reads a single or several elements from a variable length dataset
   result = read(dset, t, dtype, indices)
+
+proc `[]`*[T](h5f: H5File, name: string, indices: seq[int], dtype: typedesc[T]): seq[T] =
+  ## reads a single or several elements from a dataset
+  result = h5f.get(name.dset_str).read(indices, dtype)
+
+proc `[]`*[T](h5f: H5File, name: string, indices: seq[int], t: DatatypeID, dtype: typedesc[T]): seq[seq[T]] =
+  ## reads a single or several elements from a variable length dataset
+  result = h5f.get(name.dset_str).read(t, dtype, indices)
 
 proc `[]`*[T](dset: H5DataSet, t: DatatypeID, dtype: typedesc[T], indices: seq[int]): seq[seq[T]]
   {.deprecated: "This proc is deprecated! Use the version with `indices` as the second argument!".} =
@@ -1214,10 +1230,6 @@ proc `[]`*[T](dset: H5DataSet, t: DatatypeID, dtype: typedesc[T], idx: int): seq
 proc `[]`*[T](dset: H5DataSet, t: DatatypeID, dtype: typedesc[T]): seq[seq[T]] =
   ## reads a whole variable length dataset, wrapper around `read`
   result = read(dset, t, dtype)
-
-proc `[]`*[T](h5f: H5File, name: string, dtype: typedesc[T]): seq[T] =
-  ## reads data from the H5file without an intermediate return of a `H5DataSet`
-  result = h5f.get(name.dset_str).read(dtype)
 
 proc `[]`*[T](h5f: H5File, name: string, t: DatatypeID, dtype: typedesc[T]):
                 seq[seq[T]] =
