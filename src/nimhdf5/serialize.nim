@@ -120,3 +120,150 @@ proc toH5*[T](h5f: H5File, x: Option[T], name = "", path = "/") =
   ## XXX: add some field (attribute?) indicating it's an option?
   if x.isSome:
     h5f.toH5(x.get, name, path)
+
+## ==============================
+## Deserialization
+## ==============================
+
+template withGrp(h5f, path, name, body: untyped): untyped =
+  let obj {.inject.} = h5f[path.grp_str]
+  if name in obj.attrs:
+    body
+
+template withDst(h5f, path, name, body: untyped): untyped =
+  if path / name in h5f:
+    body
+
+proc fromH5*[T: distinct](h5f: H5File, res: var T, name = "", path = "/") =
+  ## A single number is stored as an attribute with `name` under `path`.
+  ## An additional attribute is created that stores the name of the original type.
+  withGrp(h5f, path, name):
+    res = T(obj.attrs[name, distinctBase(T)])
+
+proc fromH5*[T: SomeNumber](h5f: H5File, res: var T, name, path: string) =
+  ## Reads the attribute `name` from `path` into `res`
+  withGrp(h5f, path, name):
+    res = obj.attrs[name, T]
+
+proc fromH5*[T: char | string | cstring | bool](h5f: H5File, res: var T, name = "", path = "/") =
+  ## A single character, string, cstring and bool are stored as an attribute with `name` under `path`
+  ## in string form.
+  withGrp(h5f, path, name):
+    when T is bool:
+      res = parseBool(obj.attrs[name, string])
+    elif T is char:
+      let s = obj.attrs[name, string]
+      doASsert s.len == 0, "Trying to read a char from a string with more than one element."
+      res = s[0]
+    elif T is string:
+      res = obj.attrs[name, string]
+    else:
+      doAssert false, "Cannot deserialize a `cstring` safely"
+
+proc fromH5*[T: enum](h5f: H5File, res: var T, name = "", path = "/") =
+  ## An enum is stored as an attribute with `name` under `path` where the
+  ## value is written as the *string value* of that attribute.
+  withGrp(h5f, path, name):
+    res = parseEnum[T](obj.attrs[name, string])
+
+proc fromH5*[T: tuple](h5f: H5File, res: var T, name = "", path = "/") =
+  ## An tuple is stored as an attribute with `name` under `path`. It is stored
+  ## as a composite datatype. If each field of the tuple is not a supported
+  ## flat object, this may raise or yield a compile time error.
+  withGrp(h5f, path, name):
+    res = obj.attrs[name, T]
+
+proc fromH5*[T](h5f: H5File, res: var set[T], name = "", path = "/") =
+  ## A `set` is stored as a dataset with `name` under `path` where the
+  ## elements in the set are written as string values in the dataset if the
+  ## inner type is an `enum` and otherwise as the native type.
+  withDst(h5f, path, name):
+    when T is enum:
+      let data = h5f[(path / name), string]
+      for el in data:
+        res.incl parseEnum[T](el)
+    else:
+      let data = h5f[(path / name), T]
+      for el in data:
+        res.incl T(el)
+
+proc fromH5*[N; T](h5f: H5File, res: var array[N, T], name = "", path = "/") =
+  ## An array is stored as a 1D dataset if it is a flat sequence, else we
+  ## raise an exception.
+  ##
+  ## For sequences of tuples the same remark as for raw tuples hold: they should
+  ## be flat types. Otherwise runtime or compile time errors may occur.
+  ##
+  ## XXX: We could check manually if the sequence can be flattened (all sub elements
+  ## same length) or just default to assume it is not flat and store as variable length.
+  ## But what to do for 3D, 4D etc?
+  withDst(h5f, path, name):
+    when T is SomeNumber | char | string | cstring | tuple | object:
+      let data = h5f[path / name, T]
+      doAssert res.len == data.len
+      for i, x in data:
+        res[i] = x
+    elif T is enum:
+      let data = h5f[path / name, string]
+      doAssert res.len == data.len
+      for i, x in data:
+        res[i] = parseEnum[T](x)
+    else:
+      raise newException(ValueError, "For now cannot deserialize a nested array. Argument of shape " &
+        $res.shape & " and type " & $T)
+
+proc fromH5*[T](h5f: H5File, res: var seq[T], name = "", path = "/") =
+  ## A sequence is stored as a 1D dataset if it is a flat sequence, else we
+  ## raise an exception.
+  ##
+  ## For sequences of tuples the same remark as for raw tuples hold: they should
+  ## be flat types. Otherwise runtime or compile time errors may occur.
+  ##
+  ## XXX: We could check manually if the sequence can be flattened (all sub elements
+  ## same length) or just default to assume it is not flat and store as variable length.
+  ## But what to do for 3D, 4D etc?
+  withDst(h5f, path, name):
+    when T is SomeNumber | char | string | cstring | tuple | object:
+      res = h5f[path / name, T]
+    elif T is enum:
+      let data = h5f[path / name, string]
+      res = newSeq[T](data.len)
+      for i, x in data:
+        res[i] = parseEnum[T](x)
+    else:
+      raise newException(ValueError, "For now cannot deserialize a nested sequence. Argument of shape " &
+        $res.shape & " and type " & $T)
+
+proc fromH5*[T](h5f: H5File, res: var Option[T], name = "", path = "/") =
+  ## Option is simply written as a regular object if it is `some`, else it is
+  ## ignored.
+  ## XXX: Of course when parsing we need to check and do the same.
+  ## XXX: add some field (attribute?) indicating it's an option?
+  when T is openArray | set | object | tuple:
+    if path / name in h5f:
+      var tmp: T
+      h5f.fromH5(tmp, name, path)
+      res = some( tmp )
+  else:
+    let grp = h5f[path.grp_str]
+    if name in grp.attrs:
+      res = some( grp.attrs[name, T] )
+
+proc fromH5*[T: object](h5f: H5File, res: var T, name = "", path = "/", exclude: seq[string] = @[]) =
+  let grp = path / name
+  for field, val in fieldPairs(res):
+    if field notin exclude:
+      h5f.fromH5(val, field, grp)
+
+proc deserializeH5*[T: object](h5f: H5File, name = "", path = "/", exclude: seq[string] = @[]): T =
+  ## Cannot name it same as `fromH5` because that causes the compiler to get confused. I don't understand,
+  ## but with `LikelihoodContext` it ends up calling the `var set[LikelihoodContext]` overload, which does
+  ## not make any sense.
+  h5f.fromH5(result, name, path, exclude)
+
+proc deserializeH5*[T: object](fname: string, name = "", path = "/", exclude: seq[string] = @[]): T =
+  ## Cannot name it same as `fromH5` because that causes the compiler to get confused. I don't understand,
+  ## but with `LikelihoodContext` it ends up calling the `var set[LikelihoodContext]` overload, which does
+  ## not make any sense.
+  withH5(fname, "r"):
+    h5f.fromH5(result, name, path, exclude)
