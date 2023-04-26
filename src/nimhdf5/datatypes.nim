@@ -905,8 +905,11 @@ proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
   elif dtype is seq:
     res = special_type(getInnerType(dtype)).hid_t ## NOTE: back conversion to hid_t
   elif dtype is bool:
-    ## XXX: handle bool!
-    raise newException(ValueError, "Boolean types cannot be stored in HDF5 yet.")
+    when sizeof(bool) == 1:
+      res = H5T_NATIVE_UCHAR
+    else:
+      ## XXX: handle bool IN OTHER CASES
+      raise newException(ValueError, "Boolean types cannot be stored in HDF5 yet unless it is of size 1 byte.")
   elif dtype is distinct:
     return nimToH5Type(distinctBase(dtype), variableString)
   else:
