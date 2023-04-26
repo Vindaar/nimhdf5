@@ -92,3 +92,12 @@ proc toH5*[T](x: T,
   let err = h5f.close()
   if err != 0:
     raise newException(IOError, "Failed to close the H5 file " & $file & " after writing.")
+
+import std / options
+proc toH5*[T](h5f: H5File, x: Option[T], name = "", path = "/") =
+  ## Option is simply written as a regular object if it is `some`, else it is
+  ## ignored.
+  ## XXX: Of course when parsing we need to check and do the same.
+  ## XXX: add some field (attribute?) indicating it's an option?
+  if x.isSome:
+    h5f.toH5(x.get, name, path)
