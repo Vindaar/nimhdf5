@@ -231,6 +231,8 @@ proc close*(h5f: H5File): herr_t =
     h5f.printOpenObjects()
     # should be zero now
     echo "Still open objects are ", objsYet
+    for obj in objsYet:
+      echo getName(obj)
 
   if h5f.isObjectOpen: # close file only if still open
     # flush the file
