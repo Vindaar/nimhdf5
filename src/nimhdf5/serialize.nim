@@ -39,11 +39,7 @@ proc toH5*[T: tuple](h5f: H5File, x: T, name = "", path = "/") =
   let obj = h5f[path.grp_str]
   obj.attrs[name] = x
 
-template innerTyp(x: typed): untyped =
-  ## Argument should be a `seq`, but at least iterable via `[]`
-  typeof(x[0])
-
-proc toH5*[T: seq](h5f: H5File, x: T, name = "", path = "/") =
+proc toH5*[T](h5f: H5File, x: openArray[T], name = "", path = "/") =
   ## A sequence is stored as a 1D dataset if it is a flat sequence, else we
   ## raise an exception.
   ##
@@ -54,22 +50,25 @@ proc toH5*[T: seq](h5f: H5File, x: T, name = "", path = "/") =
   ## same length) or just default to assume it is not flat and store as variable length.
   ## But what to do for 3D, 4D etc?
   # first check for tuple, as in this case
-  when innerTyp(x) is SomeNumber | char | string | cstring:
+  when T is SomeNumber | char | string | cstring | tuple | object:
+    # Note that tuples will be written as composite types!
     let dset = h5f.create_dataset(path / name,
                                   x.len, # 1D, so use length
-                                  innerTyp(x))
-    dset[dset.all] = x
-  elif innerTyp(x) is tuple:
-    ## Tuples are written as composite data types!
+                                  T,
+                                  overwrite = true)
+    dset[dset.all] = @x # make sure to convert array to seq
+  elif T is enum:
+    # Note that tuples will be written as composite types!
     let dset = h5f.create_dataset(path / name,
                                   x.len, # 1D, so use length
-                                  innerTyp(x))
-    dset[dset.all] = x
+                                  string,
+                                  overwrite = true)
+    dset[dset.all] = @x.mapIt($it) # make sure to convert array to seq
   else:
     raise newException(ValueError, "For now cannot serialize a nested sequence. Argument of shape " &
       $x.shape & " and type " & $T)
 
-proc toH5*[T: object](h5f: H5File, x: T, name = "", path = "/") =
+proc toH5*[T: object](h5f: H5File, x: T, name = "", path = "/", exclude: seq[string] = @[]) =
   ## XXX: In principle we could have a check / option that allows to
   ## store fully flat `objects` as a composite type (via the already
   ## supported functionality).
@@ -77,7 +76,8 @@ proc toH5*[T: object](h5f: H5File, x: T, name = "", path = "/") =
   let grp = path / name
   discard h5f.create_group(grp)
   for field, val in fieldPairs(x):
-    h5f.toH5(val, field, grp)
+    if field notin exclude: # skip this field
+      h5f.toH5(val, field, grp)
 
 proc toH5*[T: ref object](h5f: H5File, x: T, name = "", path = "/") =
   ## Ref objects are dereferenced and the underlying object stored. Be careful with
