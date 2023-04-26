@@ -3,6 +3,7 @@ This file contains helpers to serialize objects to a H5 file.
 
 ]#
 
+from std / strutils import parseBool, parseEnum
 from std / typetraits import distinctBase
 from os import `/`
 import ./datatypes, ./datasets, ./files, ./groups, ./util
@@ -21,16 +22,34 @@ proc toH5*[T: SomeNumber](h5f: H5File, x: T, name = "", path = "/") =
   let obj = h5f[path.grp_str]
   obj.attrs[name] = x
 
-proc toH5*[T: char | string | cstring](h5f: H5File, x: T, name = "", path = "/") =
-  ## A single character is stored as an attribute with `name` under `path`
+proc toH5*[T: char | string | cstring | bool](h5f: H5File, x: T, name = "", path = "/") =
+  ## A single character, string, cstring and bool are stored as an attribute with `name` under `path`
+  ## in string form.
   let obj = h5f[path.grp_str]
-  obj.attrs[name] = x
+  obj.attrs[name] = $x
 
 proc toH5*[T: enum](h5f: H5File, x: T, name = "", path = "/") =
   ## An enum is stored as an attribute with `name` under `path` where the
   ## value is written as the *string value* of that attribute.
   let obj = h5f[path.grp_str]
   obj.attrs[name] = $x
+
+proc toH5*[T](h5f: H5File, x: set[T], name = "", path = "/") =
+  ## A `set` is stored as a dataset with `name` under `path` where the
+  ## elements in the set are written as string values in the dataset if the
+  ## inner type is an `enum` and otherwise as the native type.
+  when T is enum:
+    let dset = h5f.create_dataset(path / name,
+                                  x.card, # 1D, so use length
+                                  string,
+                                  overwrite = true)
+    dset[dset.all] = x.toSeq.mapIt($it)
+  else:
+    let dset = h5f.create_dataset(path / name,
+                                  x.card, # 1D, so use length
+                                  T,
+                                  overwrite = true)
+    dset[dset.all] = x.toSeq
 
 proc toH5*[T: tuple](h5f: H5File, x: T, name = "", path = "/") =
   ## An tuple is stored as an attribute with `name` under `path`. It is stored
