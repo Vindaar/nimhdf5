@@ -410,7 +410,7 @@ proc close*(dtype_id: DatatypeID) =
 
 proc close*(attr: var H5AttrObj) =
   ## closes the attribute and the corresponding dataspace
-  if attr.opened and attr.attr_id.hid_t.isObjectOpen:
+  if attr.isObjectOpen():
     var err = H5Sclose(attr.attr_dspace_id.hid_t)
     if err < 0:
       raise newException(HDF5LibraryError, "Error closing dataspace of attribute with id" &
@@ -438,7 +438,7 @@ proc flush*(group: H5Group, flushKind: FlushKind) =
       " as " & $flushKind & " failed!")
 
 proc close*(group: var H5GroupObj) =
-  if group.opened and group.isObjectOpen():
+  if group.isObjectOpen():
     let err = H5Gclose(group.group_id.hid_t)
     if err != 0:
       raise newException(HDF5LibraryError, "Failed to close group " & group.name & "!")
@@ -461,7 +461,7 @@ proc flush*(dset: H5DataSetObj, flushKind: FlushKind) =
 proc flush*(dset: H5DataSet, flushKind: FlushKind) = dset[].flush(flushKind)
 
 proc close*(dset: var H5DataSetObj) =
-  if dset.opened and dset.isObjectOpen():
+  if dset.isObjectOpen():
     # close the dataset creation property list, important if filters are used
     dset.dcpl_id.close(msg = "dcpl associated with dataset: " & $dset.name)
     withDebug:
