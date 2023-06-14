@@ -489,11 +489,11 @@ proc copy*[T](h5in: H5File, h5o: T,
   if target.isSome:
     tgt = target.get
 
-  var targetGrp = if target.isSome: target.get.parentDir: else: "/"
+  var targetGrp = if target.isSome: target.get.parentDir else: "/"
   if targetGrp.len == 0:
     targetGrp = "/"
   var targetName = if target.isSome:
-                     target.get.extractFileName:
+                     target.get.extractFileName
                    else:
                      h5o.name
 
