@@ -202,7 +202,10 @@ proc fromH5*[N; T](h5f: H5File, res: var array[N, T], name = "", path = "/") =
       let data = h5f[path / name, T]
       doAssert res.len == data.len
       for i, x in data:
-        res[i] = x
+        when N is SomeInteger:
+          res[i] = x
+        else:
+          res[N(i)] = x
     elif T is enum:
       let data = h5f[path / name, string]
       doAssert res.len == data.len
