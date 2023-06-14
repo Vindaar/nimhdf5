@@ -47,7 +47,7 @@ jobs:
         if: ${{matrix.target == 'linux'}}
         run: |
           sudo apt-get update
-          sudo apt-get install pandoc libhdf5-100 libhdf5-dev
+          sudo apt-get install pandoc libhdf5-103 libhdf5-dev
 
       - name: Setup nimble & deps
         shell: bash
