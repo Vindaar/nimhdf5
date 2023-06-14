@@ -112,6 +112,27 @@ proc toH5*[T](x: T,
   if err != 0:
     raise newException(IOError, "Failed to close the H5 file " & $file & " after writing.")
 
+from std / os import sleep
+proc tryToH5*[T](
+  x: T,
+  file: string,
+  path: string = "/",
+  attempts = 100,
+  sleepTime = 1000
+               ) = # group in the file (to add to an existing file for example
+  var count = 0
+  while count < attempts:
+    try:
+      x.toH5(file, path)
+      return
+    except HDF5LibraryError:
+      echo "Failed to write to H5 file ", file, ", trying again soon..."
+      sleep(sleepTime)
+      inc count
+      continue
+  raise newException(HDF5LibraryError, "Failed to serialize file to " & $file & " after " & $attempts &
+    "attempts. Giving up.")
+
 import std / options
 proc toH5*[T](h5f: H5File, x: Option[T], name = "", path = "/") =
   ## Option is simply written as a regular object if it is `some`, else it is
@@ -270,3 +291,21 @@ proc deserializeH5*[T: object](fname: string, name = "", path = "/", exclude: se
   ## not make any sense.
   withH5(fname, "r"):
     h5f.fromH5(result, name, path, exclude)
+
+proc tryDeserializeH5*[T: object](
+  fname: string, name = "", path = "/", exclude: seq[string] = @[],
+  attempts = 100,
+  sleepTime = 1000
+               ): T =
+  var count = 0
+  while count < attempts:
+    try:
+      result = deserializeH5[T](fname, name, path, exclude)
+      return
+    except HDF5LibraryError:
+      echo "Failed to deserialize ", $T, " from H5 file ", fname, ", trying again soon..."
+      sleep(sleepTime)
+      inc count
+      continue
+  raise newException(HDF5LibraryError, "Failed to deserialize " & $T & " from file " & $fname & " after " & $attempts &
+    "attempts. Giving up.")
