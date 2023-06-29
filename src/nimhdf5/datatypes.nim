@@ -126,6 +126,7 @@ type
     parent_id*: ParentID
     # filename string, in which the dataset is located
     file*: string
+    file_id*: FileId
     # reference to the file object, in which dataset resides. Important to perform checks
     # in procs, which should not depend explicitly on H5File, but necessarily depend
     # implicitly on it, e.g. create_dataset (called from group) etc.
