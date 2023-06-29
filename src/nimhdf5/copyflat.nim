@@ -75,11 +75,18 @@ proc copyFlat[T: distinct](buf: var Buffer, x: T) =
   var target = buf.data +% buf.offsetOf
   target.copyMem(addr(x), size)
 
-proc getAddr(x: string): uint =
-  if x.len > 0:
-    result = cast[uint](addr(x[0]))
-  else:
-    result = 0
+when (NimMajor, NimMinor, NimPatch) < (1, 9, 0):
+  proc getAddr(x: string): uint =
+    if x.len > 0:
+      result = cast[uint](unsafeAddr(x[0]))
+    else:
+      result = 0
+else:
+  proc getAddr(x: string): uint =
+    if x.len > 0:
+      result = cast[uint](addr(x[0]))
+    else:
+      result = 0
 
 proc copyFlat[T: string | cstring](buf: var Buffer, x: T) =
   let size = calcSize(x)
