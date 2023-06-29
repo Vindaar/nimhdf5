@@ -1,7 +1,8 @@
 import std / [strutils, tables, strformat, macros, typetraits]
 
 import hdf5_wrapper, H5nimtypes, util
-from type_utils import needsCopy, genCompatibleTuple
+from type_utils import needsCopy, genCompatibleTuple, offsetStr, offsetTup, typeName
+
 
 # add an invalid rw code to handle wrong inputs in parseH5rw_type
 const H5F_INVALID_RW* = cuint(0x00FF)
