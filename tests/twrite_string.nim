@@ -45,16 +45,20 @@ proc readVlenString(h5f: H5File) =
   let data = h5f["vlen_strings", string]
   doAssert data == Data
 
-proc writeAsVlen(h5f: H5File) =
-  ## NOTE: writing a string as such will make it appear as pure `uint8` VLEN data in the file. Not
-  ## recommended!
-  let dset = h5f.create_dataset("strings_as_vlen", 3, special_type(char))
-  dset[dset.all] = Data
 
-  when compiles((discard h5f.create_dataset("strings_as_vlen_string", 3, special_type(string)))):
-    doAssert false, "Call to `special_type(string)` does not fail! This is a regression."
-  else:
-    discard
+## NOTE: This "feature" is not supported anymore. I will keep this test around to think about
+## it again in the future (i.e. whether this should work after all in the way that this test
+## shows or if it's fine to not support at all. A `string` is *not* a `seq[char]` after all!)
+#proc writeAsVlen(h5f: H5File) =
+#  ## NOTE: writing a string as such will make it appear as pure `uint8` VLEN data in the file. Not
+#  ## recommended!
+#  let dset = h5f.create_dataset("strings_as_vlen", 3, special_type(char))
+#  dset[dset.all] = Data
+#
+#  when compiles((discard h5f.create_dataset("strings_as_vlen_string", 3, special_type(string)))):
+#    doAssert false, "Call to `special_type(string)` does not fail! This is a regression."
+#  else:
+#    discard
 
 proc readAsVlen(h5f: H5File) =
   let data = h5f["strings_as_vlen", special_type(char), char]
@@ -66,7 +70,7 @@ when isMainModule:
 
   writeFixed(h5f)
   writeVlenString(h5f)
-  writeAsVlen(h5f)
+  #writeAsVlen(h5f)
 
   doAssert h5f.close() >= 0
 
@@ -74,7 +78,7 @@ when isMainModule:
 
   h5f.readFixed()
   h5f.readVlenString()
-  h5f.readAsVlen()
+  #h5f.readAsVlen()
 
   doAssert h5f.close() >= 0
 
