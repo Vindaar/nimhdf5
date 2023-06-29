@@ -20,12 +20,12 @@ import H5nimtypes
 import util
 import datatypes
 
-proc set_chunk*(papl_id: DatasetCreatePropertyListID, chunksize: seq[int]): hid_t =
+proc set_chunk*(papl_id: DatasetCreatePropertyListID, chunksize: seq[int]): herr_t =
   ## proc to set chunksize of the given object, should be a dataset,
   ## but we do not perform checks!
   var mchunksize = mapIt(chunksize, hsize_t(it))
   # convert return value of H5Pset_chunk to `hid_t`, because H5 wrapper returns `herr_t`
-  result = H5Pset_chunk(papl_id.hid_t, cint(len(mchunksize)), addr(mchunksize[0])).hid_t
+  result = H5Pset_chunk(papl_id.id, cint(len(mchunksize)), addr(mchunksize[0])).herr_t
 
 proc parseMaxShape(maxshape: seq[int]): seq[hsize_t] =
   ## this proc parses the maxshape given to simple_dataspace by taking into
