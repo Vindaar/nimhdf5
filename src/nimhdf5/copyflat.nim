@@ -1,3 +1,5 @@
+from util import address
+
 type
   BufferObj* {.acyclic.} = object
     size*: int
@@ -27,7 +29,7 @@ proc newBuffer*(buf: pointer, size: int): Buffer =
 
 proc newBuffer*[T](s: seq[T]): Buffer =
   result = Buffer(owned: false,
-                  data: (if s.len > 0: cast[pointer](addr(s[0]))
+                  data: (if s.len > 0: cast[pointer](address(s[0]))
                          else: nil),
                   offsetOf: 0)
 
@@ -68,25 +70,18 @@ proc copyFlat[T: object | tuple](buf: var Buffer, x: T)
 proc copyFlat[T: SimpleTypes](buf: var Buffer, x: T) =
   let size = calcSize(x)
   var target = buf.data +% buf.offsetOf
-  target.copyMem(addr(x), size)
+  target.copyMem(address(x), size)
 
 proc copyFlat[T: distinct](buf: var Buffer, x: T) =
   let size = calcSize(x)
   var target = buf.data +% buf.offsetOf
-  target.copyMem(addr(x), size)
+  target.copyMem(address(x), size)
 
-when (NimMajor, NimMinor, NimPatch) < (1, 9, 0):
-  proc getAddr(x: string): uint =
-    if x.len > 0:
-      result = cast[uint](unsafeAddr(x[0]))
-    else:
-      result = 0
-else:
-  proc getAddr(x: string): uint =
-    if x.len > 0:
-      result = cast[uint](addr(x[0]))
-    else:
-      result = 0
+proc getAddr(x: string): uint =
+  if x.len > 0:
+    result = cast[uint](address(x[0]))
+  else:
+    result = 0
 
 proc copyFlat[T: string | cstring](buf: var Buffer, x: T) =
   let size = calcSize(x)
