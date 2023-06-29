@@ -12,7 +12,7 @@ proc newH5File*(): H5File =
   let groups = newTable[string, H5Group]()
   let attrs = newH5Attributes()
   result = H5File(name: "",
-                  file_id: -1.FileID,
+                  file_id: -1.hid_t.toFileID,
                   accessFlags: {akInvalid},
                   err: -1,
                   status: -1.hid_t,
@@ -93,7 +93,7 @@ proc H5open*(name, rwType: string, accessFlags: set[AccessKind] = {}): H5File =
      raise newException(IOError, getH5rw_invalid_error())
   elif exists and akTruncate notin flags:
     ## open existing file
-    result.file_id = H5Fopen(name, flags.toH5(), H5P_DEFAULT).FileID
+    result.file_id = H5Fopen(name, flags.toH5(), H5P_DEFAULT).toFileID
   elif not exists and akRead in flags:
     # cannot open a non existing file with read only properties
     raise newException(IOError, getH5read_non_exist_file(name))
@@ -101,9 +101,9 @@ proc H5open*(name, rwType: string, accessFlags: set[AccessKind] = {}): H5File =
     # create new file
     withDebug:
       echo "Flags is  ", flags
-    result.file_id = H5Fcreate(name, flags.toH5(), H5P_DEFAULT, H5P_DEFAULT).FileID
+    result.file_id = H5Fcreate(name, flags.toH5(), H5P_DEFAULT, H5P_DEFAULT).toFileID
 
-  if result.file_id.hid_t < 0.hid_t:
+  if result.file_id.id < 0.hid_t:
     raise newException(HDF5LibraryError, "Failed to open file " & $name & " using rwType: \"" & $rwType &
       "\" and access flags: " & $accessFlags)
 
@@ -124,7 +124,7 @@ proc activateSWMR*(h5f: H5File) =
   ##
   ## This should succeed, as long as the file was opened in write mode.
   if akReadWrite in h5f.accessFlags and akWriteSWMR notin h5f.accessFlags:
-    let err = H5Fstart_swmr_write(h5f.fileID.hid_t)
+    let err = H5Fstart_swmr_write(h5f.fileID.id)
     if err < 0:
       raise newException(HDF5LibraryError, "Failed to active SWMR mode in call to " &
         "`H5Fstart_swmr_write`.")
@@ -143,9 +143,9 @@ proc flush*(h5f: H5File, flushKind: FlushKind = fkGlobal) =
   var err: herr_t
   case flushKind
   of fkGlobal:
-      err = H5Fflush(h5f.file_id.hid_t, H5F_SCOPE_GLOBAL)
+      err = H5Fflush(h5f.file_id.id, H5F_SCOPE_GLOBAL)
   of fkLocal:
-      err = H5Fflush(h5f.file_id.hid_t, H5F_SCOPE_LOCAL)
+      err = H5Fflush(h5f.file_id.id, H5F_SCOPE_LOCAL)
   if err < 0:
     raise newException(HDF5LibraryError, "Trying to flush file " & h5f.name &
       " as " & $flushKind & " failed!")
@@ -237,10 +237,10 @@ proc close*(h5f: H5File): herr_t =
 
   if h5f.isObjectOpen: # close file only if still open
     # flush the file
-    result = H5Fflush(h5f.file_id.hid_t, H5F_SCOPE_GLOBAL)
+    result = H5Fflush(h5f.file_id.id, H5F_SCOPE_GLOBAL)
 
     # close the remaining attributes
-    result = H5Fclose(h5f.file_id.hid_t)
+    result = H5Fclose(h5f.file_id.id)
 
 template withH5*(h5file, rwType: string, actions: untyped) =
   ## template to work with a H5 file, taking care of opening
@@ -277,9 +277,9 @@ proc getObjectIdByName(h5file: H5File, name: string): hid_t =
       # may not want to create such a group, if it does not exist
       # instead return a not found error!
       discard h5file.create_group(name)
-    result = h5file[name.grp_str].group_id.hid_t
+    result = h5file[name.grp_str].group_id.id
   elif h5type == H5O_TYPE_DATASET:
-    result = h5file[name.dset_str].dataset_id.hid_t
+    result = h5file[name.dset_str].dataset_id.id
 
 
 # TODO: should this remain in files.nim?
@@ -304,7 +304,7 @@ proc create_hardlink*(h5file: H5File, target: string, link_name: string) =
       # of the link
       # TODO: create parent groups of `link_name`
       let link_id   = getObjectIdByName(h5file, parent)
-      err = H5Lcreate_hard(h5file.file_id.hid_t,
+      err = H5Lcreate_hard(h5file.file_id.id,
                            target,
                            link_id,
                            link_name,

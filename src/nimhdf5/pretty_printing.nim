@@ -7,10 +7,10 @@ proc pretty*(att: H5Attr, indent = 0, full = false): string =
   result.add &"{fieldInd}opened: {att.opened},\n"
   result.add &"{fieldInd}dtypeAnyKind: {att.dtypeAnyKind}"
   if full:
-    result.add &",\n{fieldInd}attr_id: {att.attr_id.hid_t},\n"
-    result.add &"{fieldInd}dtype_c: {att.dtype_c.hid_t},\n"
+    result.add &",\n{fieldInd}attr_id: {att.attr_id.id},\n"
+    result.add &"{fieldInd}dtype_c: {att.dtype_c.id},\n"
     result.add &"{fieldInd}dtypeBaseKind: {att.dtypeBaseKind},\n"
-    result.add &"{fieldInd}attr_dspace_id: {att.attr_dspace_id.hid_t}"
+    result.add &"{fieldInd}attr_dspace_id: {att.attr_dspace_id.id}"
   result.add repeat(' ', indent) & "\n}"
 
 proc `$`*(att: H5Attr): string =
@@ -52,12 +52,12 @@ proc pretty*(dset: H5DataSet, indent = 0, full = false): string =
     result.add &"{fieldInd}chunksize: {dset.chunksize},\n"
     result.add &"{fieldInd}dtypeAnyKind: {dset.dtypeAnyKind},\n"
     result.add &"{fieldInd}dtypeBaseKind: {dset.dtypeBaseKind},\n"
-    result.add &"{fieldInd}dtype_c: {dset.dtype_c.hid_t},\n"
+    result.add &"{fieldInd}dtype_c: {dset.dtype_c.id},\n"
     result.add &"{fieldInd}dtype_class: {dset.dtype_class},\n"
-    result.add &"{fieldInd}dataset_id: {dset.dataset_id.hid_t},\n"
+    result.add &"{fieldInd}dataset_id: {dset.dataset_id.id},\n"
     result.add &"{fieldInd}num_attrs: {dset.attrs.num_attrs},\n"
-    result.add &"{fieldInd}dapl_id: {dset.dapl_id.hid_t},\n"
-    result.add &"{fieldInd}dcpl_id: {dset.dcpl_id.hid_t}"
+    result.add &"{fieldInd}dapl_id: {dset.dapl_id.id},\n"
+    result.add &"{fieldInd}dcpl_id: {dset.dcpl_id.id}"
   result.add &"\n" & repeat(' ', indent) & "}"
 
 proc `$`*(dset: H5DataSet): string =
@@ -73,11 +73,11 @@ proc pretty*(grp: H5Group, indent = 2, full = false): string =
   result.add &"{fieldInd}file: {grp.file},\n"
   result.add &"{fieldInd}parent: {grp.parent}"
   if full:
-    result.add &",\n{fieldInd}file_id: {grp.file_id.hid_t},\n"
-    result.add &"{fieldInd}group_id: {grp.group_id.hid_t},\n"
+    result.add &",\n{fieldInd}file_id: {grp.file_id.id},\n"
+    result.add &"{fieldInd}group_id: {grp.group_id.id},\n"
     result.add &"{fieldInd}parent_id: {grp.parent_id.kind}, {grp.parent_id.to_hid_t},\n"
-    result.add &"{fieldInd}gapl_id: {grp.gapl_id.hid_t},\n"
-    result.add &"{fieldInd}gcpl_id: {grp.gcpl_id.hid_t}"
+    result.add &"{fieldInd}gapl_id: {grp.gapl_id.id},\n"
+    result.add &"{fieldInd}gcpl_id: {grp.gcpl_id.id}"
   # datasets
 
   if grp.datasets.len > 0:
@@ -117,7 +117,7 @@ proc pretty*(h5f: H5File, indent = 2, full = false): string =
   result.add &"{fieldInd}accessFlags: {h5f.accessFlags},\n"
   result.add &"{fieldInd}visited: {h5f.visited}"
   if full:
-    result.add &",\n{fieldInd}nfile_id: {h5f.file_id.hid_t},\n"
+    result.add &",\n{fieldInd}nfile_id: {h5f.file_id.id},\n"
     result.add &"{fieldInd}err: {h5f.err},\n"
     result.add &"{fieldInd}status: {h5f.status}"
   if h5f.datasets.len > 0:

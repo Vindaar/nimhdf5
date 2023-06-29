@@ -58,8 +58,8 @@ proc openGroup*(h5f: H5File, group: string): GroupID =
     # return id from table
     result = h5f.groups[group].group_id
   elif group in h5f: # exists, but not open. `file_id` is the relevant location id
-    result = H5Gopen2(h5f.file_id.hid_t, group.cstring, H5P_DEFAULT).GroupID
-    if result.hid_t < 0:
+    result = H5Gopen2(h5f.file_id.id, group.cstring, H5P_DEFAULT).toGroupID
+    if result.id < 0:
       raise newException(HDF5LibraryError, "call to H5 library failed in " &
         "`createGroupFromParent` trying to open group via `H5Gopen2`!")
     withDebug:
@@ -79,8 +79,8 @@ proc createGroupImpl*(h5f: H5File, group: string): GroupID =
     else:
       debugEcho "Calling `createGroup` despite ", group, " existing in file!"
   # group non existant, `file_id` is the relevant location id
-  result = H5Gcreate2(h5f.file_id.hid_t, group, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT).GroupID
-  if result.hid_t < 0:
+  result = H5Gcreate2(h5f.file_id.id, group, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT).toGroupID
+  if result.id < 0:
     raise newException(HDF5LibraryError, "call to H5 library failed in " &
       "`createGroupFromParent` trying to create group via `H5Gcreate2`!")
 
