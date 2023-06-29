@@ -617,6 +617,7 @@ proc create_dataset*[T: (tuple | int | seq)](
   # set up the dataset object
   let file_ref = h5f.getFileRef()
   result = newH5DataSet(dsetName, file_ref.name,
+                        file_ref.file_id,
                         parent = group.name,
                         parentId = parentId,
                         shape = shape_seq)
