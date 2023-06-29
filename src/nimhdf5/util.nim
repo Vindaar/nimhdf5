@@ -39,22 +39,29 @@ template getParent*(dset_name: string): string =
 
 proc traverseTree(input: NimNode): NimNode =
   # iterate children
-  for i in 0 ..< input.len:
-    case input[i].kind
-    of nnkSym:
-      # if we found a symbol, take it
-      result = input[i]
-    of nnkBracketExpr:
-      # has more children, traverse
-      result = traverseTree(input[i])
+  case input.kind
+  of nnkSym:
+    case input.typeKind
+    of ntyAlias, ntyTypeDesc, ntySequence: result = traverseTree(input.getTypeImpl)
+    of ntyBool, ntyChar, ntyInt .. ntyUint64, ntyTuple, ntySet, ntyObject, ntyString: result = input
     else:
-      error("Unsupported type: " & $input.kind)
+      doAssert false, "Invalid type kind: " & $input.typeKind
+  of nnkBracketExpr:
+    if input.typeKind == ntyTypeDesc:
+      result = traverseTree(input[1]) # look at actual type
+    else:
+      # look at last child for inner type
+      result = traverseTree(input[input.len - 1])
+  of nnkTupleConstr, nnkTupleTy:
+    result = input
+  else:
+    doAssert false, "Invalid node: " & $input.treerepr
 
 macro getInnerType*(TT: typed): untyped =
   ## macro to get the subtype of a nested type by iterating
   ## the AST
   # traverse the AST
-  let res = traverseTree(TT.getTypeInst)
+  let res = traverseTree(TT.getTypeImpl)
   # assign symbol to result
   result = quote do:
     `res`
