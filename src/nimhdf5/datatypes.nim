@@ -260,7 +260,120 @@ type
       attrId*: AttributeID
     of okNone, okLocal: discard # all cannot be a parent
 
+  ## `H5Id` is a wrapper around `hid_t` identifiers of the H5 library. By wrapping it
+  ## in a `ref` we can use an RAII approach to closing identifiers once they go out
+  ## of scope for us (which in 99% of the cases is what we want).
+  CloseKind = enum
+    ckFile, ckGroup, ckDataset, ckAttribute, ckDataspace, ckDatatype, ckProperty # ... the close function to call
+
+  H5IdObj = object
+    kind*: CloseKind
+    id*: hid_t
+  H5Id = ref H5IdObj
+
+  FileID* = distinct H5Id
+  DatasetID* = distinct H5Id
+  GroupID* = distinct H5Id
+  AttributeID* = distinct H5Id
+  SomeH5ObjectID* = FileID | DatasetID | GroupID | AttributeID
+
+  DatatypeID* = distinct H5Id
+  DataspaceID* = distinct H5Id
+  MemspaceId* = distinct H5Id
+  HyperslabId* = distinct H5Id
+
+  FileAccessPropertyListID* = distinct H5Id
+  FileCreatePropertyListID* = distinct H5Id
+
+  GroupAccessPropertyListID* = distinct H5Id
+  GroupCreatePropertyListID* = distinct H5Id
+
+  DatasetAccessPropertyListID* = distinct H5Id
+  DatasetCreatePropertyListID* = distinct H5Id
+
+  FilePropIds* = FileAccessPropertyListID | FileCreatePropertyListID
+  GroupPropIds* = GroupAccessPropertyListID | GroupCreatePropertyListID
+  DatasetPropIds* = DatasetAccessPropertyListID | DatasetCreatePropertyListID
+
+  PropertyIDs* = FilePropIds | GroupPropIds | DatasetPropIds
+
+  DspaceIDs* = DataspaceID | MemspaceID | HyperslabID
+
+  AllH5Ids* = DatatypeID | DspaceIDs | PropertyIDs
+
 const AllObjectKinds* = {okFile, okDataset, okGroup, okType, okAttr}
+
+proc `$`*(x: hid_t): string {.borrow.}
+
+proc `$`*(h5id: H5Id): string =
+  result = "(kind: " & $h5id.kind & ", id: " & $h5id.id & ")"
+
+proc close*(h5id: H5Id | H5IdObj, msg = "")
+proc `=copy`*(target: var H5IdObj, source: H5IdObj) {.error: "H5Id identifiers cannot be copied.".}
+proc `=destroy`*(h5id: var H5IdObj) = # {.error: "`=destroy` of a raw `H5Id` is not a valid operation.".}
+  h5id.close()
+  `=destroy`(h5id.kind)
+  `=destroy`(h5id.id)
+
+proc isValidID*(h5id: hid_t): bool
+proc close*(h5id: H5Id | H5IdObj, msg = "") =
+  ## calls the correct H5 `close` function for the given object kind
+  ##
+  ## Note: Ideally, this should not be used
+  if h5id.id != 0.hid_t and h5id.id.isValidID():
+    var err: herr_t
+    case h5id.kind
+    of ckFile:
+      err = H5Fclose(h5id.id)
+    of ckDataset:
+      err = H5Dclose(h5id.id)
+    of ckGroup:
+      err = H5Gclose(h5id.id)
+    of ckAttribute:
+      err = H5Aclose(h5id.id)
+    of ckDatatype:
+      err = H5Tclose(h5id.id)
+    of ckDataspace:
+      err = H5Sclose(h5id.id)
+    of ckProperty:
+      err = H5Pclose(h5id.id)
+    if err < 0:
+      raise newException(HDF5LibraryError, "Error closing " & $h5id & " of dataset!" & msg)
+
+proc newH5Id(x: hid_t, kind: CloseKind): H5Id =
+  result = H5Id(id: x, kind: kind)
+
+template genHelpers(typ: untyped, k: untyped): untyped =
+  proc `new typ`*(x: hid_t): typ =
+    result = typ(newH5Id(x, k))
+
+  proc close*(x: typ, msg = "") = distinctBase(x).close(msg)
+  template `to typ`*(x: hid_t): typ = `new typ`(x)
+  template id*(x: typ): hid_t = distinctBase(x).id
+  #converter toInt*(x: `typ Obj`): int = x.hid_t.int
+  converter toInt*(x: typ): int = distinctBase(x).id.int
+
+
+genHelpers(FileID, ckFile)
+genHelpers(GroupID, ckGroup)
+genHelpers(DatasetID, ckDataset)
+genHelpers(AttributeID, ckAttribute)
+
+genHelpers(DatatypeID, ckDatatype)
+genHelpers(DataspaceID, ckDataspace)
+genHelpers(MemspaceID, ckDataspace)
+func toMemspaceID*(x: DataspaceID): MemspaceID = MemspaceID(x)#.toMemspaceID
+genHelpers(HyperslabID, ckDataspace)
+template toHyperslabID*(x: DataspaceID): HyperslabID = HyperslabID(x)
+
+genHelpers(FileAccessPropertyListID, ckProperty)
+genHelpers(FileCreatePropertyListID, ckProperty)
+
+genHelpers(GroupAccessPropertyListID, ckProperty)
+genHelpers(GroupCreatePropertyListID, ckProperty)
+
+genHelpers(DatasetAccessPropertyListID, ckProperty)
+genHelpers(DatasetCreatePropertyListID, ckProperty)
 
 func toH5*(flags: set[AccessKind]): cuint =
   ## Performs a bitwise `or` of all flags in the set to generate the correct
