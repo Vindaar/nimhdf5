@@ -1,6 +1,7 @@
 import std / [strutils, tables, strformat, macros, typetraits]
 
 import hdf5_wrapper, H5nimtypes, util
+from type_utils import needsCopy, genCompatibleTuple
 
 # add an invalid rw code to handle wrong inputs in parseH5rw_type
 const H5F_INVALID_RW* = cuint(0x00FF)
@@ -226,8 +227,6 @@ type
   HDF5FilterError* = object of HDF5LibraryError
   # raised if decompression call fails
   HDF5DecompressionError* = object of HDF5FilterError
-
-
 
   # enum which determines how the given H5 object should be flushed
   # corresponds to the H5F_SCOPE flags
@@ -903,43 +902,49 @@ dset[dset.all] = bar # some @["hello", "world", ...] `seq[string]`
 
 Also see the `twrite_string.nim` test case.
 """.}
+template insertType(res, nameStr, offset, fieldTyp, variableStr, parentCopies: untyped): untyped =
+  when false: # fieldTyp is string:
+    let startOffset = offset.csize_tn
+    H5Tinsert(res, "len".cstring, startOffset, nimToH5type(fieldTyp, variableStr, parentCopies).id)
+  else:
+    H5Tinsert(res, nameStr.cstring, offset.csize_t, nimToH5type(fieldTyp, variableStr, parentCopies).id)
 
-
-template insertType(res, nameStr, offset, fieldTyp: untyped): untyped =
-  H5Tinsert(res, nameStr.cstring, offset.csize_t, nimToH5type(fieldTyp).hid_t)
-
-macro walkObjectAndInsert(dtype: typed,
-                          res: untyped): untyped =
+proc walkObjectAndInsert[T](_: typedesc[T],
+                            parentCopies: static bool): hid_t =
   ## simple macro similar to `fieldPairs` which walks an object type. It creates
   ## an `discard insertType(`res`, `nStr`, `n`, `dtype`)` line for each field
   ## in an object to construct a compound datatype for the object
-  result = newStmtList()
-  let typ = dtype.getTypeImpl
-  doAssert typ.kind in {nnkObjectTy, nnkTupleTy, nnkTupleConstr}
-  let implNode = if typ.kind == nnkObjectTy: typ[2] else: typ
-  # If we have an unnamed tuple count the fields and (at runtime) add the
-  # size of the last field to an `offset` variable to keep the offset info
-  # for the next field
-  var idx = 0
-  var offsetId = genSym(nskVar, "offset")
-  if typ.kind == nnkTupleConstr:
-    result.add quote do:
-      var `offsetId` = 0
-  for ch in implNode:
-    if typ.kind != nnkTupleConstr:
-      let nStr = ch[0].strVal
-      let n = ch[0]
-      result.add quote do:
-        discard insertType(`res`, `nStr`, offsetOf(`dtype`, `n`), typeof(`dtype`.`n`))
-    else: # unnamed tuple
-      let nStr = "Field_" & $idx
-      # calculate offset manually
-      result.add quote do:
-        discard insertType(`res`, `nStr`, `offsetId`, typeof(`ch`))
-        `offsetId` += sizeof(`ch`)
-    inc idx
 
-proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
+  # Determine if we need to copy: either parent was already copied, then we do too
+  # (e.g. tuple like `(int, string, (float32, int))`. Outer tuple needs copy, inner `(float, int)`
+  # does not. Still treat it as such.
+  const NeedsCopy = T.needsCopy() or parentCopies
+
+  when NeedsCopy:
+    var tmpAlign: genCompatibleTuple(T, replaceVlen = true)
+    let size = sizeOf(typeof(tmpAlign))
+  else:
+    let size = sizeOf(T) # use custom size of calc to handle field sizes as expected by H5
+
+  result = H5Tcreate(H5T_COMPOUND, size.csize_t)
+  var offset = 0
+  var tmp: T = default(T)
+  for field, val in fieldPairs(tmp):
+    when NeedsCopy: # use tuple based offset logic
+      offset = offsetTup(tmpAlign, field)
+    else: # if type won't be copied, use `offsetOf` logic
+      when T is object:
+        offset = offsetStr(T, field)
+      elif T is tuple:
+        offset = offsetTup(tmp, field)
+      else:
+        {.error: "Invalid type: " & $T.}
+    let err = insertType(result, field, offset, typeof(val), true, NeedsCopy)
+    if err < 0:
+      raise newException(Defect, "Could not insert type " & $typeof(val) & " into H5 compound type for full type " & typeName(T))
+
+proc nimToH5type*(dtype: typedesc, variableString = false,
+                  parentCopies: static bool = false): DatatypeID =
   ## given a typedesc, we return a corresponding
   ## H5 data type. This is a template, since we
   ## the compiler won't be able to determine
@@ -1002,7 +1007,7 @@ proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
     if H5Tset_size(result.id, getArraySize(dtype).csize_t) < 0:
       raise newException(HDF5LibraryError, "Call to `H5Tset_size` attempting to set " &
         "fixed length string size to " & $getArraySize(dtype) & " failed.")
-  elif dtype is string:
+  elif dtype is string | ptr char:
     # NOTE: in case a string is desired, we still have to prepare it later, because
     # a normal string will end up as a sequence of characters otherwise. Instead
     # to get a continous string, need to set the size of the individual string
@@ -1021,9 +1026,7 @@ proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
     # `result` as the second argument and the string you wish to
     # write as 1st after the call to this fn
   elif dtype is object or dtype is tuple:
-    var tmpH5: dtype
-    res = H5Tcreate(H5T_COMPOUND, sizeof(dtype).csize_t)
-    walkObjectAndInsert(tmpH5, res)
+    result = walkObjectAndInsert(dtype, parentCopies).toDatatypeID
   elif dtype is seq:
     result = special_type(getInnerType(dtype)) ## NOTE: back conversion to hid_t
   elif dtype is bool:
@@ -1040,9 +1043,6 @@ proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
 template anyTypeToString*(dtype: DtypeKind): string =
   ## return a datatype string from an DtypeKind object
   strip($dtype, chars = {'d', 'k'}).toLowerAscii
-
-proc getDatasetType*(dset_id: DatasetID): DatatypeID =
-  result = H5Dget_type(dset_id.hid_t).DatatypeID
 
 proc getDtypeString*(dset_id: DatasetID): string =
   ## using a dataset id `dset_id`, return the name of the datatype by a call
@@ -1102,38 +1102,6 @@ template getH5rw_invalid_error*(): string =
 proc getH5read_non_exist_file*(filename: string): string =
   result = &"Cannot open a non-existing file {filename} with read only access. Write " &
     "access will create the file for you."
-
-import sequtils
-template toH5vlen*[T](data: openArray[T]): untyped =
-  when T is (seq|openArray) or T is string or T is cstring:
-    mapIt(toSeq(0..data.high)) do:
-      if data[it].len > 0:
-        hvl_t(`len`: csize_t(data[it].len), p: unsafeAddr(data[it][0]))
-      else:
-        hvl_t(`len`: csize_t(0), p: nil)
-  else:
-    # this doesn't make sense ?!...
-    static:
-      warning("T is " & T.name)
-      warning("Cannot be converted to VLEN data!")
-    #mapIt(toSeq(0 .. data.high), hvl_t(`len`: csize_t(data[it]), p: addr(data[it][0])))
-
-proc vlenToSeq*[T](data: seq[hvl_t]): seq[seq[T]] =
-  # converting the raw data from the C library to a Nim sequence is sort of ugly, but
-  # here it goes...
-  # number of elements we read
-  result = newSeq[seq[T]](data.len)
-  # iterate over every element of the pointer we have with data
-  for i in 0 ..< data.len:
-    let elem_len = data[i].len
-    # create corresponding sequence for the size of this element
-    result[i] = newSeq[T](elem_len)
-    # now we need to cast the data, which is a pointer, to a ptr of an unchecked
-    # array of our datatype
-    let data_seq = cast[ptr UncheckedArray[T]](data[i].p)
-    # now assign each element of the unckecked array to our sequence
-    for j in 0 ..< elem_len:
-      result[i][j] = data_seq[j]
 
 proc isVariableString*(dtype: DatatypeID): bool =
   ## checks whether the datatype given by `hid_t` is in the string class of
