@@ -52,17 +52,17 @@ when isMainModule:
     data[i] = Comp(a: i.float * 1.1, b: i, c: i.float32 / 1.111, s: "Hello", x: tup)
     dataTup[i] = tup
 
-  echo "SIZEOF CZM ", sizeof(Comp)
-  let sasa = data[0]
-  for f, v in fieldPairs(sasa):
-    echo "Size of ", f, " = ", sizeof(v)
+  #echo "SIZEOF CZM ", sizeof(Comp)
+  #let sasa = data[0]
+  #for f, v in fieldPairs(sasa):
+  #  echo "Size of ", f, " = ", sizeof(v)
   var h5f = H5open(File, "rw")
 
 
-  let dt3 = data.convertToCstring()
-  echo "DT3!!! ", dt3
-  h5f.write_dataset(dt3, "dt3")
-  echo "NOW PART 2\n\n"
+  #let dt3 = data.convertToCstring() # <- this is irrelevant now
+  #echo "DT3!!! ", dt3
+  #h5f.write_dataset(dt3, "dt3")
+  #echo "NOW PART 2\n\n"
   h5f.write_dataset(data, Dset)
 
   h5f.write_dataset(dataTup, DsetTup)
