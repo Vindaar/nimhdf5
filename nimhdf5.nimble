@@ -37,6 +37,9 @@ template tests(): untyped {.dirty.} =
   exec "nim c -r tests/tresize_by_add.nim"
   exec "nim c -r tests/tStringAttributes.nim"
   exec "nim c -r tests/tCompound.nim"
+  exec "nim c -r tests/tCompoundWithBool.nim"
+  exec "nim c -r tests/tCompoundWithVlenStr.nim"
+  exec "nim c -r tests/tCompoundWithSeq.nim"
   exec "nim c -r tests/tContainsIterator.nim"
   exec "nim c -r tests/twrite_string.nim"
   # regression tests
