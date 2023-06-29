@@ -407,7 +407,7 @@ proc parseShapeTuple[T: tuple](dims: T): seq[int] =
     result.add int(el)
 
 proc parseChunkSizeAndMaxShape(dset: H5DataSet, chunksize, maxshape: seq[int],
-                               filter: H5Filter, autoChunkIfFilter: bool): hid_t =
+                               filter: H5Filter, autoChunkIfFilter: bool): herr_t =
   ## proc to parse the chunk size and maxhshape arguments handed to the create_dataset()
   ## Takes into account the different possible scenarios:
   ##    chunksize: seq[int] = a sequence containing the chunksize: the dataset should be
@@ -451,7 +451,7 @@ proc parseChunkSizeAndMaxShape(dset: H5DataSet, chunksize, maxshape: seq[int],
     # if neither given, maxshape will be current shape
     # and return 0
     dset.maxshape = dset.shape
-    result = 0.hid_t
+    result = 0.herr_t
   # handle case where maxshape.len == 0 while chunksize.len > 0
   # issue #17
   elif chunksize.len > 0 and maxshape.len == 0:
