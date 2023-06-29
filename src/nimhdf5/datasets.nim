@@ -45,7 +45,7 @@ proc isVlen*(dset: H5Dataset): bool =
 proc read*[T](dset: H5DataSet, buf: ptr T) =
   ## read whole dataset into buffer `ptr T`. Unsafe and the caller needs to make sure
   ## the buffer can hold the data and possibly check the types!
-  let err = H5Dread(dset.dataset_id.hid_t, dset.dtype_c.hid_t, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+  let err = H5Dread(dset.dataset_id.id, dset.dtype_c.id, memspaceId, hyperslabId, H5P_DEFAULT,
                     buf)
   if err < 0:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
@@ -219,7 +219,7 @@ else:
 proc readFixedStringData(s: var seq[string], dset: H5Dataset) =
   # get size of stored strings
   doAssert not dset.dtype_c.isVariableString(), "String is variable! Read using `readVlenStringData`."
-  let size = H5Tget_size(dset.dtype_c.hid_t)
+  let size = H5Tget_size(dset.dtype_c.id)
   var buf = newSeq[char](s.len * size.int) #char](n_elements * size.int)
   # read into `buf` ignoring the check of the shape
   dset.read(buf, ignoreShapeCheck = true)
@@ -231,7 +231,7 @@ proc readFixedStringData(s: var seq[string], dset: H5Dataset) =
 proc readVlenStringData(s: var seq[string], dset: H5Dataset) =
   # get size of stored strings
   doAssert dset.dtype_c.isVariableString(), "String is variable! Read as `string`, not `cstring`."
-  let size = H5Tget_size(dset.dtype_c.hid_t)
+  let size = H5Tget_size(dset.dtype_c.id)
   var buf = newSeq[cstring](s.len)
   # read into `buf` ignoring the check of the shape
   dset.read(buf, ignoreShapeCheck = true)
@@ -240,7 +240,7 @@ proc readVlenStringData(s: var seq[string], dset: H5Dataset) =
     copyMem(s[i][0].addr, buf[i][0].addr, buf[i].len)
   # let H5 reclaim memory
   if buf.len > 0: # if we didn't read anything, nothing to reclaim
-    let err = H5Dvlen_reclaim(dset.dtype_c.hid_t, dset.dataspace_id().hid_t, H5P_DEFAULT, addr(buf[0]))
+    let err = H5Dvlen_reclaim(dset.dtype_c.id, dset.dataspace_id().id, H5P_DEFAULT, addr(buf[0]))
     if err < 0:
       raise newException(HDF5LibraryError, "Failed to let HDF5 library reclaim variable length string " &
         "buffer.")
@@ -499,52 +499,48 @@ proc create_dataset_in_file(h5file_id: FileID, dset: H5DataSet): DatasetID =
   # the check can never succeed. Ok if we only check for chunksize?
   let dataspace_id = simple_dataspace(dset.shape, dset.maxshape)
   if dset.maxshape.len == 0 and dset.chunksize.len == 0:
-    result = H5Dcreate2(h5file_id.hid_t, dset.name.cstring, dset.dtype_c.hid_t, dataspace_id.hid_t,
+    result = H5Dcreate2(h5file_id.id, dset.name.cstring, dset.dtype_c.id, dataspace_id.id,
                          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)
-      .DatasetID
+      .toDatasetID
   else:
     # in this case we are definitely working with chunked memory of some
     # sorts, which means that the dataset creation property list is set
-    result = H5Dcreate2(h5file_id.hid_t, dset.name.cstring, dset.dtype_c.hid_t, dataspace_id.hid_t,
-                         H5P_DEFAULT, dset.dcpl_id.hid_t, H5P_DEFAULT)
-      .DatasetID
+    result = H5Dcreate2(h5file_id.id, dset.name.cstring, dset.dtype_c.id, dataspace_id.id,
+                         H5P_DEFAULT, dset.dcpl_id.id, H5P_DEFAULT)
+      .toDatasetID
 
 proc open(fid: FileID, dset: string): DatasetID =
   ## Opens the given dataset `dset` using default properties
   ##
   ## Does not check whether the dataset exists, up to the user to do beforehand.
-  result = H5Dopen2(fid.hid_t, dset.cstring, H5P_DEFAULT)
-    .DatasetID
-  if result.hid_t < 0:
+  result = H5Dopen2(fid.id, dset.cstring, H5P_DEFAULT)
+    .toDatasetID
+  if result.id < 0:
     raise newException(HDF5LibraryError, "Failed to open the dataset " & $dset & "!")
 
 proc getBasetype(dtype_id: DatatypeID): DtypeKind =
   ## Returns the base type of a variable length type
-  result = h5ToNimType(H5Tget_super(dtype_id.hid_t).DatatypeID)
+  result = h5ToNimType(getSuperType(dtype_id))
 
-proc getType(dset_id: DatasetID): DatatypeID =
-  ## Returns the type of the dataset.
-  result = H5Dget_type(dset_id.hid_t).DatatypeID
-
-proc getNativeType(dtype_id: DatatypeID): DatatypeID =
-  result = H5Tget_native_type(dtype_id.hid_t, H5T_DIR_ASCEND).DatatypeID
+## Returns the type of the dataset.
+proc getType(dset_id: DatasetID): DatatypeID = getDatasetType(dset_id)
 
 proc getTypeClass(dtype_id: DatatypeID): H5T_class_t =
-  result = H5Tget_class(dtype_id.hid_t)
+  result = H5Tget_class(dtype_id.id)
 
 proc initDatasetAccessPropertyList(): DatasetAccessPropertyListID =
   ## Creates a default `dapl` ID
-  result = H5Pcreate(H5P_DATASET_ACCESS).DatasetAccessPropertyListID
+  result = H5Pcreate(H5P_DATASET_ACCESS).toDatasetAccessPropertyListID()
 
 proc initDatasetCreatePropertyList(): DatasetCreatePropertyListID =
   ## Creates a default `dcpl` ID
-  result = H5Pcreate(H5P_DATASET_CREATE).DatasetCreatePropertyListID
+  result = H5Pcreate(H5P_DATASET_CREATE).toDatasetCreatePropertyListID()
 
 proc getDatasetAccessPropertyList(dset_id: DatasetID): DatasetAccessPropertyListID =
-  result = H5Dget_access_plist(dset_id.hid_t).DatasetAccessPropertyListID
+  result = H5Dget_access_plist(dset_id.id).toDatasetAccessPropertyListID()
 
 proc getDatasetCreatePropertyList(dset_id: DatasetID): DatasetCreatePropertyListID =
-  result = H5Dget_create_plist(dset_id.hid_t).DatasetCreatePropertyListID
+  result = H5Dget_create_plist(dset_id.id).toDatasetCreatePropertyListID()
 
 proc create_dataset*[T: (tuple | int | seq)](
     h5f: H5File,
@@ -626,17 +622,16 @@ proc create_dataset*[T: (tuple | int | seq)](
                         shape = shape_seq)
   # first get the appropriate datatype for the given Nim type
   when dtype is DatatypeID:
-    let dtype_c = dtype
+    result.dtype_c = dtype
   elif dtype is string:
     # user wishes to construct dataset of variable length strings. `variableString`
     # takes care of turning the `DatatypeID` into a `H5T_VARIABLE` type
-    let dtype_c = nimToH5type(dtype, variableString = true)
+    result.dtype_c = nimToH5type(dtype, variableString = true)
   else:
-    let dtype_c = nimToH5type(dtype)
+    result.dtype_c = nimToH5type(dtype)
   # set the datatype as H5 type here, as its needed to create the dataset
   # the Nim dtype descriptors are set below from the data in the file
-  result.dtype_c = dtype_c
-  result.dtype_class = dtype_c.getTypeClass()
+  result.dtype_class = result.dtype_c.getTypeClass()
 
 
   # create the dataset access property list
@@ -704,7 +699,7 @@ proc prepareData[T](data: seq[T], dset: H5Dataset): auto =
     ##
     ## i.e. corresponds to:
     ## `create_dataset(..., array[N, char]); dset[all] = @["hello", "foo"]`
-    let size = H5Tget_size(dset.dtype_c.hid_t)
+    let size = H5Tget_size(dset.dtype_c.id)
     result = newSeq[char](data.len * size.int)
     for i, el in data:
       # only copy as many bytes as either in input string to write or
@@ -1115,7 +1110,7 @@ proc select_elements[T](dset: H5DataSet, coord: seq[T]): DataspaceID {.inline, d
   # first flatten coord tuples
   var flat_coord = mapIt(coord.flatten, hsize_t(it))
   result = dset.dataspace_id
-  let res = H5Sselect_elements(result.hid_t,
+  let res = H5Sselect_elements(result.id,
                                H5S_SELECT_SET,
                                csize_t(coord.len),
                                addr(flat_coord[0]))
@@ -1363,7 +1358,7 @@ proc h5SelectHyperslab(dspace_id: DataspaceID | MemspaceID | HyperslabID,
     echo "count:  ", count
     echo "stride: ", stride
     echo "block:  ", blk
-  result = H5Sselect_hyperslab(dspace_id.hid_t,
+  result = H5Sselect_hyperslab(dspace_id.id,
                                H5S_SELECT_SET,
                                addr(offset[0]),
                                addr(stride[0]),
@@ -1419,8 +1414,8 @@ proc select_hyperslab(dset: H5DataSet,
                                                                  blk)
 
   # and perform the selection on this dataspace
-  result = dset.dataspace_id.HyperslabID # this is a hyperslab and not a regular
-                                         # dataspace anymore after calls to next:
+  result = dset.dataspace_id.toHyperslabID() # this is a hyperslab and not a regular
+                                             # dataspace anymore after calls to next:
   err = h5SelectHyperslab(result, moffset, mcount, mstride, mblk)
   if err < 0:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
@@ -1687,13 +1682,13 @@ proc resize*[T: tuple | seq](dset: H5DataSet, shape: T) =
     # be closed until we leave this scope (via `=destroy`)
     # (dataspace_id is a proc!)
     let dspace = dset.dataspace_id
-    let status = H5Dset_extent(dset.dataset_id.hid_t, addr(newshape[0]))
+    let status = H5Dset_extent(dset.dataset_id.id, addr(newshape[0]))
     # set the shape we just resized to as the current shape
     withDebug:
       echo "Extending the dataspace to ", newshape
     dset.shape = mapIt(newshape, int(it))
     # after all is said and done, refresh again
-    discard H5Dget_space(dset.dataset_id.hid_t)
+    discard H5Dget_space(dset.dataset_id.id)
     if status < 0:
       raise newException(HDF5LibraryError, "Call to HDF5 library failed in " &
                          "`resize` calling `H5Dset_extent`")
@@ -1825,7 +1820,7 @@ proc open*(h5f: H5File, dset: dset_str) =
       withDebug:
         echo "ACCESS PROPERTY LIST IS ", dsetOpen.dapl_id
         echo "CREATE PROPERTY LIST IS ", dsetOpen.dcpl_id
-        echo H5Tget_class(datatype_id.hid_t)
+        echo H5Tget_class(datatype_id.id)
 
       # get the dataspace id of the dataset and the corresponding sizes
       let dataspace_id = dsetOpen.dataspace_id

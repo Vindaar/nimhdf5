@@ -395,7 +395,7 @@ func toH5*(flags: set[ObjectKind]): cuint =
 proc dataspace_id*(dataset_id: DatasetID): DataspaceID {.inline.} =
   ## convenienve wrapper around H5Dget_space proc, which returns the dataspace
   ## id of the given dataset_id
-  result = H5Dget_space(dataset_id.hid_t).DataspaceID
+  result = H5Dget_space(dataset_id.id).toDataspaceID()
 
 proc dataspace_id*(dset: H5DataSet): DataspaceID =
   ## convenienve wrapper around H5Dget_space proc, which returns the dataspace
@@ -406,26 +406,30 @@ proc dataspace_id*(dset: H5DataSet): DataspaceID =
 
 proc to_hid_t*(p: ParentID): hid_t =
   case p.kind
-  of okFile: result = p.fid.hid_t
-  of okDataset: result = p.did.hid_t
-  of okGroup: result = p.gid.hid_t
-  of okType: result = p.typId.hid_t
-  of okAttr: result = p.attrId.hid_t
+  of okFile: result = p.fid.id
+  of okDataset: result = p.did.id
+  of okGroup: result = p.gid.id
+  of okType: result = p.typId.id
+  of okAttr: result = p.attrId.id
   of okNone, okLocal:
-    raise newException(ValueError, "Cannot convert ParentID of kind " & $p.kind &
-      " to a `hid_t` value.")
+    result = -1.hid_t
 
 func getH5Id*[T: H5File | H5DataSet | H5DatasetObj | H5Group | H5GroupObj | H5Attr | H5AttrObj](h5o: T): ParentID =
   ## this func returns the ID of the given object as a `ParentID`
   ## of the correct kind.
+  result = ParentID(kind: okNone)
   when h5o is H5File:
-    result = ParentID(kind: okFile, fid: h5o.file_id)
+    if not h5o.fileId.distinctBase.isnil:
+      result = ParentID(kind: okFile, fid: h5o.file_id)
   elif h5o is H5Group or h5o is H5GroupObj:
-    result = ParentID(kind: okGroup, gid: h5o.group_id)
+    if not h5o.groupId.distinctBase.isnil:
+      result = ParentID(kind: okGroup, gid: h5o.group_id)
   elif h5o is H5DataSet or h5o is H5DatasetObj:
-    result = ParentID(kind: okDataset, did: h5o.dataset_id)
+    if not h5o.datasetId.distinctBase.isnil:
+      result = ParentID(kind: okDataset, did: h5o.dataset_id)
   elif h5o is H5AttrObj or h5o is H5Attr:
-    result = ParentID(kind: okAttr, attrId: h5o.attr_id)
+    if not h5o.attrId.distinctBase.isnil:
+      result = ParentID(kind: okAttr, attrId: h5o.attr_id)
   else:
     {.error: "Invalid branch!".}
 
@@ -442,6 +446,10 @@ proc isValidID*(h5id: hid_t): bool =
   else:
     raise newException(HDF5LibraryError, "Call to `H5Iis_valid` failed calling with identifier: " &
       $h5id)
+
+proc isValidID*[T: AllH5Ids | AttributeID](h5id: T): bool =
+  ## Determines whether the given ID is still valid.
+  result = h5id.id.isValidID()
 
 proc isValidID*(h5id: ParentID): bool {.inline.} =
   ## Determines whether the ID is still valid.
@@ -490,48 +498,27 @@ proc isObjectOpen*[T: H5File | H5Group | H5GroupObj | H5Dataset | H5DatasetObj |
   ## See the docs of the overload taking a `hid_t` for more information.
   result = h5o.getH5ID.isObjectOpen()
 
-proc close*[T: DataspaceID | MemspaceID | HyperslabID](space_id: T, msg = "") =
-  ## Closes the dataspace / memspace and raises `HDF5LibraryError` in case closing fails.
-  ##
-  ## `msg` can be handed for additional information in the exception.
-  let err = H5Sclose(space_id.hid_t)
-  if err < 0:
-    when T is DataspaceID:
-      let typ = "dataspace"
-    elif T is MemspaceID:
-      let typ = "memspace"
-    else:
-      let typ = "hyperslab"
-    raise newException(HDF5LibraryError, "Error closing " & typ & " of dataset!" & msg)
 
-proc close*(dpl_id: DatasetCreatePropertyListID | DatasetAccessPropertyListID,
-            msg = "") =
-  ## Closes the dataset access/create property list (`dapl/dcpl`) of a dataset
-  ## and raises `HDF5LibraryError` in case closing fails.
-  ##
-  ## `msg` can be handed for additional information in the exception.
-  let err = H5Pclose(dpl_id.hid_t)
-  if err < 0:
-    raise newException(HDF5LibraryError, "Error closing create property list of dataset." & msg)
+proc getDatasetType*(dset_id: DatasetID): DatatypeID =
+  result = H5Dget_type(dset_id.id).toDatatypeID
 
-proc close*(dtype_id: DatatypeID) =
-  ## Closes the given datatype.
-  let status = H5Tclose(dtype_id.hid_t)
-  if status < 0:
-    raise newException(HDF5LibraryError, "Status of H5Tclose() returned non-negative value. " &
-      "Call to HDF5 library failed in `close` of a datatype.")
+proc getNativeType*(dtype_id: DatatypeID): DatatypeID =
+  result = H5Tget_native_type(dtype_id.id, H5T_DIR_ASCEND).toDatatypeID
+
+proc getSuperType*(dtype_id: DatatypeID): DatatypeID =
+  result = H5Tget_super(dtype_id.id).toDatatypeID
+
+proc copyType*(typ: hid_t): DatatypeID =
+  result = H5Tcopy(typ).toDatatypeID
 
 proc close*(attr: var H5AttrObj) =
   ## closes the attribute and the corresponding dataspace
   if attr.isObjectOpen():
-    var err = H5Sclose(attr.attr_dspace_id.hid_t)
-    if err < 0:
-      raise newException(HDF5LibraryError, "Error closing dataspace of attribute with id" &
-        $(attr.attr_id.hid_t) & "!")
-    err = H5Aclose(attr.attr_id.hid_t)
+    attr.attr_dspace_id.close(msg = "Dataspace of attribute: " & $attr.attr_id)
+    let err = H5Aclose(attr.attr_id.id)
     if err < 0:
       raise newException(HDF5LibraryError, "Error closing attribute with id " &
-        $(attr.attr_id.hid_t) & "!")
+        $(attr.attr_id.id) & "!")
     withDebug:
       echo "Closed attribute with status ", err
     attr.opened = false
@@ -543,16 +530,16 @@ proc flush*(group: H5Group, flushKind: FlushKind) =
   var err: herr_t
   case flushKind
   of fkGlobal:
-      err = H5Fflush(group.group_id.hid_t, H5F_SCOPE_GLOBAL)
+      err = H5Fflush(group.group_id.id, H5F_SCOPE_GLOBAL)
   of fkLocal:
-      err = H5Fflush(group.group_id.hid_t, H5F_SCOPE_LOCAL)
+      err = H5Fflush(group.group_id.id, H5F_SCOPE_LOCAL)
   if err < 0:
     raise newException(HDF5LibraryError, "Trying to flush group " & group.name &
       " as " & $flushKind & " failed!")
 
 proc close*(group: var H5GroupObj) =
   if group.isObjectOpen():
-    let err = H5Gclose(group.group_id.hid_t)
+    let err = H5Gclose(group.group_id.id)
     if err != 0:
       raise newException(HDF5LibraryError, "Failed to close group " & group.name & "!")
     group.opened = false
@@ -564,9 +551,9 @@ proc flush*(dset: H5DataSetObj, flushKind: FlushKind) =
   var err: herr_t
   case flushKind
   of fkGlobal:
-      err = H5Fflush(dset.dataset_id.hid_t, H5F_SCOPE_GLOBAL)
+      err = H5Fflush(dset.dataset_id.id, H5F_SCOPE_GLOBAL)
   of fkLocal:
-      err = H5Fflush(dset.dataset_id.hid_t, H5F_SCOPE_LOCAL)
+      err = H5Fflush(dset.dataset_id.id, H5F_SCOPE_LOCAL)
   if err < 0:
     raise newException(HDF5LibraryError, "Trying to flush dataset " & dset.name &
       " as " & $flushKind & " failed!")
@@ -577,17 +564,19 @@ proc close*(dset: var H5DataSetObj) =
   if dset.isObjectOpen():
     # close the dataset creation property list, important if filters are used
     dset.dcpl_id.close(msg = "dcpl associated with dataset: " & $dset.name)
+    dset.dapl_id.close(msg = "dapl associated with dataset: " & $dset.name)
     withDebug:
       # by calling flush here, depending on the status of the library
       # this might be the place where the actual writing to file takes place
       echo "Flushing dataset during `close` of: ", dset.name
-    dset.flush(fkLocal) # flush the dataset before we close it!
+    ## XXX: Flushing is problematic it turns out
+    #dset.flush(fkLocal) # flush the dataset before we close it, if refcount is exactly 1
     withDebug:
       echo "...done"
     ## TODO: is this ever required? Or on the other hand is it sane to have a `=destroy` hook
     ## that calls `close` on a dataspace when it goes out of scope?
     dset.dataset_id.dataspace_id().close(msg = "Dataspace associated with dataset: " & $dset.name)
-    let err = H5Dclose(dset.dataset_id.hid_t) # now the *actual* closing of the dataset
+    let err = H5Dclose(dset.dataset_id.id) # now the *actual* closing of the dataset
     if err < 0:
       raise newException(HDF5LibraryError, "Error closing dataset " & $(dset.name) & "!")
     dset.opened = false
@@ -622,7 +611,8 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
 
   proc `=destroy`*(grp: var H5GroupObj) =
     ## Closes the group and resets all references to nil.
-    `=destroy`(grp.file_ref) # only destroy the `ref` to the file!
+    if grp.file_ref != nil:
+      `=destroy`(grp.file_ref) # only destroy the `ref` to the file!
     grp.close()
     grp.opened = false
     if grp.datasets != nil:
@@ -639,6 +629,17 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
     ## currently these are problematic, as we're allowed to just copy these IDs in Nim land,
     ## and for each copy going out of scope `=destroy` would be called. Can cause double free.
     ## We could wrap them in a `ref` or disallow `=copy`.
+    ##
+    ## The other issue is that while we can ask the H5 library for a reference count
+    ## to only close in case of a single reference, the question is whether that is the
+    ## desired behavior or not. I.e. if the first instance of an ID goes out of scope,
+    ## should the ID be closed immediately?
+    ## Alternatively we could define a `=copy` hook that increases the reference count
+    ## to the dataspace id.
+    proc `=copy`*(target: var DataspaceID, source: DataspaceID) {.error: "Dataspace identifiers cannot be copied.".}
+    proc `=copy`*(target: var MemspaceID, source: MemspaceID) {.error: "Memspace identifiers cannot be copied.".}
+    proc `=copy`*(target: var HyperslabID, source: HyperslabID) {.error: "Hyperslab identifiers cannot be copied.".}
+
     proc `=destroy`*(dspace_id: var DataspaceID) =
       ## Closes the dataspace when it goes out of scope
       dspace_id.close()
@@ -673,7 +674,7 @@ proc getNumAttrs*(h5attr: H5Attributes): int =
       debugEcho "getNumAttrs(): ", h5attr
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getNumAttr` when reading $#" % $h5attr.parent_name)
 
-proc initH5Attributes*(p_id: ParentID, p_name: string = "", p_type: string = ""): H5Attributes =
+proc initH5Attributes*(p_id: sink ParentID, p_name: string = "", p_type: string = ""): H5Attributes =
   let attr = newTable[string, H5Attr]()
   doAssert p_id.kind notin {okNone, okLocal}, "parent id must exist!"
   var h5attr = H5Attributes(attr_tab: attr,
@@ -687,8 +688,9 @@ proc initH5Attributes*(p_id: ParentID, p_name: string = "", p_type: string = "")
 
 proc newH5DataSet*(name: string = "",
                    file: string = "",
+                   file_id: FileID = -1.hid_t.toFileId(),
                    parent: string = "",
-                   parentID: ParentID = ParentID(kind: okNone),
+                   parentID: sink ParentID = ParentID(kind: okNone),
                    shape: seq[int] = @[]): H5DataSet =
   ## default constructor for a H5File object, for internal use
   let maxshape: seq[int] = @[]
@@ -699,18 +701,19 @@ proc newH5DataSet*(name: string = "",
   result.shape = shape
   result.maxshape = maxshape
   result.dtype = ""
-  result.dtype_c = -1.DatatypeID
+  result.dtype_c = -1.hid_t.toDatatypeID
   result.parent = parent
   result.parentID = parentID
   result.file = file
-  result.dataset_id = -1.DatasetID
+  result.file_id = file_id
+  result.dataset_id = -1.hid_t.toDatasetID()
   result.all = RW_ALL
   result.shape = shape
   result.attrs = attrs
 
 proc newH5Group*(name: string = "",
                  file_ref: H5File = nil,
-                 parentID: ParentID = ParentID(kind: okNone)): H5Group =
+                 parentID: sink ParentID = ParentID(kind: okNone)): H5Group =
   ## default constructor for a H5Group object, for internal use.
   ##
   ## If a `file_ref` is already given, it will fill all relevant fields.
@@ -726,9 +729,10 @@ proc newH5Group*(name: string = "",
   result.parent = name.getParent
   result.attrs = attrs
   result.parent_id = parentID
+  result.group_id = -1.hid_t.toGroupId()
   if file_ref.isNil:
     result.file = ""
-    result.file_id = -1.FileID
+    result.file_id = -1.hid_t.toFileID()
     result.file_ref = nil
     result.datasets = datasets
     result.groups = groups
@@ -818,7 +822,7 @@ proc h5ToNimType*(dtype_id: DatatypeID): DtypeKind =
 
   # TODO: we may can seperate the dtypes by class using H5Tget_class, which returns a value
   # of the H5T_class_t enum (e.g. H5T_FLOAT)
-  let dtypeHid_t = dtype_id.hid_t
+  let dtypeHid_t = dtype_id.id
   withDebug:
     echo "dtype is ", dtypeHid_t
     echo "native is ", H5Tget_native_type(dtypeHid_t, H5T_DIR_ASCEND)
@@ -869,14 +873,18 @@ proc h5ToNimType*(dtype_id: DatatypeID): DtypeKind =
     result = dkObject
   else:
     raise newException(KeyError, "Warning: the following H5 type could not be converted: " &
-      "$# of class $#" % [$(dtype_id.hid_t), $(H5Tget_class(dtypeHid_t))])
+      "$# of class $#" % [$(dtype_id.id), $(H5Tget_class(dtypeHid_t))])
 
-proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID
+proc nimToH5type*(dtype: typedesc, variableString = false, parentCopies: static bool = false): DatatypeID
 proc special_type*(dtype: typedesc): DatatypeID =
   ## calls the H5Tvlen_create() to create a special datatype
   ## for variable length data
+  ## XXX: I *think* `parentCopies` is not needed here. The types need to be copied anyway!
   when dtype isnot string:
-    result = H5Tvlen_create(nimToH5type(dtype).hid_t).DatatypeID
+    result = H5Tvlen_create(nimToH5type(dtype).id).toDatatypeID
+  elif dtype is string:
+    let strType = nimToH5type(dtype, variableString = true).id
+    result = H5Tvlen_create(strType).toDatatypeID
   else:
     {.error: """To read/write a string as variable length data, treat it
 as a `char` dataset, i.e. `special_type(char)` during construction. Writing a `seq[string]`
@@ -944,7 +952,7 @@ proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
   # TODO: this still seems to be very much wrong and it's only valid for my machine
   # (64 bit) anyways.
 
-  var res = -1.hid_t
+  result = newDatatypeID(-1.hid_t)
   when dtype is SomeInteger:
     when dtype is int8:
       # for 8 bit int we take the STD LE one, since there is no
@@ -952,45 +960,45 @@ proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
       # TODO: are we doing this the correct way round? maybe only relevant, if
       # we read data, as the data is STORED in some byte order...!
       when cpuEndian == littleEndian:
-        res = H5T_STD_I8LE
+        result = H5T_STD_I8LE.toDatatypeID()
       else:
-        res = H5T_STD_I8BE
+        result = H5T_STD_I8BE.toDatatypeID()
     elif dtype is int16:
-      res = H5T_NATIVE_SHORT
+      result = H5T_NATIVE_SHORT.toDatatypeID()
     elif dtype is int32:
-      res = H5T_NATIVE_INT # H5T_STD_I32LE
+      result = H5T_NATIVE_INT.toDatatypeID() # H5T_STD_I32LE
     when sizeOf(int) == 8:
       if dtype is int:
-        res = H5T_NATIVE_LONG
+        result = H5T_NATIVE_LONG.toDatatypeID()
     else:
       if dtype is int:
-        res = H5T_NATIVE_INT
+        result = H5T_NATIVE_INT.toDatatypeID()
     when dtype is int64:
-      res = H5T_NATIVE_LONG
+      result = H5T_NATIVE_LONG.toDatatypeID()
     elif dtype is uint8:
       # for 8 bit int we take the STD LE one, since there is no
       # native type available (besides char)
       when cpuEndian == littleEndian:
-        res = H5T_STD_U8LE
+        result = H5T_STD_U8LE.toDatatypeID()
       else:
-        res = H5T_STD_U8BE
+        result = H5T_STD_U8BE.toDatatypeID()
     elif dtype is uint16:
-      res = H5T_NATIVE_USHORT
+      result = H5T_NATIVE_USHORT.toDatatypeID()
     elif dtype is uint32:
-      res = H5T_NATIVE_UINT # H5T_STD_I32LE
+      result = H5T_NATIVE_UINT.toDatatypeID() # H5T_STD_I32LE
     elif dtype is uint or dtype is uint64:
-      res = H5T_NATIVE_ULLONG # H5T_STD_I64LE
+      result = H5T_NATIVE_ULLONG.toDatatypeID() # H5T_STD_I64LE
   elif dtype is float32:
-    res = H5T_NATIVE_FLOAT # H5T_STD_
+    result = H5T_NATIVE_FLOAT.toDatatypeID() # H5T_STD_
   elif dtype is float or dtype is float64:
-    res = H5T_NATIVE_DOUBLE # H5T_STD_
+    result = H5T_NATIVE_DOUBLE.toDatatypeID() # H5T_STD_
   elif dtype is char:
     # Nim's char is an unsigned char!
-    res = H5T_NATIVE_UCHAR
+    result = H5T_NATIVE_UCHAR.toDatatypeID()
   elif isAnyArray(dtype, char): ## check if `dtype` is any `array[N, char]`
-    res = H5Tcopy(H5T_C_S1)
+    result = copyType(H5T_C_S1)
     # now get the size of the `array` and set it accordingly
-    if H5Tset_size(res, getArraySize(dtype).csize_t) < 0:
+    if H5Tset_size(result.id, getArraySize(dtype).csize_t) < 0:
       raise newException(HDF5LibraryError, "Call to `H5Tset_size` attempting to set " &
         "fixed length string size to " & $getArraySize(dtype) & " failed.")
   elif dtype is string:
@@ -1001,11 +1009,11 @@ proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
     # the size of the dataspace we reserve back to 1!
     # Also we need to copy the datatype, in order to be able to change its size
     # later
-    res = H5Tcopy(H5T_C_S1)
+    result = copyType(H5T_C_S1)
     if variableString:
       ## Instead of the above comment, generate a variable length string. This is used to
       ## write a dataset of type `string`.
-      if H5Tset_size(res, H5T_VARIABLE) < 0:
+      if H5Tset_size(result.id, H5T_VARIABLE) < 0:
         raise newException(HDF5LibraryError, "Call to H5Tset_size` attempting to define " &
           "a variable length string failed.")
     # -> call string_dataspace(str: string, dtype: hid_t) with
@@ -1016,18 +1024,17 @@ proc nimToH5type*(dtype: typedesc, variableString = false): DatatypeID =
     res = H5Tcreate(H5T_COMPOUND, sizeof(dtype).csize_t)
     walkObjectAndInsert(tmpH5, res)
   elif dtype is seq:
-    res = special_type(getInnerType(dtype)).hid_t ## NOTE: back conversion to hid_t
+    result = special_type(getInnerType(dtype)) ## NOTE: back conversion to hid_t
   elif dtype is bool:
     when sizeof(bool) == 1:
-      res = H5T_NATIVE_UCHAR
+      result = H5T_NATIVE_UCHAR.toDatatypeID()
     else:
       ## XXX: handle bool IN OTHER CASES
       raise newException(ValueError, "Boolean types cannot be stored in HDF5 yet unless it is of size 1 byte.")
   elif dtype is distinct:
-    return nimToH5Type(distinctBase(dtype), variableString)
+    return nimToH5Type(distinctBase(dtype), variableString, parentCopies)
   else:
-    {.error: "Invalid type " & $dtype & " for `nimToH5Type`.".}
-  result = res.DatatypeID
+    {.error: "Invalid type `" & $dtype & "` for `nimToH5Type`.".}
 
 template anyTypeToString*(dtype: DtypeKind): string =
   ## return a datatype string from an DtypeKind object
@@ -1133,11 +1140,11 @@ proc isVariableString*(dtype: DatatypeID): bool =
   ## Returns true if the string is a variable length string, false if it's a
   ## static length string. Raises if it's neither a string (ValueError) or
   ## if the library call fails (HDF5LibraryError).
-  let class = H5Tget_class(dtype.hid_t)
+  let class = H5Tget_class(dtype.id)
   if class != H5T_STRING:
     raise newException(ValueError, "Given `dtype` is not a string, but of class " &
       $class & "!")
-  let res = H5Tis_variable_str(dtype.hid_t)
+  let res = H5Tis_variable_str(dtype.id)
   if res < 0:
     raise newException(HDF5LibraryError, "Call to `H5Tis_variable_str` failed in " &
       "`isVariableString`!")

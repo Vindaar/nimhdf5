@@ -30,14 +30,14 @@ proc openAttrByIdx(h5attr: H5Attributes, idx: int): AttributeID =
                           hsize_t(idx),
                           H5P_DEFAULT,
                           H5P_DEFAULT)
-    .AttributeID
+    .toAttributeID
 
 proc openAttribute(h5attr: H5Attributes, key: string): AttributeID =
   ## proc to open an attribute by its name.
   ## NOTE: This assumes the caller already checked the attribute exists!
   # we read by creation order, increasing from 0
   result = H5Aopen(h5attr.parent_id.to_hid_t, key.cstring, H5P_DEFAULT)
-    .AttributeID
+    .toAttributeID
 
 proc getAttrName*[T: SomeInteger](attr_id: AttributeID, buf_space: T = 200): string =
   ## proc to get the attribute name of the attribute with the given id
@@ -46,7 +46,7 @@ proc getAttrName*[T: SomeInteger](attr_id: AttributeID, buf_space: T = 200): str
     debugEcho "Call to getAttrName! with size $#" % $buf_space
   var name = newString(buf_space)
   # read the name
-  let length = H5Aget_name(attr_id.hid_t, len(name).csize_t, name.cstring)
+  let length = H5Aget_name(attr_id.id, len(name).csize_t, name.cstring)
   # H5Aget_name returns the length of the name. In case the name
   # is longer than the given buffer, we call this function again with
   # a buffer with the correct length
@@ -77,10 +77,10 @@ proc setAttrAnyKind[T](attr: H5Attr, dtype: typedesc[T]) =
 
 proc getAttrDataspaceID(attr_id: Attribute_ID): DataspaceID =
   ## returns a valid dataspace for the given attribute
-  result = H5Aget_space(attr_id.hid_t).DataspaceID
+  result = H5Aget_space(attr_id.id).toDataspaceID()
 
 proc getAttributeType(attr_id: AttributeID): DatatypeID =
-  result = H5Aget_type(attr_id.hid_t).DatatypeID
+  result = H5Aget_type(attr_id.id).toDatatypeID()
 
 proc readAttributeInfo(h5attr: H5Attributes,
                        attr: H5Attr,
@@ -92,7 +92,7 @@ proc readAttributeInfo(h5attr: H5Attributes,
 
   # TODO: remove debug
   withDebug:
-    debugEcho "attr ", name, " is vlen string ", H5Tis_variable_str(attr.dtype_c.hid_t)
+    debugEcho "attr ", name, " is vlen string ", H5Tis_variable_str(attr.dtype_c.id)
   #attr.dtype_c = H5Tget_native_type(attr.dtype_c, H5T_DIR_ASCEND)
   #echo "Encoding is native ", H5Tget_cset(attr.dtype_c)
   attr.attr_dspace_id = getAttrDataspaceID(attr.attr_id)
@@ -164,15 +164,15 @@ proc deleteAttribute*[T: (H5File | H5Group | H5DataSet)](h5o: T, name: string): 
 proc createAttribute(pid: ParentID, name: string, dtype: DatatypeID,
                      dspace: DataspaceID): AttributeID =
   ## Creates an attribute `name` under `pid` with default properties.
-  result = H5Acreate2(pid.to_hid_t, name.cstring, dtype.hid_t,
-                      dspace.hid_t, H5P_DEFAULT, H5P_DEFAULT).AttributeID
+  result = H5Acreate2(pid.to_hid_t, name.cstring, dtype.id,
+                      dspace.id, H5P_DEFAULT, H5P_DEFAULT).toAttributeID
 
 proc writeAttribute(attr_id: AttributeID, dtype: DatatypeID, data: pointer) =
   ## Writes the given daat to the attribute.
   ##
   ## Note: This proc is inherently unsafe. The callee needs to make sure the
   ## data and dataspaces are prepared correctly.
-  let err = H5Awrite(attr_id.hid_t, dtype.hid_t, data)
+  let err = H5Awrite(attr_id.id, dtype.id, data)
   if err < 0:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
       "calling `H5Awrite` in `writeAttribute`.")
@@ -299,10 +299,10 @@ proc readStringArrayAttribute(attr: H5Attr, npoints: hssize_t): seq[string] =
      "`readStringArrayAttribute` called for a non string attribute. Attribute " &
      "is kind " & $attr.dtypeAnyKind & "!"
   # create a void pointer equivalent
-  let nativeType = H5Tcopy(H5T_C_S1)
-  discard H5Tset_size(nativeType, H5T_VARIABLE)
+  let nativeType = copyType(H5T_C_S1)
+  discard H5Tset_size(nativeType.id, H5T_VARIABLE)
   var buf = newSeq[cstring](npoints.int)
-  let err = H5Aread(attr.attr_id.hid_t, nativeType, buf[0].addr)
+  let err = H5Aread(attr.attr_id.id, nativeType.id, buf[0].addr)
   doAssert err >= 0
   # cast the void pointer to a ptr on a ptr of an unchecked array
   # and dereference it to get a ptr to an unchecked char array
@@ -319,18 +319,18 @@ proc readStringAttribute(attr: H5Attr): string =
   # in case of string, need to determine size. use:
   # in case of existence, read the data and return
   if isVariableString(attr.dtype_c):
-    let nativeType = H5Tcopy(H5T_C_S1)
-    discard H5Tset_size(nativeType, H5T_VARIABLE)
+    let nativeType = copyType(H5T_C_S1)
+    discard H5Tset_size(nativeType.id, H5T_VARIABLE)
     var buf: cstring
-    let err = H5Aread(attr.attr_id.hid_t, nativeType, buf.addr)
+    let err = H5Aread(attr.attr_id.id, nativeType.id, buf.addr)
     doAssert err >= 0
     result = $buf
   else:
     attr.attr_dspace_id = getAttrDataspaceID(attr.attr_id)
-    let nativeType = H5Tget_native_type(attr.dtype_c.hid_t, H5T_DIR_ASCEND)
-    let string_len = H5Aget_storage_size(attr.attr_id.hid_t)
+    let nativeType = getNativeType(attr.dtype_c)
+    let string_len = H5Aget_storage_size(attr.attr_id.id)
     var buf_string = newString(string_len)
-    let err = H5Aread(attr.attr_id.hid_t, nativeType, addr buf_string[0])
+    let err = H5Aread(attr.attr_id.id, nativeType.id, addr buf_string[0])
     doAssert err >= 0
     result = buf_string
 
@@ -360,7 +360,7 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
     let attr = h5attr.attr_tab[name]
     when T is SomeNumber or T is char:
       var at_val: T
-      err = H5Aread(hid_t(attr.attr_id), hid_t(attr.dtype_c), addr(at_val))
+      err = H5Aread(attr.attr_id.id, attr.dtype_c.id, addr(at_val))
       if err < 0:
         raise newException(HDF5LibraryError, "Call to `H5Aread` failed in `read_attribute`.")
       result = at_val
@@ -376,7 +376,7 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
         # read data
         # return correct type based on base kind
         result.setLen(npoints)
-        err = H5Aread(hid_t(attr.attr_id), hid_t(attr.dtype_c), addr result[0])
+        err = H5Aread(attr.attr_id.id, attr.dtype_c.id, addr result[0])
         if err < 0:
           raise newException(HDF5LibraryError, "Call to `H5Aread` failed in `read_attribute`.")
     elif T is string:

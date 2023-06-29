@@ -49,28 +49,28 @@ func simple_dataspace*[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): Data
     # an address to hand it to C function as pointer)
     var mshape = mapIt(shape, hsize_t(it))
     if m_maxshape.len > 0:
-      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), addr(m_maxshape[0])).DataspaceID
+      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), addr(m_maxshape[0])).toDataspaceID()
     else:
-      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), nil).DataspaceID
+      H5Screate_simple(cint(len(mshape)), addr(mshape[0]), nil).toDataspaceID()
   elif T is int:
     # in this case 1D
     var mshape = hsize_t(shape)
     # maxshape is still a sequence, so take `0` element as address
     if m_maxshape.len > 0:
-      H5Screate_simple(cint(1), addr(mshape), addr(m_maxshape[0])).DataspaceID
+      H5Screate_simple(cint(1), addr(mshape), addr(m_maxshape[0])).toDataspaceID()
     else:
-      H5Screate_simple(cint(1), addr(mshape), nil).DataspaceID
+      H5Screate_simple(cint(1), addr(mshape), nil).toDataspaceID()
 
 func simple_memspace*[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): MemspaceID =
   ## The `HDF5` library does not differentiate between a memspace and a dataspace it seems.
-  result = simple_dataspace(shape, maxshape).MemspaceID
+  result = simple_dataspace(shape, maxshape).toMemspaceID()
 
 proc create_simple_memspace_1d*[T](coord: seq[T]): MemspaceID {.inline.} =
   ## TODO: apply naming convention camelCase (internal proc)
   ## convenience proc to create a simple 1D memory space for N coordinates
   ## in memory
   # get enough space for the N coordinates in coord
-  result = simple_dataspace(coord.len).MemspaceID
+  result = simple_dataspace(coord.len).toMemspaceID()
 
 proc string_dataspace*[T: seq[string] | string](str: T, dtype: DatatypeID): DataspaceID =
   ## returns a dataspace of size 1 for a string of length N, by
@@ -79,24 +79,24 @@ proc string_dataspace*[T: seq[string] | string](str: T, dtype: DatatypeID): Data
   # the null terminator
   when T is string:
     let dspaceLen = max(str.len, 1)
-    discard H5Tset_size(dtype.hid_t, dspaceLen.csize_t)
+    discard H5Tset_size(dtype.id, dspaceLen.csize_t)
     # append null termination
-    discard H5Tset_strpad(dtype.hid_t, H5T_STR_NULLTERM)
+    discard H5Tset_strpad(dtype.id, H5T_STR_NULLTERM)
     # now return dataspace of size 1
     result = simple_dataspace(1)
   else:
     # set type to be variable length string
-    discard H5Tset_size(dtype.hid_t, H5T_VARIABLE)
+    discard H5Tset_size(dtype.id, H5T_VARIABLE)
     # and create dataspace for each element in the string sequence
     result = simple_dataspace(str.len)
 
 proc getNumberOfDims*(dspace_id: DataspaceID): int =
   ## Return the number of dimensions of a simple (contiguous) dataspace
-  result = H5Sget_simple_extent_ndims(dspace_id.hid_t).int
+  result = H5Sget_simple_extent_ndims(dspace_id.id).int
 
 proc getNumberOfPoints*(dspace_id: DataspaceID): int =
   ## Return the number of elements in the given (1D?) dataspace
-  result = H5Sget_simple_extent_npoints(dspace_id.hid_t).int
+  result = H5Sget_simple_extent_npoints(dspace_id.id).int
 
 proc getSizeOfDims*(dspace_id: DataspaceID): tuple[shape: seq[int],
                                                    maxshape: seq[int]] =
@@ -111,7 +111,7 @@ proc getSizeOfDims*(dspace_id: DataspaceID): tuple[shape: seq[int],
   var
     shape = newSeq[hsize_t](ndims)
     maxshape = newSeq[hsize_t](ndims)
-  let sdims = H5Sget_simple_extent_dims(dspace_id.hid_t,
+  let sdims = H5Sget_simple_extent_dims(dspace_id.id,
                                         addr(shape[0]),
                                         addr(maxshape[0]))
   # now replace max shape values == `H5S_UNLIMITED` by `int.high`

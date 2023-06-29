@@ -67,12 +67,12 @@ proc setFilters*(dset: H5DataSet, filter: H5Filter) =
     if filter.pixPerBlock.uint8 notin SzipPixPerBlockSet:
       raise newException(ValueError, "Invalid `pixPerBlock` value for SZip " &
         "compression. Valid values are even, positive integers <= 32")
-    status = H5Pset_szip(dset.dcpl_id.hid_t, filter.optionMask.cuint, filter.pixPerBlock.cuint)
+    status = H5Pset_szip(dset.dcpl_id.id, filter.optionMask.cuint, filter.pixPerBlock.cuint)
   of fkZlib:
     if filter.zlibLevel notin ZlibCompressionLevel:
       raise newException(ValueError, "Invalid `zlibLevel` compression value Zlib " &
         "compression. Valid values are {0 .. 9}")
-    status = H5Pset_deflate(dset.dcpl_id.hid_t, filter.zlibLevel.cuint)
+    status = H5Pset_deflate(dset.dcpl_id.id, filter.zlibLevel.cuint)
   of fkBlosc:
     # TODO: only
     when HasBloscSupport:
@@ -81,7 +81,7 @@ proc setFilters*(dset: H5DataSet, filter: H5Filter) =
       filterVals[5] = if filter.doShuffle: 1 else: 0
       filterVals[6] = filter.compressor.cuint
       # set the filter
-      status = H5Pset_filter(dset.dcpl_id.hid_t, FILTER_BLOSC, H5Z_FLAG_OPTIONAL,
+      status = H5Pset_filter(dset.dcpl_id.id, FILTER_BLOSC, H5Z_FLAG_OPTIONAL,
                              filterVals.len.csize_t, addr filterVals[0])
     else:
       raise newException(NotImplementedError, "Blosc support not available, due " &

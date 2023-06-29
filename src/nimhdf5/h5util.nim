@@ -72,7 +72,7 @@ proc visit_file*(h5f: H5File, h5id: hid_t = 0.hid_t) =
                    cast[H5O_iterate_t](addH5Object),
                    cast[pointer](h5f))
   else:
-    err = H5Ovisit(h5f.file_id.hid_t, H5_INDEX_NAME, H5_ITER_NATIVE,
+    err = H5Ovisit(h5f.file_id.id, H5_INDEX_NAME, H5_ITER_NATIVE,
                    cast[H5O_iterate_t](addH5ObjectFromRoot),
                    cast[pointer](h5f))
   if err < 0:
@@ -207,7 +207,8 @@ proc existsInFile*(h5id: FileID, name: string): hid_t =
       continue
     # need to convert result of H5Lexists to hid_t, because return type is
     # `htri_t` from the H5 wrapper
-    result = H5Lexists(h5id.hid_t, toCheck.cstring, H5P_DEFAULT).hid_t
+    ## XXX: MAKE DISTINCT TYPE
+    result = H5Lexists(h5id.id, toCheck.cstring, H5P_DEFAULT).hid_t
     if result == 0:
       # does not exist, so break, even if we're not at the deepest level
       break
@@ -262,7 +263,7 @@ proc getObjectTypeByName*(h5id: FileID | GroupID | DatasetID, name: string): H5O
   ## proc to retrieve the type of an object (dataset or group etc) based on
   ## a location in the HDF5 file and a relative name from there
   var h5info: H5O_info_t
-  let err = H5Oget_info_by_name(h5id.hid_t, name, addr(h5info), H5P_DEFAULT)
+  let err = H5Oget_info_by_name(h5id.id, name, addr(h5info), H5P_DEFAULT)
   withDebug:
     echo "Getting Type of object ", name
   if err >= 0:
@@ -272,7 +273,7 @@ proc getObjectTypeByName*(h5id: FileID | GroupID | DatasetID, name: string): H5O
 
 proc getObjectInfo*(h5id: FileID | GroupID | DatasetID): H5O_info_t =
   ## Returns the object info for a single object in the H5 file
-  let err = H5Oget_info(h5id.hid_t, addr result)
+  let err = H5Oget_info(h5id.id, addr result)
   if err >= 0:
     echo result
   else:
@@ -292,11 +293,11 @@ proc getObjectTypeByName*(h5id: ParentID, name: string): H5O_type_t =
 proc printOpenObjects*(h5f: H5File) =
   ## Prints all objects that are still open in the given H5 file.
   let
-    filesOpen = H5Fget_obj_count( h5f.file_id.hid_t, H5F_OBJ_FILE)
-    dsetsOpen = H5Fget_obj_count( h5f.file_id.hid_t, H5F_OBJ_DATASET)
-    groupsOpen = H5Fget_obj_count(h5f.file_id.hid_t, H5F_OBJ_GROUP)
-    typesOpen = H5Fget_obj_count( h5f.file_id.hid_t, H5F_OBJ_DATATYPE)
-    attrsOpen = H5Fget_obj_count( h5f.file_id.hid_t, H5F_OBJ_ATTR)
+    filesOpen = H5Fget_obj_count( h5f.file_id.id, H5F_OBJ_FILE)
+    dsetsOpen = H5Fget_obj_count( h5f.file_id.id, H5F_OBJ_DATASET)
+    groupsOpen = H5Fget_obj_count(h5f.file_id.id, H5F_OBJ_GROUP)
+    typesOpen = H5Fget_obj_count( h5f.file_id.id, H5F_OBJ_DATATYPE)
+    attrsOpen = H5Fget_obj_count( h5f.file_id.id, H5F_OBJ_ATTR)
   # always printing, regardless of debug
   echo "\t objects open:"
   echo "\t\t files open: ", filesOpen
@@ -313,7 +314,7 @@ proc getNumberOpenObject*(h5id: FileID, objectKinds: set[ObjectKind]): int =
   ## relevant when opening a file from two threads / processes to distinguish
   ## / get all open objects between all IDs.
   if okNone in objectKinds: return 0
-  let err = H5Fget_obj_count(h5id.hid_t, objectKinds.toH5())
+  let err = H5Fget_obj_count(h5id.id, objectKinds.toH5())
   if err < 0:
     raise newException(HDF5LibraryError, "Call to `H5get_obj_count` failed in `getNumberOpenObjects`.")
   result = err.int
@@ -333,7 +334,7 @@ proc getOpenObjectIds*(h5id: FileID, objectKinds: set[ObjectKind]): seq[hid_t] =
   let numObjects = getNumberOpenObject(h5id, objectKinds)
   if numObjects > 0:
     var objList = newSeq[hid_t](numObjects)
-    let err = H5Fget_obj_ids(h5id.hid_t,
+    let err = H5Fget_obj_ids(h5id.id,
                              objectKinds.toH5(), numObjects.csize_t, addr objList[0])
     if err < 0:
       raise newException(HDF5LibraryError, "Call to `H5get_obj_ids` failed in `getOpenObjectsIds`.")
@@ -376,7 +377,7 @@ proc getFileID*(h5id: hid_t): FileID =
   ##   the file identifier must eventually be released using H5Fclose().
   let err = H5Iget_file_id(h5id)
   if err > 0:
-    result = err.FileID
+    result = err.toFileID
   elif err == -1.hid_t:
     raise newException(HDF5LibraryError, "Could not determine the file ID associated with " &
       $h5id & ". Invalid ID according to call to `H5Iget_file_id`.")
@@ -388,7 +389,7 @@ proc getFileID*(h5id: hid_t): FileID =
 proc getFileID*[T: H5Dataset | H5DatasetObj | H5Group | H5GroupObj | H5Attr | H5AttrObj](h5o: T): FileID =
   ## Returns the `FileID` associated with the given H5 object.
   when T is H5Attr or T is H5AttrObj:
-    let id = h5o.attr_id.hid_t
+    let id = h5o.attr_id.id
   else:
     let id = h5o.getH5ID.to_hid_t
   result = id.getFileID()
@@ -508,19 +509,19 @@ proc copy*[T](h5in: H5File, h5o: T,
     var h5f = h5out.get
     if target.isSome:
       let grp = h5f.create_group(targetGrp)
-      targetId = grp.group_id.hid_t
+      targetId = grp.group_id.id
     else:
       echo "Target grp ", targetGrp
       echo "Target Name ", targetName
       let grp = h5f.create_group(targetName.parentDir)
-      targetId = grp.group_id.hid_t
+      targetId = grp.group_id.id
   else:
     if target.isSome:
       if targetGrp == "/":
-        targetId = h5in.file_id.hid_t
+        targetId = h5in.file_id.id
       else:
         let grp = h5in.create_group(targetGrp)
-        targetId = grp.group_id.hid_t
+        targetId = grp.group_id.id
     else:
       raise newException(HDF5LibraryError, "Cannot copy object " & h5o.name & " to " &
         "same file without target!")
