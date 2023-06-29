@@ -1,6 +1,6 @@
 # stdlib
 import std / [tables, strutils]
-from os import fileExists
+from os import fileExists, expandTilde
 # internal
 import hdf5_wrapper, H5nimtypes, datatypes, h5util, util
 from datasets import `[]`
@@ -74,6 +74,7 @@ proc H5open*(name, rwType: string, accessFlags: set[AccessKind] = {}): H5File =
   ##            for the C functions
   ## throws:
   ##     IOError: in case file is opened without write access, but does not exist
+  let name = name.expandTilde()
   # create a new H5File object with default settings (i.e. no opened file etc)
   result = newH5File()
   # set the name of the file to be accessed
