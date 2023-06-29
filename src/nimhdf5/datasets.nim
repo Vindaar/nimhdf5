@@ -718,7 +718,7 @@ proc prepareData[T](data: openArray[T] | seq[T], dset: H5Dataset,
       # only copy as many bytes as either in input string to write or
       # as we have space in the allocated fixed length dataset
       let copyLen = min(size.int,  el.len)
-      when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
+      when (NimMajor, NimMinor, NimPatch) >= (1, 7, 0):
         copyMem(result[i * size.int].addr, el[0].addr, copyLen)
       else:
         copyMem(result[i * size.int].addr, el[0].unsafeAddr, copyLen)
