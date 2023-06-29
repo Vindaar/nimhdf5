@@ -88,3 +88,9 @@ iterator iterateEnumSet*[T](s: set[T]): T =
   for field in iterateEnumFields(T):
     if field in s:
       yield field
+
+template address*(x: typed): untyped =
+  when (NimMajor, NimMinor, NimPatch) < (1, 9, 0):
+    unsafeAddr(x)
+  else:
+    addr(x)

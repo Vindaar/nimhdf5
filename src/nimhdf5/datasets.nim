@@ -770,7 +770,7 @@ proc writeImpl[T](dset: H5Dataset, data: seq[T] | openArray[T] | ptr T,
                        hyperslabId)
     else:
       result = writeH5(dset,
-                       addr(buf[0]),
+                       address(buf[0]),
                        memspaceId,
                        hyperslabId)
 
@@ -1108,7 +1108,7 @@ proc select_elements[T](dset: H5DataSet, coord: seq[T]): DataspaceID {.inline, d
   let res = H5Sselect_elements(result.id,
                                H5S_SELECT_SET,
                                csize_t(coord.len),
-                               addr(flat_coord[0]))
+                               address(flat_coord[0]))
   if res < 0:
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `select_elements` " &
       "after a call to `H5Sselect_elements` with return code " & $res)
@@ -1654,7 +1654,7 @@ proc resize*[T: tuple | seq](dset: H5DataSet, shape: T) =
     # be closed until we leave this scope (via `=destroy`)
     # (dataspace_id is a proc!)
     let dspace = dset.dataspace_id
-    let status = H5Dset_extent(dset.dataset_id.id, addr(newshape[0]))
+    let status = H5Dset_extent(dset.dataset_id.id, address(newshape[0]))
     # set the shape we just resized to as the current shape
     withDebug:
       echo "Extending the dataspace to ", newshape

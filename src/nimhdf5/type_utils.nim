@@ -139,10 +139,13 @@ macro offsetStr*(x: typed, f: static string): untyped =
     #echo "Offset of: ", `f`, " for ", `x`
     offsetOf(`x`, `id`)
 
+
+from util import address
+
 proc offsetOfTup*[T: tuple](x: T, idx: static int): int =
   ## Returns the offset of fields in an anonymous tuple by subtracting the
   ## base address of the tuple (field 0) from the target field at index `idx`.
-  template getAddr(x): untyped = cast[uint](addr x)
+  template getAddr(x): untyped = cast[uint](address x)
   let baseAddr = getAddr(x[0])
   let targAddr = getAddr(x[idx])
   doAssert baseAddr <= targAddr, "Base address was: " & $baseAddr & " and targ address: " & $targAddr
