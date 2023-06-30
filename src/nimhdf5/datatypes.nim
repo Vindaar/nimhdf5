@@ -589,15 +589,23 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
     ## Closes the given attribute.
     attr.close()
     for name, field in fieldPairs(attr):
-      `=destroy`(field)
+      when typeof(field).distinctBase() isnot H5Id:
+        `=destroy`(field)
+      else:
+        if cast[pointer](field) != nil:
+          `=destroy`(field)
 
   proc `=destroy`*(attrs: var H5AttributesObj) =
     ## Closes all attributes that are stored in this `H5Attributes` table.
     if attrs.attr_tab != nil:
       `=destroy`(attrs.attr_tab)
     for name, field in fieldPairs(attrs):
-      if name != "attr_tab":
-        `=destroy`(field)
+      when typeof(field).distinctBase() isnot H5Id:
+        if name.normalize != "attrtab":
+          `=destroy`(field)
+      else:
+        if cast[pointer](field) != nil:
+          `=destroy`(field)
 
   proc `=destroy`*(dset: var H5DataSetObj) =
     ## Closes the dataset and resets all references to nil.
@@ -607,8 +615,12 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
       `=destroy`(dset.attrs)
     for name, field in fieldPairs(dset):
       if name != "attrs":
-        when typeof(field) is string or typeof(field) is seq:
+        when typeof(field).distinctBase() is H5Id:
+          if cast[pointer](field) != nil:
+            `=destroy`(field)
+        else:
           `=destroy`(field)
+
 
   proc `=destroy`*(grp: var H5GroupObj) =
     ## Closes the group and resets all references to nil.
@@ -623,8 +635,12 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
     if grp.attrs != nil:
       `=destroy`(grp.attrs)
     for name, field in fieldPairs(grp):
-      if name notin ["attrs", "groups", "datasets", "file_ref"]:
-        `=destroy`(field)
+      when typeof(field).distinctBase() isnot H5Id:
+        if name notin ["attrs", "groups", "datasets", "file_ref"]:
+          `=destroy`(field)
+      else:
+        if cast[pointer](field) != nil:
+          `=destroy`(field)
 
   when false:
     ## currently these are problematic, as we're allowed to just copy these IDs in Nim land,
