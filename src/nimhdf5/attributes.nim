@@ -104,7 +104,7 @@ proc readAttributeInfo(h5attr: H5Attributes,
 proc readAttributeInfo(h5attr: H5Attributes, key: string) =
   ## reads all information about the attribute `key` from the H5 file
   ## NOTE: this does ``not`` read the value of that attribute!
-  var attr = new H5Attr
+  var attr = newH5Attr()
   attr.attr_id = openAttribute(h5attr, key)
   attr.opened = true
   readAttributeInfo(h5attr, attr, key)
@@ -117,7 +117,7 @@ proc read_all_attributes*(h5attr: H5Attributes) =
   # first get how many objects there are
   h5attr.num_attrs = h5attr.getNumAttrs
   for i in 0 ..< h5attr.num_attrs:
-    var attr = new H5Attr
+    var attr = newH5Attr()
     attr.attr_id = openAttrByIdx(h5attr, i)
     attr.opened = true
     let name = getAttrName(attr.attr_id)

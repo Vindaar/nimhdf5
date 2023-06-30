@@ -703,6 +703,7 @@ proc initH5Attributes*(p_id: sink ParentID, p_name: string = "", p_type: string 
   # read_all_attributes(h5attr)
   result = h5attr
 
+proc newH5Attr*(): H5Attr = H5Attr(opened: false)
 proc newH5DataSet*(name: string = "",
                    file: string = "",
                    file_id: FileID = -1.hid_t.toFileId(),
