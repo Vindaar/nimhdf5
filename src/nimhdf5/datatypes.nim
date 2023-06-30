@@ -352,7 +352,7 @@ template genHelpers(typ: untyped, k: untyped): untyped =
   template `to typ`*(x: hid_t): typ = `new typ`(x)
   template id*(x: typ): hid_t = distinctBase(x).id
   #converter toInt*(x: `typ Obj`): int = x.hid_t.int
-  converter toInt*(x: typ): int = distinctBase(x).id.int
+  proc `$`*(x: typ): string = $typ & "(" & $id(x).int & ")"
 
 
 genHelpers(FileID, ckFile)
