@@ -20,28 +20,28 @@ proc write_attrs(grp: var H5Group) =
 
 proc assert_attrs(grp: var H5Group) =
 
-  assert(grp.attrs["Time", string] == TimeStr)
-  assert(grp.attrs["Counter", int] == Counter)
-  assert(grp.attrs["Seq", seq[int]] == SeqAttr)
-  assert("Time" in grp.attrs)
-  assert("NoTime" notin grp.attrs)
+  doAssert(grp.attrs["Time", string] == TimeStr)
+  doAssert(grp.attrs["Counter", int] == Counter)
+  doAssert(grp.attrs["Seq", seq[int]] == SeqAttr)
+  doAssert("Time" in grp.attrs)
+  doAssert("NoTime" notin grp.attrs)
   let nameCheck = if grp.attrs.parent_name == formatName(GrpName) or
                      grp.attrs.parent_name == formatName(GrpCopy):
                     true
                   else:
                     false
-  assert(nameCheck)
-  assert(grp.attrs.parent_type == "H5Group")
-  assert(grp.attrs.num_attrs == 3)
+  doAssert(nameCheck)
+  doAssert(grp.attrs.parent_type == "H5Group")
+  doAssert(grp.attrs.num_attrs == 3)
 
 proc assert_delete(grp: var H5Group) =
 
-  assert(grp.deleteAttribute("Time"))
-  assert(grp.attrs.num_attrs == 2)
-  assert(grp.deleteAttribute("Counter"))
-  assert(grp.attrs.num_attrs == 1)
-  assert(grp.deleteAttribute("Seq"))
-  assert(grp.attrs.num_attrs == 0)
+  doAssert(grp.deleteAttribute("Time"))
+  doAssert(grp.attrs.num_attrs == 2)
+  doAssert(grp.deleteAttribute("Counter"))
+  doAssert(grp.attrs.num_attrs == 1)
+  doAssert(grp.deleteAttribute("Seq"))
+  doAssert(grp.attrs.num_attrs == 0)
 
 proc assert_overwrite(grp: var H5Group) =
   var mcounter = Counter
@@ -68,8 +68,7 @@ proc assert_overwrite(grp: var H5Group) =
   grp.attrs["Counter"] = mcounter
   doAssert(grp.attrs["Counter", int] == mcounter)
 
-when isMainModule:
-
+proc main() =
   var
     h5f = H5open(File, "rw")
     grp = h5f.create_group(GrpName)
@@ -86,7 +85,7 @@ when isMainModule:
   grpCp.assert_attrs
 
   err = h5f.close()
-  assert(err >= 0)
+  doAssert(err >= 0)
 
   # open again, again with write access to delete attributes again
   h5f = H5open(File, "rw")
@@ -103,7 +102,10 @@ when isMainModule:
   grp.assert_overwrite
 
   err = h5f.close()
-  assert(err >= 0)
+  doAssert(err >= 0)
 
   # clean up after ourselves
   removeFile(File)
+
+when isMainModule:
+  main()
