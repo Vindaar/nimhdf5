@@ -345,17 +345,12 @@ proc newH5Id(x: hid_t, kind: CloseKind): H5Id =
   result = H5Id(id: x, kind: kind)
 
 template genHelpers(typ: untyped, k: untyped): untyped =
-  ## in 1.6 still we cannot define a `ref type` destructor. There is some bug on devel *without this*
-  ## that causes invalid `free()` calls :(
-  when (NimMajor, NimMinor, NimPatch) > (1, 7, 0):
-    proc `=destroy`*(x: typ) = `=destroy`(cast[H5Id](x))
   proc `new typ`*(x: hid_t): typ =
     result = typ(newH5Id(x, k))
 
   proc close*(x: typ, msg = "") = distinctBase(x).close(msg)
   template `to typ`*(x: hid_t): typ = `new typ`(x)
   template id*(x: typ): hid_t = distinctBase(x).id
-  #converter toInt*(x: `typ Obj`): int = x.hid_t.int
   proc `$`*(x: typ): string = $typ & "(" & $id(x).int & ")"
 
 

@@ -1,4 +1,5 @@
 * v0.5.3
+- *Drops support for Nim 1.4*
 - add basic serialization submodule to auto serialize most objects to
   a H5 file. Scalar types are written as attributes and non scalar as
   datasets.
@@ -7,6 +8,44 @@
   Note: currently no deserialization is supported. You need to parse
   the data back into your file if needed. An equivalent inverse can be
   added, but has no priority at the moment.
+- allow usage of tilde =~= in paths to H5 files
+- replace distinct `hid_t` types by traced 'fat' objects
+
+  The basic idea here is the following:
+  The `hid_t` identifiers all refer to objects that live in the H5
+  library (and possibly in a file). In our previous approach we kept
+  track of different types by using `distinct hid_t` types. That's great
+  because we cannot mix and match the wrong type of identifiers in a
+  given context.
+  However, there are real resources underlying each identifier. Most
+  identifiers require the user to call a `close` / `free` type of
+  routine. While we can associate a destructor with a `=destroy` hook to
+  a `distinct hid_t` (with `hid_t` just being an integer type), the
+  issue is *when* that destructor is being called. In this old way the
+  identifier is a pure value type. If an identifier is copied and the
+  copy goes out of scope early, we release the resource despite still
+  needing it!
+  Therefore, we now have a 'fat' object that knows its internal
+  id (just a real `hid_t`) and which closing function to call. Our
+  actual IDs then are `ref objects` of these fat objects.
+  That way we get sane releasing of resources in the correct moments,
+  i.e. when the last reference to an identifier goes out of scope. This
+  is the correct thing to do in 99% of the cases.
+- add ~FileID~ field to parent file for datasets, similar to already
+  present for groups. Convenient in practice.
+- refactor ~read~ and ~write~ related procs. The meat of the code is
+  now handled in one procedure each (which also takes care of
+  reclaiming VLEN memory for example).
+- greatly improve automatic writing and reading of complex datatypes
+  including Nim objects that contain ~string~ fields or other VLEN
+  data. This is performed by performing a *copy* to a suitable
+  datatype that matches the H5 definition of the equivalent data in
+  Nim.
+  ~type_utils~ and ~copyflat~ submodules are added to that end.
+  In this context there is some trickyness involved, which causes the
+  implementation to be more complex than one might expect. The
+  necessity to get the correct alignment between naive `offsetOf`
+  expectations and the reality of how structs are packed. 
 * v0.5.2
 - remove support for reading into a ~cstring~, as this is not well
   defined. A local cstring that needs to be created cannot be returned
