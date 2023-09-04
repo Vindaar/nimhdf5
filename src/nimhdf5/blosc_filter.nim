@@ -16,7 +16,7 @@ when defined(blosc):
   else:
     const HasBloscSupport* = false
     static:
-      warning("Compiling without blosc support")
+      warning("Compiling without blosc support, because the `blosc` library cannot be found.")
 else:
   const HasBloscSupport* = false
   static:
