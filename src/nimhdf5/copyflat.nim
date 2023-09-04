@@ -11,6 +11,8 @@ type
 
   SimpleTypes* = SomeNumber | char | bool
 
+proc `=copy`(dest: var BufferObj, source: BufferObj) {.error: "Copying a buffer is not allowed at the moment.".}
+
 proc `=destroy`(x: var BufferObj) =
   for ch in mitems(x.children):
     `=destroy`(ch)
