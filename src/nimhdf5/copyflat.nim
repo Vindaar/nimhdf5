@@ -22,7 +22,10 @@ proc `$`*(b: Buffer): string =
   result = "Buffer(size: " & $b.size & ", owned: " & $b.owned & ", data: " & $b.data.repr & ", offsetOf: " & $b.offsetOf & ", children: " & $b.children.len & ")"
 
 proc newBuffer*(size: int, owned = true): Buffer =
-  result = Buffer(owned: owned, size: size, data: allocShared0(size), offsetOf: 0)
+  if size > 0:
+    result = Buffer(owned: owned, size: size, data: allocShared0(size), offsetOf: 0)
+  else:
+    result = Buffer(owned: false, size: size, data: nil, offsetOf: 0)
 
 proc newBuffer*(buf: pointer, size: int): Buffer =
   result = Buffer(owned: false, size: size, data: buf, offsetOf: 0)
