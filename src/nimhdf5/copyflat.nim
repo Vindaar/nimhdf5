@@ -14,10 +14,8 @@ type
 proc `=copy`(dest: var BufferObj, source: BufferObj) {.error: "Copying a buffer is not allowed at the moment.".}
 
 proc `=destroy`(x: var BufferObj) =
-  for ch in mitems(x.children):
-    `=destroy`(ch)
+  `=destroy`(x.children)
   if x.owned and x.data != nil:
-    #echo "deallocing: ", x.offsetOf
     deallocShared(x.data)
 
 proc `$`*(b: Buffer): string =
