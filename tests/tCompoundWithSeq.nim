@@ -1,4 +1,5 @@
-import tables, nimhdf5
+import std / [tables, os]
+import nimhdf5
 
 proc writeDeserTest[T](x: T, f: string) =
   x.toH5(f)
@@ -10,7 +11,7 @@ proc writeDeserTest[T](x: T, f: string) =
   doAssert xx == x
 
 block Float:
-  let file = "/tmp/cacheTab_float.h5"
+  let file = getTempDir() / "cacheTab_float.h5"
   type
     TabKey = (int, string)
     TabVal = float
@@ -21,7 +22,7 @@ block Float:
   writeDeserTest(cacheTab, file)
 
 block String:
-  let file = "/tmp/cacheTab_string.h5"
+  let file = getTempDir() / "cacheTab_string.h5"
   type
     TabKey = (int, string)
     TabVal = string
@@ -32,7 +33,7 @@ block String:
   writeDeserTest(cacheTab, file)
 
 block SeqInt:
-  let file = "/tmp/cacheTab_seqint.h5"
+  let file = getTempDir() / "cacheTab_seqint.h5"
   type
     TabKey = (int, string)
     TabVal = seq[int]
@@ -43,7 +44,7 @@ block SeqInt:
   writeDeserTest(cacheTab, file)
 
 block SeqFloat:
-  let file = "/tmp/cacheTab_seqfloat.h5"
+  let file = getTempDir() / "cacheTab_seqfloat.h5"
   type
     TabKey = (int, string)
     TabVal = seq[float]
@@ -54,7 +55,7 @@ block SeqFloat:
   writeDeserTest(cacheTab, file)
 
 block SeqString:
-  let file = "/tmp/cacheTab_seqstring.h5"
+  let file = getTempDir() / "cacheTab_seqstring.h5"
   type
     TabKey = (int, string)
     TabVal = seq[string]
@@ -65,7 +66,7 @@ block SeqString:
   writeDeserTest(cacheTab, file)
 
 block SeqTuple:
-  let file = "/tmp/cacheTab_seqtuple.h5"
+  let file = getTempDir() / "cacheTab_seqtuple.h5"
   type
     TabKey = (int, string)
     TabVal = seq[(int, float)]
@@ -76,7 +77,7 @@ block SeqTuple:
   writeDeserTest(cacheTab, file)
 
 block SeqTupleStr:
-  let file = "/tmp/cacheTab_seqtuple_str.h5"
+  let file = getTempDir() / "cacheTab_seqtuple_str.h5"
   type
     TabKey = (int, string)
     TabVal = seq[(string, float)]
@@ -87,7 +88,7 @@ block SeqTupleStr:
   writeDeserTest(cacheTab, file)
 
 block SeqFloatLarge:
-  let file = "/tmp/cacheTab_seqfloat_large.h5"
+  let file = getTempDir() / "cacheTab_seqfloat_large.h5"
   type
     TabKey = (int, string)
     TabVal = seq[float]
@@ -98,7 +99,7 @@ block SeqFloatLarge:
   writeDeserTest(cacheTab, file)
 
 block TrickyTuples:
-  let file = "/tmp/cacheTab_tricky_tuples.h5"
+  let file = getTempDir() / "cacheTab_tricky_tuples.h5"
   ## This checks whether we handle alignment within a tuple that does not need to be
   ## converted, but is contained in an outer tuple that is converted.
   type
