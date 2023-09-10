@@ -35,7 +35,7 @@ proc assert_fields(h5f: var H5FileObj, dset: var H5DataSet, resized: bool) =
   let anyKindCheck = if dset.dtypeAnyKind == dkInt or dset.dtypeAnyKind == dkInt64: true else: false
   assert(anyKindCheck)
 
-  assert(dset.parent == parentDir(DsetName))
+  assert(dset.parent == getParent(DsetName))
 
   assert(dset.file == File)
 
