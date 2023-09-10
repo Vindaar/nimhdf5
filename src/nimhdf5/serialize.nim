@@ -5,7 +5,6 @@ This file contains helpers to serialize objects to a H5 file.
 
 from std / strutils import parseBool, parseEnum
 from std / typetraits import distinctBase
-from os import `/`
 import ./datatypes, ./datasets, ./files, ./groups, ./util
 
 

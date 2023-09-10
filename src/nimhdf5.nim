@@ -7,7 +7,7 @@ import nimhdf5/datatypes
 export datatypes
 
 import nimhdf5/util
-export util
+export util except `/`
 
 import nimhdf5/h5util
 export h5util
