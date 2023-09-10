@@ -25,5 +25,6 @@ when isMainModule:
   # write empty hyperslab
   var emptyData: seq[int] = @[]
   dset.write_hyperslab(emptyData, offset = @[0, 0], count = @[0, 0])
+  doAssert h5f.close() >= 0
   # clean up after ourselves
   removeFile(File)

@@ -43,4 +43,5 @@ when isMainModule:
     for j in 0 ..< dataShape[1]:
       doAssert write[i][j] == read[i][j]
 
+  doAssert h5f.close() >= 0
   removeFile(Filename)
