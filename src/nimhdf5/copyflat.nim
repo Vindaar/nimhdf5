@@ -81,6 +81,11 @@ proc copyFlat[T: distinct](buf: var Buffer, x: T) =
   var target = buf.data +% buf.offsetOf
   target.copyMem(address(x), size)
 
+proc copyFlat[T; N: static int](buf: var Buffer, x: array[N, T]) =
+  let size = calcSize(x)
+  var target = buf.data +% buf.offsetOf
+  target.copyMem(address(x[0]), size)
+
 proc getAddr(x: string): uint =
   if x.len > 0:
     result = cast[uint](address(x[0]))
@@ -96,7 +101,7 @@ proc copyFlat[T](buf: var Buffer, x: seq[T]) =
   let child = copyFlat(x)
   buf.children.add child
   # copy child address
-  buf.copyFlat((csize_t(x.len), cast[uint](child.data)))
+  buf.copyFlat((csize_t(x.len), cast[uint](child.data))) # `hvl_t` like data structure
 
 import ./type_utils
 proc copyFlat[T: object | tuple](buf: var Buffer, x: T) =
