@@ -1,3 +1,10 @@
+* v0.5.4
+- fixes potential source of segfaults in ~copyflat~ where we could
+  call ~allocShared0~ with a ~0~ argument
+- support ~array~ types to be written (at least as part of a compound
+  datatype)
+- improve warning message when importing ~blosc~ filters without the
+  Nim ~blosc~ library installed    
 * v0.5.3
 - *Drops support for Nim 1.4*
 - add basic serialization submodule to auto serialize most objects to
