@@ -38,12 +38,14 @@ proc toH5*[T](h5f: H5File, x: set[T], name = "", path = "/") =
   ## elements in the set are written as string values in the dataset if the
   ## inner type is an `enum` and otherwise as the native type.
   when T is enum:
+    bind `/`
     let dset = h5f.create_dataset(path / name,
                                   x.card, # 1D, so use length
                                   string,
                                   overwrite = true)
     dset[dset.all] = x.toSeq.mapIt($it)
   else:
+    bind `/`
     let dset = h5f.create_dataset(path / name,
                                   x.card, # 1D, so use length
                                   T,
@@ -70,6 +72,7 @@ proc toH5*[T](h5f: H5File, x: openArray[T], name = "", path = "/") =
   # first check for tuple, as in this case
   when T is SomeNumber | char | string | cstring | tuple | object:
     # Note that tuples will be written as composite types!
+    bind `/`
     let dset = h5f.create_dataset(path / name,
                                   x.len, # 1D, so use length
                                   T,
@@ -77,6 +80,7 @@ proc toH5*[T](h5f: H5File, x: openArray[T], name = "", path = "/") =
     dset[dset.all] = @x # make sure to convert array to seq
   elif T is enum:
     # Note that tuples will be written as composite types!
+    bind `/`
     let dset = h5f.create_dataset(path / name,
                                   x.len, # 1D, so use length
                                   string,
@@ -91,6 +95,7 @@ proc toH5*[T: object](h5f: H5File, x: T, name = "", path = "/", exclude: seq[str
   ## store fully flat `objects` as a composite type (via the already
   ## supported functionality).
   # construct group of the name under `path`
+  bind `/`
   let grp = path / name
   discard h5f.create_group(grp)
   for field, val in fieldPairs(x):
@@ -151,6 +156,7 @@ template withGrp(h5f, path, name, body: untyped): untyped =
     body
 
 template withDst(h5f, path, name, body: untyped): untyped =
+  bind `/`
   if path / name in h5f:
     body
 
@@ -199,10 +205,12 @@ proc fromH5*[T](h5f: H5File, res: var set[T], name = "", path = "/") =
   ## inner type is an `enum` and otherwise as the native type.
   withDst(h5f, path, name):
     when T is enum:
+      bind `/`
       let data = h5f[(path / name), string]
       for el in data:
         res.incl parseEnum[T](el)
     else:
+      bind `/`
       let data = h5f[(path / name), T]
       for el in data:
         res.incl T(el)
@@ -219,6 +227,7 @@ proc fromH5*[N; T](h5f: H5File, res: var array[N, T], name = "", path = "/") =
   ## But what to do for 3D, 4D etc?
   withDst(h5f, path, name):
     when T is SomeNumber | char | string | cstring | tuple | object:
+      bind `/`
       let data = h5f[path / name, T]
       doAssert res.len == data.len
       for i, x in data:
@@ -227,6 +236,7 @@ proc fromH5*[N; T](h5f: H5File, res: var array[N, T], name = "", path = "/") =
         else:
           res[N(i)] = x
     elif T is enum:
+      bind `/`
       let data = h5f[path / name, string]
       doAssert res.len == data.len
       for i, x in data:
@@ -247,8 +257,10 @@ proc fromH5*[T](h5f: H5File, res: var seq[T], name = "", path = "/") =
   ## But what to do for 3D, 4D etc?
   withDst(h5f, path, name):
     when T is SomeNumber | char | string | cstring | tuple | object:
+      bind `/`
       res = h5f[path / name, T]
     elif T is enum:
+      bind `/`
       let data = h5f[path / name, string]
       res = newSeq[T](data.len)
       for i, x in data:
@@ -263,6 +275,7 @@ proc fromH5*[T](h5f: H5File, res: var Option[T], name = "", path = "/") =
   ## XXX: Of course when parsing we need to check and do the same.
   ## XXX: add some field (attribute?) indicating it's an option?
   when T is openArray | set | object | tuple:
+    bind `/`
     if path / name in h5f:
       var tmp: T
       h5f.fromH5(tmp, name, path)
@@ -273,6 +286,7 @@ proc fromH5*[T](h5f: H5File, res: var Option[T], name = "", path = "/") =
       res = some( grp.attrs[name, T] )
 
 proc fromH5*[T: object](h5f: H5File, res: var T, name = "", path = "/", exclude: seq[string] = @[]) =
+  bind `/`
   let grp = path / name
   for field, val in fieldPairs(res):
     if field notin exclude:
