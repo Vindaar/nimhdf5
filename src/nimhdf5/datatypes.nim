@@ -1005,14 +1005,13 @@ proc nimToH5type*(dtype: typedesc, variableString = false,
       result = H5T_NATIVE_SHORT.toDatatypeID()
     elif dtype is int32:
       result = H5T_NATIVE_INT.toDatatypeID() # H5T_STD_I32LE
-    when sizeOf(int) == 8:
-      if dtype is int:
-        result = H5T_NATIVE_LONG.toDatatypeID()
-    else:
-      if dtype is int:
-        result = H5T_NATIVE_INT.toDatatypeID()
-    when dtype is int64:
-      result = H5T_NATIVE_LONG.toDatatypeID()
+    elif dtype is int:
+      when sizeOf(int) == 8:
+        result = H5T_NATIVE_LLONG.toDatatypeID()
+      else:
+       result = H5T_NATIVE_INT.toDatatypeID()
+    elif dtype is int64:
+      result = H5T_NATIVE_LLONG.toDatatypeID()
     elif dtype is uint8:
       # for 8 bit int we take the STD LE one, since there is no
       # native type available (besides char)
