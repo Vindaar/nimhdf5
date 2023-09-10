@@ -9,7 +9,9 @@
 # of the H5 library (although the purpose of the function might)
 # and does not make use of any datatypes defined for H5 interop.
 
-import std / [strutils, macros, os, pathnorm]
+import std / [strutils, macros, pathnorm]
+import std / os except `/`
+from std / os import nil
 
 template withDebug*(actions: untyped) =
   ## a debugging template, which can be used to e.g. output
@@ -28,6 +30,8 @@ proc formatName*(name: string): string =
   # Note: we use `normalizePath` only for the behavior of `./`, `..` and multiple `/`
   result = "/" & name.normalizePath(dirSep = '/').strip(chars = ({'/'} + Whitespace + NewLines))
 
+proc `/`*(a, b: string): string =
+  result = formatName os.`/`(a, b)
 
 template getParent*(dset_name: string): string =
   ## given a `dset_name` after formating (!), return the parent name,
@@ -36,7 +40,10 @@ template getParent*(dset_name: string): string =
   result = parentDir(dset_name)
   if result == "":
     result = "/"
-  result
+  when defined(linux):
+    result
+  else:
+    result.formatName()
 
 proc traverseTree(input: NimNode): NimNode =
   # iterate children

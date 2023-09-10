@@ -15,7 +15,6 @@ template tryExport(body: untyped): untyped =
 import std / [options, tables, strutils, sequtils, macros]
 tryExport:
   export nimIdentNormalize
-from os import `/`
 
 # external nimble
 import pkg / seqmath
@@ -1231,6 +1230,7 @@ proc `[]`*[T](h5f: H5File, name: string, t: DatatypeID, dtype: typedesc[T]):
 
 template `[]`*(grp: H5Group, dsetName: dset_str): H5DataSet =
   ## Accessor relative from a basegroup to a dataset
+  bind `/`
   grp.file_ref[(grp.name / dsetName.string).dset_str]
 
 template withDset*(h5dset: H5DataSet, actions: untyped) =

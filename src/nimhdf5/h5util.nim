@@ -7,7 +7,7 @@
 # procs related to general H5 objects.
 
 import std / [strutils, strformat, options, tables, sequtils]
-from os import `/`, parentDir, extractFilename
+from std / os import extractFilename
 
 # nimhdf5 related libraries
 import hdf5_wrapper, H5nimtypes, util, datatypes
@@ -490,11 +490,11 @@ proc copy*[T](h5in: H5File, h5o: T,
   if target.isSome:
     tgt = target.get
 
-  var targetGrp = if target.isSome: target.get.parentDir else: "/"
+  var targetGrp = if target.isSome: target.get.getParent: "/"
   if targetGrp.len == 0:
     targetGrp = "/"
   var targetName = if target.isSome:
-                     target.get.extractFileName
+                     formatName target.get.extractFileName
                    else:
                      h5o.name
 
@@ -513,7 +513,7 @@ proc copy*[T](h5in: H5File, h5o: T,
     else:
       echo "Target grp ", targetGrp
       echo "Target Name ", targetName
-      let grp = h5f.create_group(targetName.parentDir)
+      let grp = h5f.create_group(targetName.getParent)
       targetId = grp.group_id.id
   else:
     if target.isSome:
