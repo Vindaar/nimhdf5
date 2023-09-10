@@ -44,6 +44,7 @@ proc traverseTree(input: NimNode): NimNode =
     case input.typeKind
     of ntyAlias, ntyTypeDesc, ntySequence: result = traverseTree(input.getTypeImpl)
     of ntyBool, ntyChar, ntyInt .. ntyUint64, ntyTuple, ntySet, ntyObject, ntyString: result = input
+    of ntyGenericInst: result = input
     else:
       doAssert false, "Invalid type kind: " & $input.typeKind
   of nnkBracketExpr:
