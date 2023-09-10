@@ -960,6 +960,21 @@ proc walkObjectAndInsert[T](_: typedesc[T],
     if err < 0:
       raise newException(Defect, "Could not insert type " & $typeof(val) & " into H5 compound type for full type " & typeName(T))
 
+proc arrayType[N: static int; T](dtype: typedesc[array[N, T]]): DatatypeID =
+  ## XXX: write test case for this!
+  when T isnot SomeNumber:
+    {.error: "Invalid type for a fixed array: " & $T & ". It may work, but until " &
+      "tested it is disallowed. Please open an issue.".}
+  result = nimToH5Type(T)
+  # create array type. `1` is rank, `N` size in each dimension
+  var dims = [hsize_t(N)]
+  if H5Tarray_create2(result.id, 1, dims[0].addr) < 0:
+    raise newException(HDF5LibraryError, "Call to H5Tarray_create` attempting to define " &
+      "a fixed size array failed.")
+
+proc seqType[T](dtype: typedesc[seq[T]]): DatatypeID =
+  result = special_type(T)
+
 proc nimToH5type*(dtype: typedesc, variableString = false,
                   parentCopies: static bool = false): DatatypeID =
   ## given a typedesc, we return a corresponding
@@ -1045,7 +1060,9 @@ proc nimToH5type*(dtype: typedesc, variableString = false,
   elif dtype is object or dtype is tuple:
     result = walkObjectAndInsert(dtype, parentCopies).toDatatypeID
   elif dtype is seq:
-    result = special_type(getInnerType(dtype)) ## NOTE: back conversion to hid_t
+    result = seqType(dtype)
+  elif dtype is array:
+    result = arrayType(dtype)
   elif dtype is bool:
     when sizeof(bool) == 1:
       result = H5T_NATIVE_UCHAR.toDatatypeID()
