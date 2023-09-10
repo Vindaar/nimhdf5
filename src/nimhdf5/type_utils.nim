@@ -51,7 +51,7 @@ macro needsCopy*(t: typed): untyped =
   of ntyString, ntySequence: result = newLit true
   of ntyBool, ntyChar, ntyInt .. ntyUint64:
     result = newLit false
-  of ntyObject, ntyTuple:
+  of ntyObject, ntyTuple, ntyGenericInst:
     case typ.kind
     of nnkSym:
       result = newLit(needsCopyImpl(typ.getTypeImpl))
