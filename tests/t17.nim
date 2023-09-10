@@ -25,7 +25,7 @@ template check(actions: untyped) =
   except ValueError:
     discard
 
-when isMainModule:
+proc main =
   # open file, create dataset
   var
     h5f = H5open(File, "rw")
@@ -73,5 +73,7 @@ when isMainModule:
   var err = h5f.close()
   assert(err >= 0)
 
+when isMainModule:
+  main()
   # clean up after ourselves
   removeFile(File)

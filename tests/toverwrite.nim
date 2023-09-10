@@ -14,7 +14,7 @@ var d_new = @[ @[1'f64, 2, 3, 4, 5],
                @[6'f64, 7, 8, 9, 10],
                @[11'f64, 12, 13, 14] ]
 
-when isMainModule:
+proc main() =
   # open file, create dataset
   var
     h5f = H5open(File, "rw")
@@ -37,8 +37,9 @@ when isMainModule:
   createAndOverwrite(DsetName)
   createAndOverwrite(DsetRootName)
 
-  let err = h5f.close()
-  doAssert(err >= 0)
+  doAssert h5f.close() >= 0
 
+when isMainModule:
+  main()
   # clean up after ourselves
   removeFile(File)

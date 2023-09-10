@@ -16,7 +16,7 @@ proc create_dset(h5f: var H5FileObj, name: string): H5DataSet =
   result = h5f.create_dataset(name, (2, 5), int)
   result[result.all] = d_ar
 
-when isMainModule:
+proc main =
   # open file, create dataset
   var
     h5f = H5open(File, "rw")
@@ -73,5 +73,7 @@ when isMainModule:
   var err = h5f.close()
   doAssert(err >= 0)
 
+when isMainModule:
+  main()
   # clean up after ourselves
   removeFile(File)
