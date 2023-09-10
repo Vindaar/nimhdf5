@@ -33,8 +33,7 @@ proc assert_fields(h5f: var H5File, dset: var H5DataSet, parent = DsetName) =
   echo dset.dtypeAnyKind
   let anyKindCheck = if dset.dtypeAnyKind == dkFloat or dset.dtypeAnyKind == dkFloat64: true else: false
   assert(anyKindCheck)#dset.dtypeAnyKind == dkFloat)
-
-  assert(dset.parent == parentDir(parent))
+  assert(dset.parent == getParent(parent))
 
   assert(dset.file == File)
 

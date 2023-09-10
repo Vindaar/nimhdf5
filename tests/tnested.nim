@@ -16,7 +16,7 @@ when isMainModule:
 
   assert(g.name == GrpName)
 
-  assert(g.parent == parentDir(GrpName))
+  assert(g.parent == getParent(GrpName))
 
   assert(g.file == File)
 
