@@ -1,4 +1,5 @@
 import nimhdf5
+import std / os
 
 ## XXX: MAKE ME A PROPER TEST
 type
@@ -10,20 +11,31 @@ type
     fallHigh: float
     skewness: float
 
-const File = "/tmp/test_file_bool.h5"
-var h5f = H5open(File, "rw")
+const FileName = "test_file_bool.h5"
+let File = getTempDir() / FileName
 
-let data = @[FadcCuts(active: true, riseLow: 40, riseHigh: 100, fallLow: 200, fallHigh: 400, skewness: -0.8),
-             FadcCuts(active: false, riseLow: 0, riseHigh: 0, fallLow: 100, fallHigh: 300, skewness: 0.0)]
-var dset = h5f.create_dataset("/w_bool",
-                              2,
-                              FadcCuts)
-dset[dset.all] = data
+proc createIt =
+  echo "File : ", File
+  var h5f = H5open(File, "rw")
 
-discard h5f.close()
+  let data = @[FadcCuts(active: true, riseLow: 40, riseHigh: 100, fallLow: 200, fallHigh: 400, skewness: -0.8),
+               FadcCuts(active: false, riseLow: 0, riseHigh: 0, fallLow: 100, fallHigh: 300, skewness: 0.0)]
+  var dset = h5f.create_dataset("/w_bool",
+                                2,
+                                FadcCuts)
+  dset[dset.all] = data
 
+  discard h5f.close()
+proc readIt =
 
-h5f = H5open(File, "r")
-let read = h5f["/w_bool", FadcCuts]
-echo read
-discard h5f.close()
+  var h5f = H5open(File, "r")
+  let read = h5f["/w_bool", FadcCuts]
+  echo read
+  discard h5f.close()
+
+proc main =
+  createIt()
+  readIt()
+when isMainModule:
+  main()
+  removeFile(File)

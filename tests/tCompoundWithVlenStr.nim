@@ -7,7 +7,8 @@ const
   Dset = "DComp"
   DsetTup = "DCompTup"
 
-const CacheTabFile = "/dev/shm/cacheTab_effective_eff_test.h5"
+const CacheTabFileName = "cacheTab_effective_eff_test.h5"
+let CacheTabFile = getTempDir() / CacheTabFileName
 type
   TabKey = (string, string, float)
   #         ^-- calibration filename
