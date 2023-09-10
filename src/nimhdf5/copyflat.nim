@@ -17,6 +17,7 @@ proc `=destroy`(x: var BufferObj) =
   `=destroy`(x.children)
   if x.owned and x.data != nil:
     deallocShared(x.data)
+    x.data = nil
 
 proc `$`*(b: Buffer): string =
   result = "Buffer(size: " & $b.size & ", owned: " & $b.owned & ", data: " & $b.data.repr & ", offsetOf: " & $b.offsetOf & ", children: " & $b.children.len & ")"
