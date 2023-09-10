@@ -1,3 +1,12 @@
+* v0.5.5
+- fix Windows support
+  - use custom ~/~ proc to handle ~\~ separators that are inserted
+    intermittently from ~os./~ and ~parentDir~
+  - fix ~normalizePath~ to always use ~/~ as separator
+  - fix ~int~ type to *always* be mapped to 8 byte HDF5 type if
+    machine's type is also 8 byte by using ~H5T_NATIVE_LLONG~ in those
+    cases
+  - replace hardcoded paths in some tests by using ~getTempDir~
 * v0.5.4
 - fixes potential source of segfaults in ~copyflat~ where we could
   call ~allocShared0~ with a ~0~ argument
