@@ -11,10 +11,11 @@ type
   ## NOTE: We define `time_t` by hand from `time.h` because using a definition based on
   ## `clong` is flawed. `clong` is 8 bytes on Linux but only 4 bytes on Winodws. That leads
   ## to mismatches in the `sizeof` of objects that contain `time_t` causing hard to understand
-  ## stack corruption bugs! Therefore we just pretend it's an object despite it actually being
-  ## an integer type. That is to make sure Nim doesn't mess up the size. `time_t` is 8 bytes
+  ## stack corruption bugs! We make it a `clonglong` by hand . `time_t` is 8 bytes
   ## on Windows *and* Linux.
-  time_t* {.header: "<time.h>", importc: "time_t".} = object
+  ## NOTE 2: I'm not entirely sure what happens on a 32-bit machine with `time_t`. I guess
+  ## it might become 4 byte sized?
+  time_t* {.header: "<time.h>", importc: "time_t".} = distinct clonglong
   hbool_t* = bool
   htri_t* = cint
   hsize_t* = culonglong
