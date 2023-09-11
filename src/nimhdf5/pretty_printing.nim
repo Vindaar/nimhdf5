@@ -31,7 +31,7 @@ proc pretty*(attrs: H5Attributes, indent = 2, full = false): string =
     result.add &"{fieldInd}{name}: {attr},\n"
   if attrs.num_attrs > 0:
     result.add &"{fieldInd}" & "}"
-  result.add repeat(' ', indent) & "}\n"
+  result.add "\n" & repeat(' ', indent) & "}"
 
 proc `$`*(attrs: H5Attributes): string =
   ## to string conversion for a `H5Attributes` for pretty printing
@@ -40,12 +40,15 @@ proc `$`*(attrs: H5Attributes): string =
 proc pretty*(dset: H5DataSet, indent = 0, full = false): string =
   result = repeat(' ', indent) & "{\n"
   let fieldInd = repeat(' ', indent + 2)
-  result.add &"{fieldInd}name: {dset.name},\n"
-  result.add &"{fieldInd}opened: {dset.opened},\n"
-  result.add &"{fieldInd}file: {dset.file},\n"
-  result.add &"{fieldInd}parent: {dset.parent},\n"
-  result.add &"{fieldInd}shape: {dset.shape},\n"
-  result.add &"{fieldInd}dtype: {dset.dtype}"
+  result.add &"{fieldInd}name: {dset.name}"
+  result.add &",\n{fieldInd}opened: {dset.opened}"
+  if full or dset.file.len > 0:
+    result.add &",\n{fieldInd}file: {dset.file}"
+  if full or dset.parent.len > 0:
+    result.add &",\n{fieldInd}parent: {dset.parent}"
+  result.add &",\n{fieldInd}shape: {dset.shape}"
+  if full or dset.dtype.len > 0:
+    result.add &",\n{fieldInd}dtype: {dset.dtype}"
   if full:
     result.add &",\n{fieldInd}maxshape: {dset.maxshape},\n"
     result.add &"{fieldInd}parent_id: {dset.parent_id.kind}, {dset.parent_id.to_hid_t}\n"
@@ -86,14 +89,14 @@ proc pretty*(grp: H5Group, indent = 2, full = false): string =
       result.add &"{fieldInd}{name}:\n" & dset.pretty(indent = indent + 4) & ",\n"
     result.add &"{fieldInd}" & "}"
   else:
-    result.add &",\n{fieldInd}datasets: " & "{:}\n"
+    result.add &",\n{fieldInd}datasets: " & "{:}"
   if grp.groups.len > 0:
-    result.add &",\n{fieldInd}groups: " & "{\n"
+    result.add &",\n{fieldInd}groups: " & "{"
     for name, subGrp in grp.groups:
-      result.add &"{fieldIndTwo}{name},\n"
-    result.add fieldInd & "}"
+      result.add &"\n{fieldIndTwo}{name},"
+    result.add fieldInd & "\n}"
   else:
-    result.add &",\n{fieldInd}groups: " & "{:}\n"
+    result.add &",\n{fieldInd}groups: " & "{:}"
   result.add &"\n" & repeat(' ', indent) & "}"
 
 proc `$`*(grp: H5Group): string =
@@ -104,15 +107,17 @@ proc `$`*[T: AccessKind | ObjectKind](s: set[T]): string =
   result = "{"
   var idx = 0
   for el in iterateEnumSet(s):
-    if idx < s.card:
+    if idx < s.card-1:
       result.add $el & ", "
     else:
       result.add $el
+    idx += 1
   result.add "}"
 
-proc pretty*(h5f: H5File, indent = 2, full = false): string =
+proc pretty*(h5f: H5File, indent = 0, full = false): string =
   result = repeat(' ', indent) & "{\n"
   let fieldInd = repeat(' ', indent + 2)
+  let fieldIndTwo = repeat(' ', indent + 4)
   result.add &"{fieldInd}name: {h5f.name},\n"
   result.add &"{fieldInd}accessFlags: {h5f.accessFlags},\n"
   result.add &"{fieldInd}visited: {h5f.visited}"
@@ -123,19 +128,19 @@ proc pretty*(h5f: H5File, indent = 2, full = false): string =
   if h5f.datasets.len > 0:
     result.add &",\n{fieldInd}datasets: " & "{\n"
     for name, dset in h5f.datasets:
-      result.add &"{fieldInd}{name}:\n" & dset.pretty(indent = indent + 4) & ",\n"
+      result.add &"{fieldIndTwo}{name}:\n" & dset.pretty(indent = indent + 4) & ",\n" ## [FIXME] Remove the ,
     result.add &"{fieldInd}" & "}"
   else:
-    result.add &",\n{fieldInd}datasets: " & "{:}\n"
+    result.add &",\n{fieldInd}datasets: " & "{:}"
   if h5f.groups.len > 0:
-    result.add &",\n{fieldInd}groups: " & "{\n"
+    result.add &",\n{fieldInd}groups: " & "{"
     for name, subGrp in h5f.groups:
-      result.add &"{fieldInd}{name}:\n" & subGrp.pretty(indent = indent + 4)
-    result.add fieldInd & "}"
+      result.add &"\n{fieldIndTwo}{name}:\n" & subGrp.pretty(indent = indent + 4) & ","
+    result.add &"\n{fieldInd}" & "}"
   else:
-    result.add &",\n{fieldInd}groups: " & "{:}\n"
-  result.add &",\n{fieldInd}attrs:\n {h5f.attrs}"
-  result.add &"\n" & repeat(' ', indent) & "}\n"
+    result.add &",\n{fieldInd}groups: " & "{:}"
+  result.add &",\n{fieldInd}attrs:\n{h5f.attrs}"
+  result.add &"\n" & repeat(' ', indent) & "}"
 
 proc `$`*(h5f: H5File): string =
   ## to string conversion for a `H5File` for pretty printing
