@@ -8,7 +8,13 @@ type
   herr_t* = cint
   # define hid_t as distinct in64 in order to not clash with normal `int64`
   hid_t* = distinct clonglong
-  time_t* = clong
+  ## NOTE: We define `time_t` by hand from `time.h` because using a definition based on
+  ## `clong` is flawed. `clong` is 8 bytes on Linux but only 4 bytes on Winodws. That leads
+  ## to mismatches in the `sizeof` of objects that contain `time_t` causing hard to understand
+  ## stack corruption bugs! Therefore we just pretend it's an object despite it actually being
+  ## an integer type. That is to make sure Nim doesn't mess up the size. `time_t` is 8 bytes
+  ## on Windows *and* Linux.
+  time_t* {.header: "<time.h>", importc: "time_t".} = object
   hbool_t* = bool
   htri_t* = cint
   hsize_t* = culonglong
