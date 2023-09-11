@@ -128,7 +128,7 @@ proc pretty*(h5f: H5File, indent = 0, full = false): string =
   if h5f.datasets.len > 0:
     result.add &",\n{fieldInd}datasets: " & "{\n"
     for name, dset in h5f.datasets:
-      result.add &"{fieldIndTwo}{name}:\n" & dset.pretty(indent = indent + 4) & ",\n" ## [FIXME] Remove the ,
+      result.add &"{fieldIndTwo}{name}:\n" & dset.pretty(indent = indent + 4) & ",\n"
     result.add &"{fieldInd}" & "}"
   else:
     result.add &",\n{fieldInd}datasets: " & "{:}"
