@@ -91,10 +91,10 @@ proc pretty*(grp: H5Group, indent = 2, full = false): string =
   else:
     result.add &",\n{fieldInd}datasets: " & "{:}"
   if grp.groups.len > 0:
-    result.add &",\n{fieldInd}groups: " & "{"
+    result.add &",\n{fieldInd}groups: " & "{\n"
     for name, subGrp in grp.groups:
-      result.add &"\n{fieldIndTwo}{name},"
-    result.add fieldInd & "\n}"
+      result.add &"{fieldIndTwo}{name},\n"
+    result.add &"{fieldInd}" & "}"
   else:
     result.add &",\n{fieldInd}groups: " & "{:}"
   result.add &"\n" & repeat(' ', indent) & "}"
