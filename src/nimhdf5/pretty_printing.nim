@@ -89,14 +89,14 @@ proc pretty*(grp: H5Group, indent = 2, full = false): string =
       result.add &"{fieldInd}{name}:\n" & dset.pretty(indent = indent + 4) & ",\n"
     result.add &"{fieldInd}" & "}"
   else:
-    result.add &",\n{fieldInd}datasets: " & "{:}"
+    result.add &",\n{fieldInd}datasets: " & "{}"
   if grp.groups.len > 0:
     result.add &",\n{fieldInd}groups: " & "{\n"
     for name, subGrp in grp.groups:
       result.add &"{fieldIndTwo}{name},\n"
     result.add &"{fieldInd}" & "}"
   else:
-    result.add &",\n{fieldInd}groups: " & "{:}"
+    result.add &",\n{fieldInd}groups: " & "{}"
   result.add &"\n" & repeat(' ', indent) & "}"
 
 proc `$`*(grp: H5Group): string =
@@ -131,14 +131,14 @@ proc pretty*(h5f: H5File, indent = 0, full = false): string =
       result.add &"{fieldIndTwo}{name}:\n" & dset.pretty(indent = indent + 4) & ",\n"
     result.add &"{fieldInd}" & "}"
   else:
-    result.add &",\n{fieldInd}datasets: " & "{:}"
+    result.add &",\n{fieldInd}datasets: " & "{}"
   if h5f.groups.len > 0:
     result.add &",\n{fieldInd}groups: " & "{"
     for name, subGrp in h5f.groups:
       result.add &"\n{fieldIndTwo}{name}:\n" & subGrp.pretty(indent = indent + 4) & ","
     result.add &"\n{fieldInd}" & "}"
   else:
-    result.add &",\n{fieldInd}groups: " & "{:}"
+    result.add &",\n{fieldInd}groups: " & "{}"
   result.add &",\n{fieldInd}attrs:\n{h5f.attrs}"
   result.add &"\n" & repeat(' ', indent) & "}"
 
