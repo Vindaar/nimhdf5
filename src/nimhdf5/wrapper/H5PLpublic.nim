@@ -10,8 +10,6 @@
 ##  help@hdfgroup.org.                                                        *
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
-{.deadCodeElim: on.}
-
 ##  Programmer:  Raymond Lu <songyulu@hdfgroup.org>
 ##               13 February 2013
 ##

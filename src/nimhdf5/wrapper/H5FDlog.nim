@@ -11,7 +11,6 @@
 ##  help@hdfgroup.org.                                                        *
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
-{.deadCodeElim: on.}
 ##
 ##  Programmer:  Quincey Koziol <koziol@ncsa.uiuc.edu>
 ##               Monday, April 17, 2000

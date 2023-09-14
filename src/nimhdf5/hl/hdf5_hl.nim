@@ -16,7 +16,6 @@
 ##  fill this file with lots of gunk...
 ## 
 
-{.deadCodeElim: on.}
 when not declared(libname_hl):
   when defined(Windows):
     const

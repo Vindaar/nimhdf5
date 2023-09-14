@@ -25,8 +25,6 @@
 ##
 
 ##  Public headers needed by this file
-{.deadCodeElim: on.}
-
 import
   H5Cpublic, ../H5nimtypes
 

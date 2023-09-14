@@ -16,8 +16,6 @@
 ##
 
 ##  Public headers needed by this file
-{.deadCodeElim: on.}
-
 import
   H5public,
   H5Opublic,                  ##  Object Headers

@@ -11,7 +11,6 @@
 ##  help@hdfgroup.org.                                                        *
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
-{.deadCodeElim: on.}
 ##
 ##  This file contains function prototypes for each exported function in the
 ##  H5P module.
