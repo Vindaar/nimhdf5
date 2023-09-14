@@ -871,12 +871,13 @@ proc write_hyperslab*[T](dset: H5DataSet,
                          data: seq[T] | openArray[T] | ptr T,
                          offset,
                          count: seq[int],
-                         stride, blk: seq[int] = @[])
+                         stride: seq[int] = @[],
+                         blk: seq[int] = @[])
 proc read_hyperslab*[T](dset: H5DataSet, dtype: typedesc[T],
-                        offset, count: seq[int], stride, blk: seq[int] = @[],
+                        offset, count: seq[int], stride: seq[int] = @[], blk: seq[int] = @[],
                         full_output = false): seq[T]
 proc read_hyperslab_vlen*[T](dset: H5DataSet, dtype: typedesc[T],
-                             offset, count: seq[int], stride, blk: seq[int] = @[],
+                             offset, count: seq[int], stride: seq[int] = @[], blk: seq[int] = @[],
                              full_output = false): seq[seq[T]]
 
 
@@ -1360,7 +1361,7 @@ proc h5SelectHyperslab(dspace_id: DataspaceID | MemspaceID | HyperslabID,
                                addr(count[0]),
                                addr(blk[0]))
 
-proc parseHyperslabSelection(offset, count: seq[int], stride, blk: seq[int] = @[]):
+proc parseHyperslabSelection(offset, count: seq[int], stride: seq[int] = @[], blk: seq[int] = @[]):
                             (seq[hsize_t], seq[hsize_t], seq[hsize_t], seq[hsize_t]) =
   ## proc to perform parsing and type conversion of input selections for hyperslabs
   ## notation follows HDF5 hyperslab notation
@@ -1389,7 +1390,8 @@ proc parseHyperslabSelection(offset, count: seq[int], stride, blk: seq[int] = @[
 proc select_hyperslab(dset: H5DataSet,
                       offset,
                       count: seq[int],
-                      stride, blk: seq[int] = @[]): HyperslabID =
+                      stride: seq[int] = @[],
+                      blk: seq[int] = @[]): HyperslabID =
   ## high level proc to select a hyperslab on a H5DataSet. Calls low level
   ## access proc h5SelectHyperslab given the dataspace of `dset`, select a
   ## hyperslab of it using `offset`, `stride`, `count` and `blk` for which
@@ -1421,7 +1423,8 @@ proc write_hyperslab*[T](dset: H5DataSet,
                          shape: seq[int],
                          offset,
                          count: seq[int],
-                         stride, blk: seq[int] = @[]) =
+                         stride: seq[int] = @[],
+                         blk: seq[int] = @[]) =
   ## proc to select a hyperslab and write to it.
   ## The input data must be a pointer to a contiguous memory array!
   ##
@@ -1451,7 +1454,8 @@ proc write_hyperslab*[T](
   data: seq[T] | openArray[T] | ptr T,
   offset,
   count: seq[int],
-  stride, blk: seq[int] = @[]) =
+  stride: seq[int] = @[],
+  blk: seq[int] = @[]) =
   ## proc to select a hyperslab and write to it for 1D data.
   ## The HDF5 notation for hyperslabs is used.
   ## See sec. 7.4.1.1 in the HDF5 user's guide:
@@ -1563,7 +1567,7 @@ proc hyperslab(dset: H5DataSet,
   result = (memspace_id, hyperslab_id, n_elements)
 
 proc read_hyperslab*[T](dset: H5DataSet, dtype: typedesc[T],
-                        offset, count: seq[int], stride, blk: seq[int] = @[],
+                        offset, count: seq[int], stride: seq[int] = @[], blk: seq[int] = @[],
                         full_output = false): seq[T] =
   ## proc to read an arbitrary hyperslab from a given dataset.
   ## HDF5 notation for hyperslab selection applies
@@ -1601,7 +1605,7 @@ proc read_hyperslab*[T](dset: H5DataSet, dtype: typedesc[T],
   result = mdata
 
 proc read_hyperslab_vlen*[T](dset: H5DataSet, dtype: typedesc[T],
-                             offset, count: seq[int], stride, blk: seq[int] = @[],
+                             offset, count: seq[int], stride: seq[int] = @[], blk: seq[int] = @[],
                              full_output = false): seq[seq[T]] =
   ## proc to read an arbitrary hyperslab from a variable length dataset.
   ## See `read_hyperslab` for documentation
