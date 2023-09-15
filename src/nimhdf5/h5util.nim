@@ -410,7 +410,7 @@ proc getName*(h5id: hid_t): string =
   if h5id.isValidID():
     var size = H5Iget_name(h5id, nil, 0)
     result = newString(size) # nim strings are already zero terminated
-    let err = H5Iget_name(h5id, result[0].addr, size + 1) # +1 for zero termination
+    let err = H5Iget_name(h5id, cast[cstring](result[0].addr), size + 1) # +1 for zero termination
     if err < 0:
       raise newException(HDF5LibraryError, "Call to `H5Iget_name` failed trying to determine " &
         "name of object with ID: " & $h5id)
