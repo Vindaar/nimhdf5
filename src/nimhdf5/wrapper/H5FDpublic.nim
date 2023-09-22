@@ -11,8 +11,6 @@
 ##  help@hdfgroup.org.                                                        *
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
-{.deadCodeElim: on.}
-
 ##
 ##  Programmer:  Robb Matzke <matzke@llnl.gov>
 ##               Monday, July 26, 1999

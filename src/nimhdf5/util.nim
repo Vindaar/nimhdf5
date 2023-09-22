@@ -11,7 +11,6 @@
 
 import std / [strutils, macros, pathnorm]
 import std / os except `/`
-from std / os import nil
 
 template withDebug*(actions: untyped) =
   ## a debugging template, which can be used to e.g. output

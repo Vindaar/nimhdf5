@@ -17,8 +17,6 @@
 ##  Purpose:	The public header file for the sec2 driver.
 ##
 
-{.deadCodeElim: on.}
-
 import ../H5nimtypes, ../h5libname
 
 

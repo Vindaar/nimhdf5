@@ -11,7 +11,6 @@
 ##  help@hdfgroup.org.                                                        *
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
-{.deadCodeElim: on.}
 ##
 ##  Programmer:  Raymond Lu <slu@hdfgroup.uiuc.edu>
 ##               Wednesday, 20 September 2006

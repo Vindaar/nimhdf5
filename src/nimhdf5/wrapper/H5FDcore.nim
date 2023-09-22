@@ -11,8 +11,6 @@
 ##  help@hdfgroup.org.                                                        *
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
-{.deadCodeElim: on.}
-
 import ../H5nimtypes, ../h5libname
 
 ##

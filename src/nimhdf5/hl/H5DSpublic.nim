@@ -11,7 +11,6 @@
 ##  help@hdfgroup.org.                                                        *
 ##  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
-{.deadCodeElim: on.}
 when not declared(libname_hl):
   when defined(Windows):
     const

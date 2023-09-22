@@ -584,7 +584,7 @@ proc close*(dset: var H5DataSetObj) =
 proc close*(dset: H5DataSet) = dset[].close()
 
 when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
-  proc `=destroy`*(attr: var H5AttrObj) =
+  proc `=destroy`*(attr: var H5AttrObj) {.raises: [HDF5LibraryError].} =
     ## Closes the given attribute.
     attr.close()
     for name, field in fieldPairs(attr):
@@ -606,7 +606,7 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
         if cast[pointer](field) != nil:
           `=destroy`(field)
 
-  proc `=destroy`*(dset: var H5DataSetObj) =
+  proc `=destroy`*(dset: var H5DataSetObj) {.raises: [HDF5LibraryError].} =
     ## Closes the dataset and resets all references to nil.
     dset.close() # closes its dataspace etc. as well
     dset.opened = false
@@ -621,7 +621,7 @@ when (NimMajor, NimMinor, NimPatch) >= (1, 6, 0):
           `=destroy`(field)
 
 
-  proc `=destroy`*(grp: var H5GroupObj) =
+  proc `=destroy`*(grp: var H5GroupObj) {.raises: [HDF5LibraryError].} =
     ## Closes the group and resets all references to nil.
     if grp.file_ref != nil:
       `=destroy`(grp.file_ref) # only destroy the `ref` to the file!

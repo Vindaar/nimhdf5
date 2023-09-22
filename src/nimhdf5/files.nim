@@ -93,7 +93,7 @@ proc H5open*(name, rwType: string, accessFlags: set[AccessKind] = {}): H5File =
      raise newException(IOError, getH5rw_invalid_error())
   elif exists and akTruncate notin flags:
     ## open existing file
-    result.file_id = H5Fopen(name, flags.toH5(), H5P_DEFAULT).toFileID
+    result.file_id = H5Fopen(name.cstring, flags.toH5(), H5P_DEFAULT).toFileID
   elif not exists and akRead in flags:
     # cannot open a non existing file with read only properties
     raise newException(IOError, getH5read_non_exist_file(name))
@@ -101,7 +101,7 @@ proc H5open*(name, rwType: string, accessFlags: set[AccessKind] = {}): H5File =
     # create new file
     withDebug:
       echo "Flags is  ", flags
-    result.file_id = H5Fcreate(name, flags.toH5(), H5P_DEFAULT, H5P_DEFAULT).toFileID
+    result.file_id = H5Fcreate(name.cstring, flags.toH5(), H5P_DEFAULT, H5P_DEFAULT).toFileID
 
   if result.file_id.id < 0.hid_t:
     raise newException(HDF5LibraryError, "Failed to open file " & $name & " using rwType: \"" & $rwType &
