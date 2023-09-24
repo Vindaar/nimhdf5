@@ -133,7 +133,7 @@ proc copyFlat*[T](x: openArray[T]): Buffer =
     result = newBuffer(0)
 
 proc fromFlat*[T](buf: Buffer): seq[T]
-proc fromFlat[T: SimpleTypes | pointer](x: var T, buf: Buffer) =
+proc fromFlat*[T: SimpleTypes | pointer](x: var T, buf: Buffer) =
   let size = calcSize(x)
   var source = buf.data +% buf.offsetOf
   copyMem(addr(x), source, size)
@@ -144,7 +144,7 @@ proc fromFlat*[T: array](x: var T, buf: Buffer) =
   var source = buf.data +% buf.offsetOf
   copyMem(addr(x), source, size)
 
-proc fromFlat[T: string | cstring](x: var T, buf: Buffer) =
+proc fromFlat*[T: string | cstring](x: var T, buf: Buffer) =
   let source = buf.data +% buf.offsetOf
   let strBuf = cast[ptr cstring](source)
   if not strBuf.isNil:
@@ -153,7 +153,7 @@ proc fromFlat[T: string | cstring](x: var T, buf: Buffer) =
     else:
       x = strBuf[]
 
-proc fromFlat[T](x: var seq[T], buf: Buffer) =
+proc fromFlat*[T](x: var seq[T], buf: Buffer) =
   # construct a child buffer.
   # 1. extract the size of the child buffer
   var len: csize_t
@@ -167,7 +167,7 @@ proc fromFlat[T](x: var seq[T], buf: Buffer) =
   x = fromFlat[T](bufChild)
   inc buf.offsetOf, sizeof(pointer)
 
-proc fromFlat[T: object | tuple](x: var T, buf: Buffer) =
+proc fromFlat*[T: object | tuple](x: var T, buf: Buffer) =
   var tmp: genCompatibleTuple(T, replaceVlen = true)
   #echo "-----------OBJ tuple compat: ", typeName(typeof(tmp)), " OF SIZE: ", sizeof(tmp), " StartingIdx: ", buf.offsetOf, "\n"
   let startIdx = buf.offsetOf
