@@ -165,7 +165,7 @@ iterator references*(h5f: H5File, d: H5Dataset): H5Reference =
   let data = d[uint64]
   for id in data:
     ## XXX: this is currently hardcoded to `dereference2`! Should depend on `H5_LEGACY, H5_FUTURE`
-    let obj = H5Rdereference2(d.datasetId.id, H5PDefault, H5R_Object, addr id) # this is actually a `ptr haddr_t`
+    let obj = H5Rdereference2(d.datasetId.id, H5PDefault, H5R_Object, address id) # this is actually a `ptr haddr_t`
     let typ = getType(obj) # get type of H5 object
     let name = getName(obj)
     case typ
