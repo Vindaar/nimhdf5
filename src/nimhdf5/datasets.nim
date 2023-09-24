@@ -101,7 +101,7 @@ proc read*[T](h5f: H5File, dset: string, buf: ptr T) =
   let dset = h5f[dset.dset_str]
   dset.readH5(buf)
 
-proc read*[T](dset: H5DataSet, buf: ptr T) =
+proc read*(dset: H5DataSet, buf: ptr | pointer) =
   dset.readH5(buf)
 
 proc read*[T](dset: H5DataSet, buf: var seq[T], ignoreShapeCheck = false) =
