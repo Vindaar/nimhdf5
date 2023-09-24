@@ -71,7 +71,9 @@ iterator groups*(group: H5Group, start_path = ".", depth = 1): H5Group =
     mstart_path = group.name
   # number of `/` in start path, needed to calculate at which
   # depth we are from start path
-  let n_start = mstart_path.count('/')
+  # We want the root group to be treated as _not_ having a `/` so that any datasets at the
+  # root level count as `depth == 1`
+  let n_start = if mstart_path == "/": 0 else: mstart_path.count('/')
   # now loop over all groups, checking for start_path in each group name
   for grp in keys(group.groups):
     if grp.startsWith(mstart_path) == true and grp != mstart_path:
@@ -124,7 +126,9 @@ iterator items*(group: H5Group, start_path = ".", depth = 1): H5DataSet =
     mstart_path = formatName start_path
   else:
     mstart_path = group.name
-  n_start = mstart_path.count('/')
+  # We want the root group to be treated as _not_ having a `/` so that any datasets at the
+  # root level count as `depth == 1`
+  n_start = if mstart_path == "/": 0 else: mstart_path.count('/')
 
   # now loop over all groups, checking for start_path in each group name
   for dset in keys(group.datasets):
