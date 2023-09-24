@@ -154,3 +154,21 @@ iterator items*(group: H5Group, start_path = ".", depth = 1): H5DataSet =
         yield dsetObj
       else:
         yield group.file_ref.get(dset.dset_str)
+
+from hdf5_wrapper import H5Rdereference2, H5P_DEFAULT, H5R_OBJECT, H5I_GROUP, H5I_DATASET
+iterator references*(h5f: H5File, d: H5Dataset): H5Reference =
+  ## Iterator which yields each element that is referenced by the given dataset as
+  ## a `H5Reference`. Can be either a group or a dataset.
+  ##
+  ## ``Still experimental!``
+  # Read the references as uint64. Each element points to some other element in the HDF5 file
+  let data = d[uint64]
+  for id in data:
+    ## XXX: this is currently hardcoded to `dereference2`! Should depend on `H5_LEGACY, H5_FUTURE`
+    let obj = H5Rdereference2(d.datasetId.id, H5PDefault, H5R_Object, addr id) # this is actually a `ptr haddr_t`
+    let typ = getType(obj) # get type of H5 object
+    let name = getName(obj)
+    case typ
+    of H5I_GROUP:   yield H5Reference(kind: rkGroup,   g: h5f[name.grp_str])
+    of H5I_DATASET: yield H5Reference(kind: rkDataset, d: h5f[name.dset_str])
+    else: doAssert false, "Not possible!"

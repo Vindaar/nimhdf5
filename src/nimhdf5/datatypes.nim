@@ -261,6 +261,15 @@ type
       attrId*: AttributeID
     of okNone, okLocal: discard # all cannot be a parent
 
+  ReferenceKind* = enum
+    rkGroup, rkDataset
+  ## H5Reference is a helper type that can store the two different type of things a
+  ## HDF5 reference can point to. This way we can return a reference in a unified way.
+  H5Reference* = object
+    case kind*: ReferenceKind
+    of rkGroup: g*: H5Group
+    of rkDataset: d*: H5Dataset
+
   ## `H5Id` is a wrapper around `hid_t` identifiers of the H5 library. By wrapping it
   ## in a `ref` we can use an RAII approach to closing identifiers once they go out
   ## of scope for us (which in 99% of the cases is what we want).
