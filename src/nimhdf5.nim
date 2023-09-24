@@ -15,8 +15,11 @@ export h5util
 import nimhdf5/files
 export files
 
-import nimhdf5/[attributes, attribute_util]
-export attributes, attribute_util
+import nimhdf5/attributes
+export attributes
+
+import nimhdf5/hdf5_json
+export hdf5_json
 
 import nimhdf5/groups
 export groups
