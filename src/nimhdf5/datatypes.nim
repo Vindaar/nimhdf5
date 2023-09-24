@@ -1026,8 +1026,7 @@ proc nimToH5type*(dtype: typedesc, variableString = false,
 
   # TODO: this still seems to be very much wrong and it's only valid for my machine
   # (64 bit) anyways.
-
-  result = newDatatypeID(-1.hid_t)
+  result = newDatatypeID(hid_t(-1))
   when dtype is SomeInteger:
     when dtype is int8:
       # for 8 bit int we take the STD LE one, since there is no
