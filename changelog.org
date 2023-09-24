@@ -2,6 +2,9 @@
 - BREAKING: fix issue with dataset and group iterators, where we
   treated the root group special. The root group was off by 1 ~/~ in
   the counting of the depth.
+  This means no matter the group to start at, the meaning of ~depth~
+  is explicitly such that ~depth == 1~ corresponds to any child of the
+  given group.
 - export all ~fromFlat~ helper procs
 - allow ~read~ from a raw ~pointer~ (intended for manual use with
   ~Buffer~). Note: you may need to call ~H5Dvlen_reclaim~ if your read
