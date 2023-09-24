@@ -1,5 +1,5 @@
 import std / [strutils, strformat, tables]
-import datatypes, H5nimtypes, attribute_util, json, util
+import datatypes, H5nimtypes, hdf5_json, json, util
 
 proc pretty*(att: H5Attr, indent = 0, full = false): string =
   result = repeat(' ', indent) & "{\n"

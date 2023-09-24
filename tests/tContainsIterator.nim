@@ -64,38 +64,38 @@ when isMainModule:
     check resDsets == expDsets
 
     resDsets.clear()
-    for dset in items(rootGrp, depth = 2):
+    for dset in items(rootGrp, depth = 3):
       resDsets.incl dset.name
       check dset.name in h5f
       check dset.name in rootGrp
 
     check resDsets == expDsets
 
-    # depth 1 (incl. one level below root group)
+    # depth 2 (datasets *in* root group + one layer below)
     resDsets.clear()
-    let expDsets1 = ["/data", "/foo/data", "/bar/data", "/baz/data", "/baz/data2"].toHashSet
+    let expDsets2 = ["/data", "/foo/data", "/bar/data", "/baz/data", "/baz/data2"].toHashSet
+    for dset in items(rootGrp, depth = 2):
+      resDsets.incl dset.name
+      check dset.name in h5f
+      check dset.name in rootGrp
+    check resDsets == expDsets2
+
+    # depth 1 (only children of the root / group)
+    resDsets.clear()
+    let expDsets1 = ["/data"].toHashSet
     for dset in items(rootGrp, depth = 1):
       resDsets.incl dset.name
       check dset.name in h5f
       check dset.name in rootGrp
     check resDsets == expDsets1
 
-    # default is depth 1
+    # default is depth == 1:
     resDsets.clear()
-    for dset in items(rootGrp):
+    for dset in items(rootGrp, depth = 1):
       resDsets.incl dset.name
       check dset.name in h5f
       check dset.name in rootGrp
     check resDsets == expDsets1
-
-    # depth 0 (same level as / in root group)
-    resDsets.clear()
-    let expDsets0 = ["/data"].toHashSet
-    for dset in items(rootGrp, depth = 0):
-      resDsets.incl dset.name
-      check dset.name in h5f
-      check dset.name in rootGrp
-    check resDsets == expDsets0
 
 
   block NotIn:
