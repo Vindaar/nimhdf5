@@ -498,6 +498,22 @@ proc isObjectOpen*[T: H5File | H5Group | H5GroupObj | H5Dataset | H5DatasetObj |
   ## See the docs of the overload taking a `hid_t` for more information.
   result = h5o.getH5ID.isObjectOpen()
 
+proc getNumberMembers*(typ: DatatypeID): int =
+  ## The argument *must* correspond to a compound datatype. We do not check.
+  result = H5Tget_nmembers(typ.id)
+
+proc getMemberType*(typ: DatatypeID, idx: int): DatatypeID =
+  ## Returns the type of the member at `idx` as a `DatatypeID`
+  ## The argument *must* correspond to a compound datatype. We do not check.
+  result = H5Tget_member_type(typ.id, idx.cuint).toDatatypeID
+
+proc getMemberName*(typ: DatatypeID, idx: int): string =
+  ## Get the name of the member of the H5T_COMPOUND type at index `idx`
+  ## The argument *must* correspond to a compound datatype. We do not check.
+  result = $H5Tget_member_name(typ.id, idx.cuint)
+
+proc getSize*(typ: DatatypeID): int =
+  result = H5Tget_size(typ.id).int
 
 proc getDatasetType*(dset_id: DatasetID): DatatypeID =
   result = H5Dget_type(dset_id.id).toDatatypeID
@@ -507,6 +523,14 @@ proc getNativeType*(dtype_id: DatatypeID): DatatypeID =
 
 proc getSuperType*(dtype_id: DatatypeID): DatatypeID =
   result = H5Tget_super(dtype_id.id).toDatatypeID
+
+proc h5ToNimType*(dtype_id: DatatypeID): DtypeKind
+proc getBasetype*(dtype_id: DatatypeID): DtypeKind =
+  ## Returns the base type of a variable length type
+  result = h5ToNimType(getSuperType(dtype_id))
+
+proc getTypeClass*(dtype_id: DatatypeID): H5T_class_t =
+  result = H5Tget_class(dtype_id.id)
 
 proc copyType*(typ: hid_t): DatatypeID =
   result = H5Tcopy(typ).toDatatypeID

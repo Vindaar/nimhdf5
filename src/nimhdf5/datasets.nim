@@ -528,16 +528,6 @@ proc open(fid: FileID, dset: string): DatasetID =
   if result.id < 0:
     raise newException(HDF5LibraryError, "Failed to open the dataset " & $dset & "!")
 
-proc getBasetype(dtype_id: DatatypeID): DtypeKind =
-  ## Returns the base type of a variable length type
-  result = h5ToNimType(getSuperType(dtype_id))
-
-## Returns the type of the dataset.
-proc getType(dset_id: DatasetID): DatatypeID = getDatasetType(dset_id)
-
-proc getTypeClass(dtype_id: DatatypeID): H5T_class_t =
-  result = H5Tget_class(dtype_id.id)
-
 proc initDatasetAccessPropertyList(): DatasetAccessPropertyListID =
   ## Creates a default `dapl` ID
   result = H5Pcreate(H5P_DATASET_ACCESS).toDatasetAccessPropertyListID()
@@ -691,7 +681,7 @@ proc create_dataset*[T: (tuple | int | seq)](
     # need to get datatype id (id specific to this dataset describing type),
     # then super, which is the base type of a VLEN type and finally convert
     # that to a AnyKind type
-    result.dtypeBaseKind = result.dataset_id.getType().getBasetype()
+    result.dtypeBaseKind = result.dataset_id.getDatasetType().getBasetype()
 
   # now create attributes field
   result.attrs = initH5Attributes(ParentID(kind: okDataset,
@@ -1768,7 +1758,7 @@ proc open*(h5f: H5File, dset: dset_str) =
       dsetOpen.opened = true
 
       # assign datatype related fields
-      let datatype_id = getType(dsetOpen.dataset_id)
+      let datatype_id = getDatasetType(dsetOpen.dataset_id)
       let f = h5ToNimType(datatype_id)
       if f == dkSequence:
         # dkSequence == VLEN type
