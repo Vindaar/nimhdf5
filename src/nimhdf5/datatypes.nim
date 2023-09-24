@@ -820,6 +820,8 @@ proc typeMatches*(dtype: typedesc, dstr: string): bool =
       result = true
     else:
       result = false
+  of dkRef:
+    result = dtype is uint64 ## We can read references as `uint64`
   else:
     # no size check necessary
     result = if dAnyKind == dstrAnyKind: true else: false
@@ -888,6 +890,8 @@ proc h5ToNimType*(dtype_id: DatatypeID): DtypeKind =
     result = dkSequence
   elif H5Tget_class(dtypeHid_t) == H5T_COMPOUND:
     result = dkObject
+  elif H5Tget_class(dtypeHid_t) == H5T_REFERENCE:
+    result = dkRef
   else:
     raise newException(KeyError, "Warning: the following H5 type could not be converted: " &
       "$# of class $#" % [$(dtype_id.id), $(H5Tget_class(dtypeHid_t))])
