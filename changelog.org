@@ -1,3 +1,17 @@
+* v0.5.8
+- BREAKING: fix issue with dataset and group iterators, where we
+  treated the root group special. The root group was off by 1 ~/~ in
+  the counting of the depth.
+- export all ~fromFlat~ helper procs
+- allow ~read~ from a raw ~pointer~ (intended for manual use with
+  ~Buffer~). Note: you may need to call ~H5Dvlen_reclaim~ if your read
+  data contains VLEN data!
+- add basic support for HDF5 references
+- add basic support for reading HDF5 datasets and groups into
+  ~JsonNode~, for easier handling of runtime based decisions. See
+  ~nimhdf5/hdf5_json.nim~
+- add experimental Matlab file loader (v7.3 Matlab files), see
+  ~nimhdf5/hdf5_matlab~. See ~examples/read_matlab.nim~ for an example.
 * v0.5.7
 - improves pretty printing of HDF5 objects (PR #65 by @AngelEzquerra)
 * v0.5.6
