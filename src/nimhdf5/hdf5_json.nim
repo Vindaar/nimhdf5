@@ -106,26 +106,45 @@ proc readCompoundJson(d: H5Dataset): JsonNode =
   let dspaceId = d.dataspaceId()
   doAssert H5Dvlen_reclaim(d.dtype_c.id, dspaceId.id, H5P_DEFAULT, buf.data) >= 0
 
+proc assign[T](data: seq[T], shape: seq[int], idx: var int): JsonNode =
+  ## Similar proc to `assign` above but working with a flat 1D array of `shape`
+  ## of native data.
+  if shape.len == 1:
+    # assign this row
+    result = newJArray()
+    for col in 0 ..< shape[0]:
+      # this is a single element of the compound type
+      result.add (% data[idx])
+      inc idx
+  else:
+    result = newJArray()
+    for row in 0 ..< shape[0]:
+      result.add assign(data, shape[1 .. ^1], idx)
+
+proc assign[T](data: seq[T], shape: seq[int]): JsonNode =
+  var idx = 0
+  result = assign(data, shape, idx)
+
 proc readJson*(d: H5Dataset): JsonNode =
   case d.dtypeAnyKind
-  of dkBool:     result = % d[bool]
-  of dkChar:     result = % d[char].mapIt($it)
-  of dkEnum:     result = % d[string]
-  of dkString:   result = % d[string]
-  of dkCString:  result = % d[string]
-  of dkInt:      result = % d[int]
-  of dkInt8:     result = % d[int8]
-  of dkInt16:    result = % d[int16]
-  of dkInt32:    result = % d[int32]
-  of dkInt64:    result = % d[int64]
-  of dkFloat:    result = % d[float]
-  of dkFloat32:  result = % d[float32]
-  of dkFloat64:  result = % d[float]
-  of dkUInt:     result = % d[uint]
-  of dkUInt8:    result = % d[uint8]
-  of dkUInt16:   result = % d[uint16]
-  of dkUInt32:   result = % d[uint32]
-  of dkUInt64:   result = % d[uint64]
+  of dkBool:     result = assign(d[bool]            , d.shape)
+  of dkChar:     result = assign(d[char].mapIt($it) , d.shape)
+  of dkEnum:     result = assign(d[string]          , d.shape)
+  of dkString:   result = assign(d[string]          , d.shape)
+  of dkCString:  result = assign(d[string]          , d.shape)
+  of dkInt:      result = assign(d[int]             , d.shape)
+  of dkInt8:     result = assign(d[int8]            , d.shape)
+  of dkInt16:    result = assign(d[int16]           , d.shape)
+  of dkInt32:    result = assign(d[int32]           , d.shape)
+  of dkInt64:    result = assign(d[int64]           , d.shape)
+  of dkFloat:    result = assign(d[float]           , d.shape)
+  of dkFloat32:  result = assign(d[float32]         , d.shape)
+  of dkFloat64:  result = assign(d[float]           , d.shape)
+  of dkUInt:     result = assign(d[uint]            , d.shape)
+  of dkUInt8:    result = assign(d[uint8]           , d.shape)
+  of dkUInt16:   result = assign(d[uint16]          , d.shape)
+  of dkUInt32:   result = assign(d[uint32]          , d.shape)
+  of dkUInt64:   result = assign(d[uint64]          , d.shape)
   of dkObject, dkTuple: result = readCompoundJson(d)
   of dkRef:      result = % d[int]      ## XXX: H5Reference!
   of dkSequence: result = % d[int]      ## XXX: VLEN or ND data
