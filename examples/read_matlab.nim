@@ -8,7 +8,6 @@ echo mat.readJson("foo").pretty()
 ## Iterate over all the sturct fields
 for k in keys(mat):
   echo k
-  echo readJson(mat, k)
   # Either use:
   echo mat.readJson(k) # to turn the data into JSON (works for ref & non ref datasets)
   # or manually iterate over all reference datasets pointed to by this key `k` (if any)
