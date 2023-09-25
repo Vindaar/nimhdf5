@@ -1,3 +1,9 @@
+* v0.5.9
+- fix naming of matlab field structs, due to misunderstanding on my
+  part (I thought the ~_ref~ was part of the HDF5 designation in my
+  test file)
+- allow ~references~ to yield the input dataset if it is not a
+  reference dataset  
 * v0.5.8
 - BREAKING: fix issue with dataset and group iterators, where we
   treated the root group special. The root group was off by 1 ~/~ in
