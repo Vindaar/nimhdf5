@@ -1,3 +1,6 @@
+* v0.5.10
+- fix JSON dataset reading not taking into account the shape of a
+  dataset when the dataset is only simple data (same datatype)
 * v0.5.9
 - fix naming of matlab field structs, due to misunderstanding on my
   part (I thought the ~_ref~ was part of the HDF5 designation in my
