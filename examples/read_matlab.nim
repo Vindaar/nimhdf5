@@ -8,6 +8,10 @@ echo mat.readJson("foo").pretty()
 ## Iterate over all the sturct fields
 for k in keys(mat):
   echo k
+  echo readJson(mat, k)
+  # Either use:
+  echo mat.readJson(k) # to turn the data into JSON (works for ref & non ref datasets)
+  # or manually iterate over all reference datasets pointed to by this key `k` (if any)
   for r in references(mat.h5f, mat[k]):
     ## `r` is now a `H5Reference`, which is a variant that may either be a H5Group
     ## or a `H5Dataset`, depending.
