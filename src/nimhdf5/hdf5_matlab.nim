@@ -8,10 +8,8 @@ type
 
 proc getFieldName(s: string): string =
   doAssert s.startsWith("/")
-  doAssert s.endsWith("_ref")
   result = s
   result.removePrefix("/")
-  result.removeSuffix("_ref")
 
 proc deserializeMatlab*(f: string): MatlabInterface =
   result = MatlabInterface(h5f: H5open(f, "r"),
