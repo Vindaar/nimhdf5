@@ -1,3 +1,6 @@
+* v0.5.11
+- fix ~copy~ implementation for certain use cases and fix a regression
+  in it
 * v0.5.10
 - fix JSON dataset reading not taking into account the shape of a
   dataset when the dataset is only simple data (same datatype)
