@@ -23,6 +23,7 @@ template tests(): untyped {.dirty.} =
   exec "nim c -r tests/tdset.nim"
   exec "nim c -r tests/tread_write1D.nim"
   exec "nim c -r tests/tgroups.nim"
+  exec "nim c -r tests/tcopy.nim"
   exec "nim c -r tests/tattributes.nim"
   exec "nim c -r tests/tvlen_array.nim"
   exec "nim c -r tests/tempty_hyperslab.nim"
