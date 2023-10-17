@@ -11,7 +11,7 @@ const
   DsetName = "/group1/dset"
 var data = @[1, 2, 3, 4]
 
-proc create_dset(h5f: var H5FileObj): H5DataSet =
+proc create_dset(h5f: var H5File): H5DataSet =
   result = h5f.create_dataset(DsetName, (4, 1), int64)
   result[result.all] = data
   # add an attribute
@@ -21,13 +21,13 @@ proc assert_data(dset: var H5DataSet) =
   let d = dset[int]
   doAssert(d == data)
 
-proc assert_dset(h5f: var H5FileObj, dset: var H5DataSet, file: string) =
+proc assert_dset(h5f: var H5File, dset: var H5DataSet, file: string) =
   doAssert(dset.shape == @[4, 1])
-  doAssert(dset.parent == parentDir(DsetName))
+  doAssert(dset.parent == getParent(dset.name))
   doAssert(dset.file == file, dset.file & " vs " & $file)
   doAssert(dset.attrs["Test", string] == "String")
 
-proc assert_file1(h5f: var H5FileObj) =
+proc assert_file1(h5f: var H5File) =
   var
     dset: H5DataSet
     grp: H5Group
@@ -46,17 +46,21 @@ proc assert_file1(h5f: var H5FileObj) =
   dset = h5f[("/test").dset_str]
   h5f.assert_dset(dset, h5f.name)
 
-proc assert_file2(h5f: var H5FileObj) =
+proc assert_file2(h5f: var H5File) =
   var
     dset: H5DataSet
     grp: H5Group
-  grp = h5f["/group1".grp_str]
-  dset = h5f[(grp.name / "dset").dset_str]
-  h5f.assert_dset(dset, h5f.name)
 
-  grp = h5f["/group1".grp_str]
-  dset = h5f[(grp.name / "tdset2").dset_str]
-  h5f.assert_dset(dset, h5f.name)
+  template assert_group(h5f: H5File, grpName: string): untyped =
+    grp = h5f[grpName.grp_str]
+    dset = h5f[(grp.name / "dset").dset_str]
+    h5f.assert_dset(dset, h5f.name)
+
+    grp = h5f[grpName.grp_str]
+    dset = h5f[(grp.name / "tdset2").dset_str]
+    h5f.assert_dset(dset, h5f.name)
+  h5f.assert_group("/group1")
+  h5f.assert_group("/copyGroup")
 
 when isMainModule:
   # open file, create dataset
@@ -92,6 +96,8 @@ when isMainModule:
   except HDF5LibraryError:
     discard
 
+  assert_file1(h5f)
+
   # copy dataset to same subgroup in a different file (which does
   # not exist in that file)
   success = h5f.copy(dset, h5out = some(h5out))
@@ -113,6 +119,8 @@ when isMainModule:
   #
   ## now read actual data and compare with what we wrote to file
   dset.assert_data()
+
+  assert_file2(h5out)
   #
   err = h5out.close()
   doAssert err >= 0
