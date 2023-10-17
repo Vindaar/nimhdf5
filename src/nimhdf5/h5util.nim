@@ -486,48 +486,42 @@ proc copy*[T](h5in: H5File, h5o: T,
   ## Copies the object `h5o` from `source` to `target`.
   ## `Target` may be in a separate file, indicated by `h5out`.
   ## Returns `true` if the object was copied successfully.
-  var tgt = ""
-  if target.isSome:
-    tgt = target.get
 
-  var targetGrp = if target.isSome: target.get.getParent: "/"
-  if targetGrp.len == 0:
-    targetGrp = "/"
-  var targetName = if target.isSome:
-                     formatName target.get.extractFileName
-                   else:
-                     h5o.name
+  if h5out.isNone and target.isNone:
+    raise newException(HDF5LibraryError, "Cannot copy object " & h5o.name & " to " &
+      "same file without target!")
 
+  # 1. determine target group (if input is a group, it's its parent)
+  let targetGrp = if target.isSome: target.get.getParent
+                  else: getParent(h5o.name)
+  # 2. determine target name (group name or dset name)
+  let targetName = if target.isSome: target.get.extractFileName # no format name because we don't want `/` prefix!
+                   else: h5o.name
+  # 3. get the `hid_t` ID for the target group
   var targetId: hid_t
-
-  echo "Copying ", h5o.name
-  echo "To grp ", targetGrp
-  echo "With name ", targetName
 
   if h5out.isSome:
     # copy to separete file
     var h5f = h5out.get
-    if target.isSome:
-      let grp = h5f.create_group(targetGrp)
-      targetId = grp.group_id.id
-    else:
-      echo "Target grp ", targetGrp
-      echo "Target Name ", targetName
-      let grp = h5f.create_group(targetName.getParent)
-      targetId = grp.group_id.id
+    echo "creating group: ", targetGrp, " for ", targetName
+    let grp = h5f.create_group(targetGrp) # create or get!
+    targetId = grp.group_id.id
   else:
-    if target.isSome:
-      if targetGrp == "/":
-        targetId = h5in.file_id.id
-      else:
-        let grp = h5in.create_group(targetGrp)
-        targetId = grp.group_id.id
+    if targetGrp == "/":
+      targetId = h5in.file_id.id
     else:
-      raise newException(HDF5LibraryError, "Cannot copy object " & h5o.name & " to " &
-        "same file without target!")
+      let grp = h5in.create_group(targetGrp) # create or get!
+      targetId = grp.group_id.id
 
+  # 3. some INFO output
+  echo "[INFO] Copying ", h5o.name
+  echo "[INFO] To ", os.`/`(targetGrp, targetName)
+  if h5out.isSome:
+    echo "[INFO] In file: ", h5out.get.name
+
+  # 5. perform the actual copy
   let err = H5Ocopy(h5o.getH5Id.to_hid_t, h5o.name,
                     targetId, targetName,
                     H5P_DEFAULT, H5P_DEFAULT)
 
-  result = if err >= 0: true else: false
+  result = err >= 0
