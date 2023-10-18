@@ -1426,6 +1426,9 @@ proc write_hyperslab*[T](dset: H5DataSet,
   # covers!
   if shape.len == 0 :
     return
+  when typeof(data) is seq | openArray:
+    if data.len == 0:
+      return # nothing to do in this case!
   # flatten the data array to be written
   let memspace_id = simple_memspace(shape)
   let hyperslab_id = dset.select_hyperslab(offset, count, stride, blk)
@@ -1451,7 +1454,7 @@ proc write_hyperslab*[T](
   ## See sec. 7.4.1.1 in the HDF5 user's guide:
   ## https://support.hdfgroup.org/HDF5/doc/UG/HDF5_Users_Guide-Responsive%20HTML5/index.html
   if data.len == 0 :
-    return
+    return # nothing to do in this case!
   if dset.isVlen():
     # in case of variable length data, the dataspace should be of layout
     # (# VLEN elements, 1)
@@ -1672,6 +1675,8 @@ proc add*[T](dset: H5DataSet, data: seq[T] | openArray[T] | ptr T,
   ## If the rewriteAsChunked flag is set to true, the existing dataset
   ## will be read to memory, removed from file, recreated as chunked and
   ## written back to file.
+  when typeof(data) is seq | openArray:
+    if data.len == 0: return # nothing to do in this case!
   if dset.isChunked:
     # simply resize and write the hyperslab
     let oldShape = dset.shape
