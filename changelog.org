@@ -1,3 +1,6 @@
+* v0.5.12
+- better handle empty inputs in ~add~ / ~write_hyperslab~. Do nothing
+  in that case
 * v0.5.11
 - fix ~copy~ implementation for certain use cases and fix a regression
   in it
