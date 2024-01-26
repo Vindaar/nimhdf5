@@ -815,6 +815,7 @@ proc write*[T](dset: H5DataSet, data: seq[T]) =
   ##         TODO: create an appropriate Exception for this case!
   # TODO: IMPORTANT: think about whether we should be using array types instead
   # of a dataspace of certain dimensions for arrays / nested seqs we're handed
+  if data.len == 0: return # nothing to write!
   let shape = dset.shape
   withDebug:
     echo "shape is ", shape, " of dset ", dset.name
