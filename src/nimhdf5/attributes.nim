@@ -334,6 +334,11 @@ proc readStringAttribute(attr: H5Attr): string =
     doAssert err >= 0
     result = buf_string
 
+proc contains*(attr: H5Attributes, key: string): bool =
+  ## proc to check whether a given attribute with name `key` exists in the attribute
+  ## field of a group or dataset
+  result = attr.parent_id.existsAttribute(key)
+
 proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
   ## now implement reading of attributes
   ## finally still need a read_all attribute. This function only reads a single one, if
@@ -395,11 +400,6 @@ proc `[]`*(h5attr: H5Attributes, name: string): DtypeKind =
   # accessing H5Attributes by string simply returns the datatype of the stored
   # attribute as an AnyKind value
   h5attr.attr_tab[name].dtypeAnyKind
-
-proc contains*(attr: H5Attributes, key: string): bool =
-  ## proc to check whether a given attribute with name `key` exists in the attribute
-  ## field of a group or dataset
-  result = attr.parent_id.existsAttribute(key)
 
 template withAttr*(h5attr: H5Attributes, name: string, actions: untyped) =
   ## convenience template to read and work with an attribute from the file and perform actions
