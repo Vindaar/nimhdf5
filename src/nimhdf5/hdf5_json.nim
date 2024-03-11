@@ -183,6 +183,14 @@ proc readJson*(d: H5Group): JsonNode =
   result = newJObject()
   for dset in items(d, depth = 1): ## XXX: could there be nested data? If so, groups, so also iterate over groups before
     result[dset.name] = readJson(dset)
+
+proc `[]=`*(h5o: H5Attributes, name: string, val: JsonNode) =
+  ## Writes the given JsonNode as native compound data to the attribute
+  ## XXX: This still has to be written!
+  echo "[WARNING] Assignment of JsonNode as attribute still not implemented!"
+  # Requires creating a compound type from JsonNode data and then filling a `Buffer` from
+  # the json and finally writing it. Shouldn't be /too/ annoying.
+
 template withAttr*(h5attr: H5Attributes, name: string, actions: untyped) =
   ## convenience template to read and work with an attribute from the file and perform actions
   ## with that attribute, without having to manually check the data type of the attribute
@@ -274,6 +282,81 @@ template withAttr*(h5attr: H5Attributes, name: string, actions: untyped) =
   else:
     let attr {.inject.} = readJson(attrObj)
     actions
+
+## The following JSON related procs are placeholders. We might implement them fully to be
+## able to write compound data at runtime baesd on JSON data.
+proc calcSize(n: JsonNode): int =
+  case n.kind
+  of JInt: result = sizeof(int)
+  of JString: result = sizeof(char) * n.str.len
+  of JFloat: result = sizeof(float)
+  of JBool: result = sizeof(bool)
+  of JNull: result = 0
+  of JArray:
+    result = sizeof(int) # length prefix
+    for j in n:
+      result += calcSize(j)
+  of JObject:
+    for k, v in n: ## Key names are irrelevant. This is for compound data.
+                   # Or do we use them to fill the member names? Not needed, no?
+      result += calcSize(v)
+
+proc copyflat(buf: var Buffer, val: JsonNode) =
+  ## NOTE:
+  ## Given that the JsonNode type only contains 64 bit sized values (aside from `bool`,
+  ## which we (TODO: convert to int?) might convert, we can probably avoid worrying
+  ## about any packing logic.
+  case val.kind
+  of JNull: discard
+  of JInt: buf.write(val.num.int)
+  of JString: buf.write(getAddr(val.str)) ## Write the string's *address*. JsonNode *must* outlive buffer!
+  of JBool: buf.write(val.bval)
+  of JFloat: buf.write(val.fnum)
+  of JArray:
+    ## XXX: needs to be (csize_t(len), pointer(child buffer)) instead
+    var chBuf = newBuffer(calcSize(val))
+    for x in val: ## Create child buffer for its pointer
+      chBuf.copyflat(x)
+    buf.children.add chBuf
+    buf.write((csize_t(val.len), cast[uint](chBuf.data))) ## add length and child buffer pointer
+  of JObject:
+    for k, v in val:
+      buf.copyflat(v)
+
+proc jsonToH5Buffer(data: JsonNode): Buffer =
+  ## Constructs a `Buffer` with data valid for HDF5 writing from given JSON data.
+  ## This is our approach to dealing with compound data at runtime.
+  ##
+  ## Note that this is especially inefficient if the data contains long sequences of
+  ## numbers, as each element in a JsonNode is stored from an indirection (which is
+  ## flattened in the buffer of course).
+  let size = calcSize(data)
+  result = newBuffer(size)
+  result.copyflat(data)
+
+proc jsonToH5Type(data: JsonNode): DatatypeID =
+  case data.kind
+  of JNull: discard
+  of JInt: result = nimToH5Type(int)
+  of JString: result = nimToH5Type(string)
+  of JBool: result = nimToH5Type(bool)
+  of JFloat: result = nimToH5Type(float)
+  of JArray:
+    # check all array elements same type!
+    var typ = data[0].kind
+    for x in data:
+      if x.kind != typ:
+        raise newException(ValueError, "Heterogeneous JsonNodes cannot be written to an HDF5 file.")
+    case typ
+    of JInt: result = nimToH5Type(seq[int])
+    of JBool: result = nimToH5Type(seq[bool])
+    of JFloat: result = nimToH5Type(seq[float])
+    of JString: result = nimToH5Type(seq[string])
+    else:
+      doAssert false, "IMPLEMENT ME: " & $typ
+  of JObject:
+    for k, v in data:
+      doAssert false, "IMPLEMENT ME"
 
 func `%`(c: char): JsonNode = % $c # for `withAttr` returning a char
 proc copy_attributes*[T: H5Group | H5DataSet](h5o: T, attrs: H5Attributes) =
