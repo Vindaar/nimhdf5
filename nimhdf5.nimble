@@ -18,40 +18,47 @@ requires "https://github.com/vindaar/seqmath >= 0.1.17"
 task testDeps, "Install dependencies for tests":
   exec "nimble install -y datamancer"
 
+proc callTest(fname: string) =
+  if (NimMajor, NimMinor, NimPatch) >= (2, 0, 0):
+    exec "nim c -r " & fname
+  else: # for older Nim force usage of Orc!
+    exec "nim c -r --mm:orc " & fname
+
 template tests(): untyped {.dirty.} =
-  exec "nim c -r tests/tbasic.nim"
-  exec "nim c -r tests/tdset.nim"
-  exec "nim c -r tests/tread_write1D.nim"
-  exec "nim c -r tests/tgroups.nim"
-  exec "nim c -r tests/tcopy.nim"
-  exec "nim c -r tests/tattributes.nim"
-  exec "nim c -r tests/tvlen_array.nim"
-  exec "nim c -r tests/tempty_hyperslab.nim"
-  exec "nim c -r tests/tresize.nim"
-  exec "nim c -r tests/treshape.nim"
-  exec "nim c -r tests/tutil.nim"
-  exec "nim c -r tests/tnested.nim"
-  exec "nim c -r tests/tfilter.nim"
-  exec "nim c -r tests/toverwrite.nim"
-  exec "nim c -r tests/tconvert.nim"
-  exec "nim c -r tests/tdelete.nim"
-  exec "nim c -r tests/tresize_by_add.nim"
-  exec "nim c -r tests/tStringAttributes.nim"
-  exec "nim c -r tests/tCompound.nim"
-  exec "nim c -r tests/tCompoundWithBool.nim"
-  exec "nim c -r tests/tCompoundWithVlenStr.nim"
-  exec "nim c -r tests/tCompoundWithSeq.nim"
-  exec "nim c -r tests/tContainsIterator.nim"
-  exec "nim c -r tests/twrite_string.nim"
+  callTest "tests/tbasic.nim"
+  callTest "tests/tdset.nim"
+  callTest "tests/tread_write1D.nim"
+  callTest "tests/tgroups.nim"
+  callTest "tests/tcopy.nim"
+  callTest "tests/tattributes.nim"
+  callTest "tests/tvlen_array.nim"
+  callTest "tests/tempty_hyperslab.nim"
+  callTest "tests/tresize.nim"
+  callTest "tests/treshape.nim"
+  callTest "tests/tutil.nim"
+  callTest "tests/tnested.nim"
+  callTest "tests/tfilter.nim"
+  callTest "tests/toverwrite.nim"
+  callTest "tests/tconvert.nim"
+  callTest "tests/tdelete.nim"
+  callTest "tests/tresize_by_add.nim"
+  callTest "tests/tStringAttributes.nim"
+  callTest "tests/tCompound.nim"
+  callTest "tests/tCompoundWithBool.nim"
+  callTest "tests/tCompoundWithVlenStr.nim"
+  callTest "tests/tCompoundWithSeq.nim"
+  callTest "tests/tContainsIterator.nim"
+  callTest "tests/twrite_string.nim"
   # regression tests
-  exec "nim c -r tests/tint64_dset.nim"
-  exec "nim c -r tests/t17.nim"
-  exec "nim c -r tests/tIntegerTypes.nim"
-  exec "nim c -r tests/tWithDset.nim"
+  callTest "tests/tint64_dset.nim"
+  callTest "tests/t17.nim"
+  callTest "tests/tIntegerTypes.nim"
+  if NimMajor >= 2:
+    callTest "tests/tWithDset.nim"
   # at least run the high level examples to avoid regressions
   if fileExists("dset.h5"): # as a test, we need to get rid of the high level H5 output file
     rmFile("dset.h5")
-  exec "nim c -r examples/h5_high_level_example.nim"
+  callTest "examples/h5_high_level_example.nim"
 
 task test, "Runs all tests":
   tests()
