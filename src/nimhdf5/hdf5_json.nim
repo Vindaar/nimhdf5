@@ -14,9 +14,14 @@ type
 
   MemberSizeTable = OrderedTable[string, (int, int, DtypeKind)]
 
-proc `=destroy`(buf: BufferWrapperObj) =
-  buf.cleanup(buf.buf, buf.dtypeID, buf.dspaceID)
-  `=destroy`(buf.buf)
+when (NimMajor, NimMinor, NimPatch) >= (2, 0, 0):
+  proc `=destroy`(buf: BufferWrapperObj) =
+    buf.cleanup(buf.buf, buf.dtypeID, buf.dspaceID)
+    `=destroy`(buf.buf)
+else:
+  proc `=destroy`(buf: var BufferWrapperObj) =
+    buf.cleanup(buf.buf, buf.dtypeID, buf.dspaceID)
+    `=destroy`(buf.buf)
 
 ## Code to read also datasets and groups as JSON:
 
