@@ -70,41 +70,41 @@ proc `+%`(x: pointer, offset: int): pointer =
 
 proc copyFlat*[T](x: openArray[T]): Buffer
 
-proc copyFlat[T: object | tuple](buf: var Buffer, x: T)
-proc copyFlat[T: SimpleTypes](buf: var Buffer, x: T) =
+proc copyFlat*[T: object | tuple](buf: var Buffer, x: T)
+proc copyFlat*[T: SimpleTypes](buf: var Buffer, x: T) =
   let size = calcSize(x)
   var target = buf.data +% buf.offsetOf
   target.copyMem(address(x), size)
 
-proc copyFlat[T: distinct](buf: var Buffer, x: T) =
+proc copyFlat*[T: distinct](buf: var Buffer, x: T) =
   let size = calcSize(x)
   var target = buf.data +% buf.offsetOf
   target.copyMem(address(x), size)
 
-proc copyFlat[T; N: static int](buf: var Buffer, x: array[N, T]) =
+proc copyFlat*[T; N: static int](buf: var Buffer, x: array[N, T]) =
   let size = calcSize(x)
   var target = buf.data +% buf.offsetOf
   target.copyMem(address(x[0]), size)
 
-proc getAddr(x: string): uint =
+proc getAddr*(x: string): uint =
   if x.len > 0:
     result = cast[uint](address(x[0]))
   else:
     result = 0
 
-proc copyFlat[T: string | cstring](buf: var Buffer, x: T) =
+proc copyFlat*[T: string | cstring](buf: var Buffer, x: T) =
   let size = calcSize(x)
   var p = getAddr(x) # want to copy the *address* of the string
   buf.copyFlat(p)
 
-proc copyFlat[T](buf: var Buffer, x: seq[T]) =
+proc copyFlat*[T](buf: var Buffer, x: seq[T]) =
   let child = copyFlat(x)
   buf.children.add child
   # copy child address
   buf.copyFlat((csize_t(x.len), cast[uint](child.data))) # `hvl_t` like data structure
 
 import ./type_utils
-proc copyFlat[T: object | tuple](buf: var Buffer, x: T) =
+proc copyFlat*[T: object | tuple](buf: var Buffer, x: T) =
   var tmp: genCompatibleTuple(T, replaceVlen = true)
   #echo "-----------OBJ tuple compat: ", typeName(typeof(tmp)), " OF SIZE: ", sizeof(tmp), " StartingIdx: ", buf.offsetOf, "\n"
   let startIdx = buf.offsetOf # start data reading here
@@ -183,11 +183,11 @@ proc fromFlat*[T](buf: Buffer): seq[T] =
   let len = buf.size div calcSize(T)
   # set `offsetOf` to 0 to copy from beginning
   buf.offsetOf = 0
-  result = newSeq[T](len)
   when T.needsCopy:
     var tmp: genCompatibleTuple(T, replaceVlen = true)
   else:
     var tmp: T
+  result = newSeq[T](len)
   for i in 0 ..< result.len:
     # copy element by element
     result[i].fromFlat(buf)
