@@ -41,10 +41,6 @@ proc high*(dset: H5DataSet, axis = 0): int =
   ##   int = highest index along `axis`
   result = dset.shape[axis] - 1
 
-proc isVlen*(dset: H5Dataset): bool =
-  ## Returns true if the dataset is a variable length dataset
-  result = dset.dtype_class == H5T_VLEN
-
 proc readH5*[T: ptr | pointer](dset: H5DataSet, buf: T,
                 memspaceId = H5S_ALL,
                 hyperslabId = H5S_ALL) =
