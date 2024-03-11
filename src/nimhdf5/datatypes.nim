@@ -544,6 +544,15 @@ proc getTypeClass*(dtype_id: DatatypeID): H5T_class_t =
 proc copyType*(typ: hid_t): DatatypeID =
   result = H5Tcopy(typ).toDatatypeID
 
+proc copyType*(typ: DatatypeID): DatatypeID =
+  result = H5Tcopy(typ.id).toDatatypeID
+
+proc copyDataspace*(typ: hid_t): DataspaceID =
+  result = H5Scopy(typ).toDataspaceID
+
+proc copyDataspace*(typ: DataspaceID): DataspaceID =
+  result = H5Scopy(typ.id).toDataspaceID
+
 proc close*(attr: var H5AttrObj) =
   ## closes the attribute and the corresponding dataspace
   if attr.isObjectOpen():
