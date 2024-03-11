@@ -10,6 +10,14 @@ const
   TimeStr = "21:19"
   Counter = 128
   SeqAttr = @[1, 2, 3, 4]
+  SeqStrAttr = @["foo", "bar"]
+  TupAttr = (1.1, 2)
+  NamedTupAttr = (foo: 5.5, bar: 12)
+  ## WARNING: Trying to read a dataset / group with an attribute like the following
+  ## crashes `hdfview`, at least as of version `3.3.0`!
+  NamedTupStrAttr = (foo: "hello", bar: 12.5)
+  NamedTupSeqComplexAttr = @[(foo: "hello", bar: 12.5), (foo: "World", bar: 48.2)]
+  NumAttr = 8
 
 proc write_attrs(grp: var H5Group) =
 
@@ -17,12 +25,27 @@ proc write_attrs(grp: var H5Group) =
   grp.attrs["Time"] = TimeStr
   grp.attrs["Counter"] = Counter
   grp.attrs["Seq"] = SeqAttr
+  grp.attrs["SeqStr"] = SeqStrAttr
+  grp.attrs["Tuple"] = TupAttr
+  grp.attrs["NamedTuple"] = NamedTupAttr
+  grp.attrs["ComplexNamedTuple"] = NamedTupStrAttr
+  grp.attrs["ComplexNamedSeqTuple"] = NamedTupSeqComplexAttr
 
 proc assert_attrs(grp: var H5Group) =
+  template readAndCheck(arg, typ, exp): untyped =
+    let data = grp.attrs[arg, typ]
+    echo "Read: ", data
+    doAssert data == exp, "Mismatch, was = " & $data & ", but expected = " & $exp
 
-  doAssert(grp.attrs["Time", string] == TimeStr)
-  doAssert(grp.attrs["Counter", int] == Counter)
-  doAssert(grp.attrs["Seq", seq[int]] == SeqAttr)
+  readAndCheck("Time", string, TimeStr)
+  readAndCheck("Counter", int, Counter)
+  readAndCheck("Seq", seq[int], SeqAttr)
+  readAndCheck("SeqStr", seq[string], SeqStrAttr)
+  readAndCheck("Tuple", (float, int), TupAttr)
+  readAndCheck("NamedTuple", tuple[foo: float, bar: int], NamedTupAttr)
+  readAndCheck("ComplexNamedTuple", tuple[foo: string, bar: float], NamedTupStrAttr)
+  readAndCheck("ComplexNamedSeqTuple", seq[tuple[foo: string, bar: float]], NamedTupSeqComplexAttr)
+
   doAssert("Time" in grp.attrs)
   doAssert("NoTime" notin grp.attrs)
   let nameCheck = if grp.attrs.parent_name == formatName(GrpName) or
@@ -33,20 +56,24 @@ proc assert_attrs(grp: var H5Group) =
   doAssert(nameCheck)
   doAssert(grp.attrs.parent_type == "H5Group")
   when defined(linux):
-    doAssert(grp.attrs.num_attrs == 3)
-    # on Windows the file is not fully flushed etc at this point yet!
+    doAssert(grp.attrs.num_attrs == NumAttr)
+  # on Windows the file is not fully flushed etc at this point yet!
 
 proc assert_delete(grp: var H5Group) =
-
-  doAssert(grp.deleteAttribute("Time"))
-  when defined(linux): # on Windows the file is not fully flushed etc at this point yet!
-    doAssert(grp.attrs.num_attrs == 2)
-  doAssert(grp.deleteAttribute("Counter"))
-  when defined(linux): # on Windows the file is not fully flushed etc at this point yet!
-    doAssert(grp.attrs.num_attrs == 1)
-  doAssert(grp.deleteAttribute("Seq"))
-  when defined(linux): # on Windows the file is not fully flushed etc at this point yet!
-    doAssert(grp.attrs.num_attrs == 0)
+  var AttrNumber = NumAttr
+  template removeCheck(arg, num): untyped =
+   doAssert(grp.deleteAttribute(arg))
+   dec AttrNumber
+   when defined(linux): # on Windows the file is not fully flushed etc at this point yet!
+     doAssert(grp.attrs.num_attrs == AttrNumber)
+  removeCheck("Time", AttrNumber)
+  removeCheck("Counter", AttrNumber)
+  removeCheck("Seq", AttrNumber)
+  removeCheck("SeqStr", AttrNumber)
+  removeCheck("Tuple", AttrNumber)
+  removeCheck("NamedTuple", AttrNumber)
+  removeCheck("ComplexNamedTuple", AttrNumber)
+  removeCheck("ComplexNamedSeqTuple", AttrNumber)
 
 proc assert_overwrite(grp: var H5Group) =
   var mcounter = Counter
@@ -73,6 +100,7 @@ proc assert_overwrite(grp: var H5Group) =
   grp.attrs["Counter"] = mcounter
   doAssert(grp.attrs["Counter", int] == mcounter)
 
+import options, json
 proc main() =
   var
     h5f = H5open(File, "rw")
@@ -83,9 +111,15 @@ proc main() =
   grp.write_attrs
   grp.assert_attrs
 
+  ## Just see that also reading `dkObject` types works!
+  for typ, attr in attrsJson(grp.attrs, withType = true):
+    echo typ, " = ", attr.pretty()
 
   # copy attributes of grp to grpCp
   grpCp.copy_attributes(grp.attrs)
+  # Alternatively can copy the whole group:
+  #echo h5f.copy(grp, some(GrpCopy))
+  #var grpCp = h5f[GrpCopy.grp_str]
   # now simply assert these attributes in the same way
   grpCp.assert_attrs
 
@@ -103,7 +137,7 @@ proc main() =
   # delete an attribute
   grp.assert_delete
   grpCp.assert_delete
-
+  #
   grp.assert_overwrite
 
   err = h5f.close()
