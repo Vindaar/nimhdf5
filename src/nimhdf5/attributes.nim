@@ -142,6 +142,11 @@ template existsAttribute*[T: (H5File | H5Group | H5DataSet)](h5o: T, name: strin
   ## of the given object
   existsAttribute(h5o.getH5Id, name)
 
+proc contains*(attr: H5Attributes, key: string): bool =
+  ## proc to check whether a given attribute with name `key` exists in the attribute
+  ## field of a group or dataset
+  result = attr.parent_id.existsAttribute(key)
+
 proc deleteAttribute*(h5id: ParentID, name: string): bool =
   ## deletes the given attribute `name` on the object defined by
   ## the H5 id `h5id`
@@ -334,11 +339,6 @@ proc readStringAttribute(attr: H5Attr): string =
     doAssert err >= 0
     result = buf_string
 
-proc contains*(attr: H5Attributes, key: string): bool =
-  ## proc to check whether a given attribute with name `key` exists in the attribute
-  ## field of a group or dataset
-  result = attr.parent_id.existsAttribute(key)
-
 proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
   ## now implement reading of attributes
   ## finally still need a read_all attribute. This function only reads a single one, if
@@ -401,108 +401,6 @@ proc `[]`*(h5attr: H5Attributes, name: string): DtypeKind =
   # attribute as an AnyKind value
   h5attr.attr_tab[name].dtypeAnyKind
 
-template withAttr*(h5attr: H5Attributes, name: string, actions: untyped) =
-  ## convenience template to read and work with an attribute from the file and perform actions
-  ## with that attribute, without having to manually check the data type of the attribute
-
-  # TODO: NOTE this is a very ugly solution, when we could just use H5Ocopy in the calling
-  # proc....
-  case h5attr.attr_tab[name].dtypeAnyKind
-  of dkBool:
-    let attr {.inject.} = h5attr[name, bool]
-    actions
-  of dkChar:
-    let attr {.inject.} = h5attr[name, char]
-    actions
-  of dkString:
-    let attr {.inject.} = h5attr[name, string]
-    actions
-  of dkFloat32:
-    let attr {.inject.} = h5attr[name, float32]
-    actions
-  of dkFloat64:
-    let attr {.inject.} = h5attr[name, float64]
-    actions
-  of dkInt8:
-    let attr {.inject.} = h5attr[name, int8]
-    actions
-  of dkInt16:
-    let attr {.inject.} = h5attr[name, int16]
-    actions
-  of dkInt32:
-    let attr {.inject.} = h5attr[name, int32]
-    actions
-  of dkInt64:
-    let attr {.inject.} = h5attr[name, int64]
-    actions
-  of dkUint8:
-    let attr {.inject.} = h5attr[name, uint8]
-    actions
-  of dkUint16:
-    let attr {.inject.} = h5attr[name, uint16]
-    actions
-  of dkUint32:
-    let attr {.inject.} = h5attr[name, uint32]
-    actions
-  of dkUint64:
-    let attr {.inject.} = h5attr[name, uint64]
-    actions
-  of dkSequence:
-    # need to perform same game again...
-    case h5attr.attr_tab[name].dtypeBaseKind
-    of dkString:
-      let attr {.inject.} = h5attr[name, seq[string]]
-      actions
-    of dkFloat32:
-      let attr {.inject.} = h5attr[name, seq[float32]]
-      actions
-    of dkFloat64:
-      let attr {.inject.} = h5attr[name, seq[float64]]
-      actions
-    of dkInt8:
-      let attr {.inject.} = h5attr[name, seq[int8]]
-      actions
-    of dkInt16:
-      let attr {.inject.} = h5attr[name, seq[int16]]
-      actions
-    of dkInt32:
-      let attr {.inject.} = h5attr[name, seq[int32]]
-      actions
-    of dkInt64:
-      let attr {.inject.} = h5attr[name, seq[int64]]
-      actions
-    of dkUint8:
-      let attr {.inject.} = h5attr[name, seq[uint8]]
-      actions
-    of dkUint16:
-      let attr {.inject.} = h5attr[name, seq[uint16]]
-      actions
-    of dkUint32:
-      let attr {.inject.} = h5attr[name, seq[uint32]]
-      actions
-    of dkUint64:
-      let attr {.inject.} = h5attr[name, seq[uint64]]
-      actions
-    else:
-      echo "Seq type of ", h5attr.attr_tab[name].dtypeBaseKind, " not supported"
-  else:
-    echo "Attribute of dtype ", h5attr.attr_tab[name].dtypeAnyKind, " not supported"
-    discard
-
-proc copy_attributes*[T: H5Group | H5DataSet](h5o: T, attrs: H5Attributes) =
-  ## copies the attributes contained in `attrs` given to the function to the `h5o` attributes
-  ## this can be used to copy attributes also between different files
-  # simply walk over all key value pairs in the given attributes and
-  # write them as new attributes to `h5o`
-  attrs.read_all_attributes()
-  for key, value in pairs(attrs.attr_tab):
-    # TODO: fix it using H5Ocopy instead!
-    # IMPORTANT!!!!
-    # let ocpypl_id = H5Pcreate(H5P_OBJECT_COPY)
-    # let lcpl_id = H5Pcreate(H5P_LINK_CREATE)
-    # H5Ocopy(value.attr_id, key, h5o.attrs.parent_id, key, ocpypl_id, lcpl_id)
-    attrs.withAttr(key):
-      # use injected read attribute value to write it
-      h5o.attrs[key] = attr
-    # close attr again to avoid memory leaking
-    value.close()
+proc `[]`*[T](attr: H5Attr, dtype: typedesc[T]): T =
+  # convenience access to readAttribute for the actual attribute
+  attr.readAttribute(dtype)
