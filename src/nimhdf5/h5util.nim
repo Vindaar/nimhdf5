@@ -525,3 +525,10 @@ proc copy*[T](h5in: H5File, h5o: T,
                     H5P_DEFAULT, H5P_DEFAULT)
 
   result = err >= 0
+
+proc isVlen*[T: H5Dataset | H5Attr](dset: T): bool =
+  ## Returns true if the dataset or attribute is variable length
+  when T is H5Dataset:
+    result = dset.dtype_class == H5T_VLEN
+  else:
+    result = dset.dtype_c.getTypeClass == H5T_VLEN
