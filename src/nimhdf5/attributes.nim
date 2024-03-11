@@ -182,6 +182,154 @@ proc writeAttribute*(attr_id: AttributeID, dtype: DatatypeID, data: pointer) =
     raise newException(HDF5LibraryError, "Call to HDF5 library failed while " &
       "calling `H5Awrite` in `writeAttribute`.")
 
+import ./copyflat
+from type_utils import needsCopy
+
+proc prepareData[T](data: T, dtypeId: DatatypeID,
+                    isVlen: static bool): auto =
+  when T is tuple:
+    when T.needsCopy() or isVlen:
+      ## replace the string fields by `cstring` and put all data into a buffer
+      result = copyFlat(@[data])
+    else:
+      result = data
+  else:
+    result = data
+
+proc prepareData[T](data: openArray[T] | seq[T], dtypeId: DatatypeID,
+                    isVlen: static bool): auto =
+  when T is string and not isVlen:
+    ## maps the given `seq[string]` to something that is flat in memory.
+    ## This is for the case of constructing a dataset of type `array[N, char]`.
+    ## We simply copy over the input string data to a flat `seq[char]` to
+    ## have a flat object to write. As the H5 library knows the fixed size of
+    ## each element, they can (and must) be flat in memory.
+    ##
+    ## i.e. corresponds to:
+    ## `create_dataset(..., array[N, char]); dset[all] = @["hello", "foo"]`
+    let size = H5Tget_size(dtypeId.id)
+    result = newSeq[char](data.len * size.int)
+    for i, el in data:
+      # only copy as many bytes as either in input string to write or
+      # as we have space in the allocated fixed length dataset
+      let copyLen = min(size.int,  el.len)
+      copyMem(result[i * size.int].addr, el[0].address, copyLen)
+  elif T is seq|openArray and not isVlen:
+    # just make sure the data is a flat `seq[T]`. If not, flatten to have
+    # flat memory to write
+    ## XXX: if nested data of a type that needs conversion not handled!
+    result = seqmath.flatten(data)
+  elif T.needsCopy() or isVlen:
+    # convert data to HDF5 compatible data layout
+    result = copyFlat(data)
+  else:
+    result = data
+
+template writeData(buf: untyped): untyped {.dirty.} =
+  ## Helper template to access correct start of memory
+  when typeof(buf) is Buffer:
+    writeAttribute(attr.attr_id,
+                   dtypeId,
+                   buf.data)
+  elif typeof(buf) is ptr T:
+    writeAttribute(attr.attr_id,
+                   dtypeId,
+                   buf)
+  elif typeof(buf) is string or typeof(buf) is seq:
+    writeAttribute(attr.attr_id,
+                   dtypeId,
+                   address(buf[0]))
+  else:
+    writeAttribute(attr.attr_id,
+                   dtypeId,
+                   address(buf))
+
+proc writeImpl[T](attr: H5Attr, dtypeId: DatatypeId, data: seq[T]) =
+  ## Performs the `H5Awrite` operation to the given attribute for the given input data
+  ## to be written.
+  ##
+  ## This proc is for `seq` data.
+  when typeof(data) is ptr T:
+    ## ptr T is just written as is. Caller responsible
+    writeData(data)
+  elif T is string:
+    let buf = prepareData(data, dtypeId, isVlen = true) # (copy!)
+    writeData(buf)
+  else:
+    if attr.isVlen():
+      let buf = prepareData(data, dtypeId, isVlen = true) # (copy!)
+      writeData(buf)
+    else:
+      let buf = prepareData(data, dtypeId, isVlen = false) # might copy if nested seq
+      writeData(buf)
+
+proc writeImpl[T: not seq](attr: H5Attr, dtypeId: DatatypeId, data: T) =
+  ## Performs the `H5Awrite` operation to the given attribute for the given input data
+  ## to be written.
+  ##
+  ## This proc is for non seq datatypes or raw `ptr` data.
+  when T is ptr:
+    ## ptr T is just written as is. Caller responsible
+    writeData(data)
+  elif T is string:
+    # map strings to `cstring` to match H5 expectation
+    if attr.isVlen():
+      let buf = prepareData(data, dtypeId, isVlen = true)
+      writeData(buf)
+    else:
+      # this case is for fixed size strings. Convert to a flat `seq[char]`
+      let buf = prepareData(data, dtypeId, isVlen = false) # (copy!)
+      writeData(buf)
+  else: # scalar elements
+    ## check if type needs to be copied
+    when T.needsCopy(): # might still require copy (e.g. some tuple types)
+      var buf = prepareData(data, dtypeId, isVlen = false)
+    else:
+      template buf: untyped = data # (no copy!)
+    writeData(buf)
+
+proc createAndWriteAttribute[T](parentId: ParentID, name: string, val: T): H5Attr =
+  ## Helper which actually creates the given attribute `name` and writes `val`
+  ##
+  ## The new attribute is returned.
+  result = new H5Attr
+  var
+    dtype: DatatypeID
+    attr_dspace_id: DataspaceID
+
+  when T is SomeNumber or T is char or T is bool or T is tuple:
+    dtype = nimToH5type(T)
+    # create dataspace for single element attribute
+    attr_dspace_id = simple_dataspace(1)
+  elif T is seq[string]:
+    dtype = nimToH5type(string)
+    attr_dspace_id = string_dataspace(val, dtype)
+  elif T is string:
+    # get copy of string type
+    dtype = nimToH5type(type(val))
+    # and reserve dataspace for string
+    attr_dspace_id = string_dataspace(val, dtype)
+  elif T is seq: # seq of elements, which can be memcopied.
+    # take first element of sequence to get the datatype
+    dtype = nimToH5type(type(val[0]))
+    # create dataspace for attribute
+    # 1D so call simple_dataspace with integer, instead of seq
+    attr_dspace_id = simple_dataspace(len(val))
+  else:
+    {.error: "Unsupported type `" & $T & "` for attributes.".}
+  # create the attribute
+  let attribute_id = createAttribute(parent_id, name, dtype,
+                                     attr_dspace_id)
+  # write information to H5Attr tuple
+  result.attr_id = attribute_id
+  result.opened = true
+  result.dtype_c = dtype
+  result.attr_dspace_id = attr_dspace_id
+  # set any kind fields (check whether is sequence)
+  result.setAttrAnyKind(T)
+  # perform actual writing!
+  writeImpl(result, dtype, val)
+
 proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check = false) =
   ## writes the attribute `name` of value `val` to the object `h5o`
   ## NOTE: by defalt this function overwrites an attribute, if an attribute
@@ -201,83 +349,10 @@ proc write_attribute*[T](h5attr: H5Attributes, name: string, val: T, skip_check 
     withDebug:
       debugEcho "Attribute $# exists $#" % [name, $attr_exists]
   if not attr_exists:
-    # create a H5Attr, which we add to the table attr_tab of the given
-    # h5attr object once we wrote it to file
-    var attr = new H5Attr
-
-    when T is SomeNumber or T is char:
-      let
-        dtype = nimToH5type(T)
-        # create dataspace for single element attribute
-        attr_dspace_id = simple_dataspace(1)
-        # create the attribute
-        attribute_id = createAttribute(h5attr.parent_id, name, dtype,
-                                       attr_dspace_id)
-        # mutable copy for address
-      var mval = val
-      # write the value
-      writeAttribute(attribute_id, dtype, addr(mval))
-      # write information to H5Attr tuple
-      attr.attr_id = attribute_id
-      attr.opened = true
-      attr.dtype_c = dtype
-      attr.attr_dspace_id = attr_dspace_id
-      # set any kind fields (check whether is sequence)
-      attr.setAttrAnyKind(T)
-
-    elif T is seq or T is string:
-      # NOTE:
-      # in principle we need to differentiate between simple sequences and nested
-      # sequences. However, for now only support normal seqs.
-      # extension to nested seqs should be easy (using shape, handed simple_dataspace),
-      # however we still need to have a good function to get the basetype of a nested
-      # sequence for that
-      when T is seq[string]:
-        let
-          dtype = nimToH5type(string)
-          attr_dspace_id = string_dataspace(val, dtype)
-      elif T is seq:
-        # take first element of sequence to get the datatype
-        let
-          dtype = nimToH5type(type(val[0]))
-          # create dataspace for attribute
-          # 1D so call simple_dataspace with integer, instead of seq
-          attr_dspace_id = simple_dataspace(len(val))
-      else:
-        let
-          # get copy of string type
-          dtype = nimToH5type(type(val))
-          # and reserve dataspace for string
-          attr_dspace_id = string_dataspace(val, dtype)
-      # create the attribute
-      let attribute_id = createAttribute(h5attr.parent_id, name, dtype, attr_dspace_id)
-      # write the value
-      if val.len > 0:
-        # only write the value, if we have something to write
-        when T is seq[string]:
-          var cstringData = val.mapIt(it.cstring)
-          writeAttribute(attribute_id, dtype, addr(cstringData[0]))
-        else:
-          writeAttribute(attribute_id, dtype, unsafeAddr(val[0]))
-      # write information to H5Attr tuple
-      attr.attr_id = attribute_id
-      attr.opened = true
-      attr.dtype_c = dtype
-      attr.attr_dspace_id = attr_dspace_id
-      # set any kind fields (check whether is sequence)
-      attr.setAttrAnyKind(T)
-    elif T is bool:
-      # NOTE: in order to support booleans, we need to use HDF5 enums, since HDF5 does not support
-      # a native boolean type. H5 enums not supported yet though...
-      echo "Type `bool` currently not supported as attribute"
-      discard
-    else:
-      echo "Type `$#` currently not supported as attribute" % $T
-      discard
-
-    # add H5Attr tuple to H5Attributes table
-    h5attr.attr_tab[name] = attr
-    h5attr.attr_tab[name].close()
+    # create it in the file and write it
+    let attr = createAndWriteAttribute(h5attr.parent_id, name, val)
+    h5attr.attr_tab[name] = attr  # store in table of known attributes
+    h5attr.attr_tab[name].close() # close again
   else:
     # if it does exist, we delete the attribute and call this function again, with
     # exists = true, i.e. without checking again whether element exists. Saves us
@@ -295,6 +370,15 @@ proc `[]=`*[T](h5attr: H5Attributes, name: string, val: T) =
   ## convenience access to write_attribue
   h5attr.write_attribute(name, val)
 
+proc readAttribute*(attr: H5Attr, dtypeId: DatatypeID, buf: pointer) =
+  let err = H5Aread(attr.attr_id.id, dtypeId.id, buf)
+  if err < 0:
+    raise newException(HDF5LibraryError, "Call to `H5Aread` failed in `readAttribute`")
+
+proc readAttribute*(attr: H5Attr, buf: pointer) =
+  ## Reads the attribute data into `buf`. This assumes `buf` has allocated enough space!
+  readAttribute(attr, attr.dtype_c, buf)
+
 proc readStringArrayAttribute(attr: H5Attr, npoints: hssize_t): seq[string] =
   ## proc to read an array of strings attribute from a H5 file, for an existing
   ## `H5Attr`. This proc is only used in the `read_attribute` proc
@@ -307,8 +391,7 @@ proc readStringArrayAttribute(attr: H5Attr, npoints: hssize_t): seq[string] =
   let nativeType = copyType(H5T_C_S1)
   discard H5Tset_size(nativeType.id, H5T_VARIABLE)
   var buf = newSeq[cstring](npoints.int)
-  let err = H5Aread(attr.attr_id.id, nativeType.id, buf[0].addr)
-  doAssert err >= 0
+  readAttribute(attr, nativeType, buf[0].addr)
   # cast the void pointer to a ptr on a ptr of an unchecked array
   # and dereference it to get a ptr to an unchecked char array
   result = newSeq[string](npoints)
@@ -327,17 +410,75 @@ proc readStringAttribute(attr: H5Attr): string =
     let nativeType = copyType(H5T_C_S1)
     discard H5Tset_size(nativeType.id, H5T_VARIABLE)
     var buf: cstring
-    let err = H5Aread(attr.attr_id.id, nativeType.id, buf.addr)
-    doAssert err >= 0
+    readAttribute(attr, nativeType, buf.addr)
     result = $buf
   else:
-    attr.attr_dspace_id = getAttrDataspaceID(attr.attr_id)
     let nativeType = getNativeType(attr.dtype_c)
     let string_len = H5Aget_storage_size(attr.attr_id.id)
     var buf_string = newString(string_len)
-    let err = H5Aread(attr.attr_id.id, nativeType.id, addr buf_string[0])
-    doAssert err >= 0
+    readAttribute(attr, nativeType, addr buf_string[0])
     result = buf_string
+
+proc readImpl[T](attr: H5Attr, buffer: var T) =
+  let dtypeId = attr.dtype_c
+  let dspaceId = attr.attr_dspace_id
+  template readData(buf: untyped): untyped {.dirty.} =
+    when typeof(buf) is Buffer:
+      readAttribute(attr,
+                    dtypeId,
+                    buf.data)
+    elif T is seq:
+      readAttribute(attr,
+                    dtypeId,
+                    addr(buf[0]))
+    else:
+      readAttribute(attr,
+                    dtypeId,
+                    addr buf)
+
+  template reclaim(buf: untyped): untyped =
+    ## IMPORTANT: We must assign a `DatatypeID` instead of a raw `hid_t`, because `dataspaceID`
+    ## is a `proc`. If we were to write `else: attr.dataspaceId.id` the returned value would
+    ## be `=destroy`-ed before the `H5Dvlen_reclaim` call again!
+    let err = H5Dvlen_reclaim(attr.dtype_c.id, dspaceId.id, H5P_DEFAULT, buf.data)
+    if err != 0:
+      raise newException(HDF5LibraryError, "HDF5 library failed to reclaim variable length memory.")
+  when T is seq:
+    type TT = typeof(buffer[0])
+    when TT is string:
+      buffer = readStringArrayAttribute(attr, buffer.len)
+    elif TT.needsCopy:
+      # allocate a `Buffer` for HDF5 data
+      let actBuf = newBuffer(buffer.len * calcSize(T))
+      readData(actBuf)
+      # convert back to Nim types
+      buffer = fromFlat[TT](actBuf)
+      reclaim(actBuf)
+    else:
+      readData(buffer)
+  elif T is string:
+    buffer = readStringAttribute(attr)
+  elif T.needsCopy:
+    # allocate a `Buffer` for HDF5 data
+    let actBuf = newBuffer(calcSize(T))
+    readData(actBuf)
+    # convert back to Nim types
+    buffer = fromFlat[T](actBuf)[0]
+    reclaim(actBuf)
+  else:
+    readData(buffer)
+
+proc readAttribute*[T](attr: H5Attr, dtype: typedesc[T]): T =
+  ## Performs the actual reading of the `H5Attr`
+  when T is seq:
+    # determine number of elements in seq
+    let npoints = getNumberOfPoints(attr.attr_dspace_id)
+    type TT = type(result[0])
+    # in case it's a string, do things differently..
+    result.setLen(npoints)
+    readImpl(attr, result)
+  else: # no allocation needed, just call `readImpl`
+    readImpl(attr, result)
 
 proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
   ## now implement reading of attributes
@@ -353,40 +494,14 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
   ##     value.
   ## throws:
   ##   KeyError: In case the key does not exist as an attribute
-
   # TODO: check err values!
-
   let attr_exists = name in h5attr
   var err: herr_t
-
   if attr_exists:
     # in case of existence, read the data and return
     h5attr.readAttributeInfo(name)
     let attr = h5attr.attr_tab[name]
-    when T is SomeNumber or T is char:
-      var at_val: T
-      err = H5Aread(attr.attr_id.id, attr.dtype_c.id, addr(at_val))
-      if err < 0:
-        raise newException(HDF5LibraryError, "Call to `H5Aread` failed in `read_attribute`.")
-      result = at_val
-    elif T is seq:
-      # determine number of elements in seq
-      let npoints = getNumberOfPoints(attr.attr_dspace_id)
-      type TT = type(result[0])
-      # in case it's a string, do things differently..
-      when TT is string:
-        # get string attribute as single string first
-        result = readStringArrayAttribute(attr, npoints)
-      else:
-        # read data
-        # return correct type based on base kind
-        result.setLen(npoints)
-        err = H5Aread(attr.attr_id.id, attr.dtype_c.id, addr result[0])
-        if err < 0:
-          raise newException(HDF5LibraryError, "Call to `H5Aread` failed in `read_attribute`.")
-    elif T is string:
-      # case of single string attribute
-      result = readStringAttribute attr
+    result = attr.readAttribute(dtype)
     # close attribute again after reading
     h5attr.attr_tab[name].close()
   else:
