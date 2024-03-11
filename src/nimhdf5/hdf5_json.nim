@@ -183,3 +183,148 @@ proc readJson*(d: H5Group): JsonNode =
   result = newJObject()
   for dset in items(d, depth = 1): ## XXX: could there be nested data? If so, groups, so also iterate over groups before
     result[dset.name] = readJson(dset)
+template withAttr*(h5attr: H5Attributes, name: string, actions: untyped) =
+  ## convenience template to read and work with an attribute from the file and perform actions
+  ## with that attribute, without having to manually check the data type of the attribute
+
+  ## NOTE: There is no `H5Ocopy` for attributes. So this is not only useful for convenience
+  ## to get access to the data as Nim objects, but also when copying attributes.
+  ## Copying itself can also be done by simply getting the size, reading into a buffer,
+  ## copying data type and space and writing the same buffer to a new location.
+  let attrObj {.inject.} = h5attr.attr_tab[name]
+  case attrObj.dtypeAnyKind
+  of dkBool:
+    let attr {.inject.} = h5attr[name, bool]
+    actions
+  of dkChar:
+    let attr {.inject.} = h5attr[name, char]
+    actions
+  of dkString:
+    let attr {.inject.} = h5attr[name, string]
+    actions
+  of dkFloat32:
+    let attr {.inject.} = h5attr[name, float32]
+    actions
+  of dkFloat64:
+    let attr {.inject.} = h5attr[name, float64]
+    actions
+  of dkInt8:
+    let attr {.inject.} = h5attr[name, int8]
+    actions
+  of dkInt16:
+    let attr {.inject.} = h5attr[name, int16]
+    actions
+  of dkInt32:
+    let attr {.inject.} = h5attr[name, int32]
+    actions
+  of dkInt64:
+    let attr {.inject.} = h5attr[name, int64]
+    actions
+  of dkUint8:
+    let attr {.inject.} = h5attr[name, uint8]
+    actions
+  of dkUint16:
+    let attr {.inject.} = h5attr[name, uint16]
+    actions
+  of dkUint32:
+    let attr {.inject.} = h5attr[name, uint32]
+    actions
+  of dkUint64:
+    let attr {.inject.} = h5attr[name, uint64]
+    actions
+  of dkSequence:
+    # need to perform same game again...
+    case h5attr.attr_tab[name].dtypeBaseKind
+    of dkString:
+      let attr {.inject.} = h5attr[name, seq[string]]
+      actions
+    of dkFloat32:
+      let attr {.inject.} = h5attr[name, seq[float32]]
+      actions
+    of dkFloat64:
+      let attr {.inject.} = h5attr[name, seq[float64]]
+      actions
+    of dkInt8:
+      let attr {.inject.} = h5attr[name, seq[int8]]
+      actions
+    of dkInt16:
+      let attr {.inject.} = h5attr[name, seq[int16]]
+      actions
+    of dkInt32:
+      let attr {.inject.} = h5attr[name, seq[int32]]
+      actions
+    of dkInt64:
+      let attr {.inject.} = h5attr[name, seq[int64]]
+      actions
+    of dkUint8:
+      let attr {.inject.} = h5attr[name, seq[uint8]]
+      actions
+    of dkUint16:
+      let attr {.inject.} = h5attr[name, seq[uint16]]
+      actions
+    of dkUint32:
+      let attr {.inject.} = h5attr[name, seq[uint32]]
+      actions
+    of dkUint64:
+      let attr {.inject.} = h5attr[name, seq[uint64]]
+      actions
+    else:
+      let attr {.inject.} = readJson(attrObj)
+      actions
+  else:
+    let attr {.inject.} = readJson(attrObj)
+    actions
+
+func `%`(c: char): JsonNode = % $c # for `withAttr` returning a char
+proc copy_attributes*[T: H5Group | H5DataSet](h5o: T, attrs: H5Attributes) =
+  ## copies the attributes contained in `attrs` given to the function to the `h5o` attributes
+  ## this can be used to copy attributes also between different files
+  # simply walk over all key value pairs in the given attributes and
+  # write them as new attributes to `h5o`
+  attrs.read_all_attributes()
+  for key, value in pairs(attrs.attr_tab):
+    ## NOTE: We cannot use `H5Ocopy` or similar. There is no API available to copy attributes
+    ## in this way. This is slightly problematic, because we cannot nicely handle reading
+    ## for arbitrary types using the `withAttr` template
+    attrs.withAttr(key):
+      # use injected read attribute value to write it
+      if attrObj.dtypeAnyKind != dkObject and attrObj.dtypeBaseKind != dkObject: # simply assign
+        h5o.attrs[key] = attr
+      else: # copy over from `BufferWrapper`
+        let buf = readCompoundToBuffer(attrObj)
+        # create the attribute copy
+        let dtype = copyType(buf.dtypeID)
+        let attribute_id = createAttribute(h5o.attrs.parent_id, key, dtype,
+                                           copyDataspace(buf.dspaceID))
+        # write the value
+        writeAttribute(attribute_id, dtype, buf.buf.data)
+        h5o.attrs.num_attrs = h5o.attrs.getNumAttrs
+
+    # close attr again to avoid memory leaking
+    value.close()
+
+iterator attrsJson*(attrs: H5Attributes, withType = false): (string, JsonNode) =
+  ## yields all attribute keys and their values as `JsonNode`. This way
+  ## we can actually return all values to the user with one iterator.
+  ## And for attributes the variant object overhead does not matter anyways.
+  attrs.read_all_attributes
+  for key, att in pairs(attrs.attr_tab):
+    attrs.withAttr(key):
+      if not withType:
+        yield (key, % attr)
+      else:
+        yield (key, %* {
+          "value" : attr,
+          "type" : att.dtypeAnyKind
+        })
+    att.close()
+
+iterator attrsJson*[T: H5File | H5Group | H5DataSet](h5o: T, withType = false): (string, JsonNode) =
+  for key, val in attrsJson(h5o.attrs, withType = withType):
+    yield (key, val)
+
+proc attrsToJson*[T: H5Group | H5DataSet](h5o: T, withType = false): JsonNode =
+  ## returns all attributes as a json node of kind `JObject`
+  result = newJObject()
+  for key, jval in h5o.attrsJson(withType = withType):
+    result[key] = jval
