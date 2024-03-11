@@ -1,38 +1,32 @@
-import ./[datatypes, attributes, copyflat]
+import ./[datatypes, attributes, copyflat, dataspaces]
 import std / [tables, json, sequtils, math]
 
-func `%`(c: char): JsonNode = % $c # for `withAttr` returning a char
-iterator attrsJson*(attrs: H5Attributes, withType = false): (string, JsonNode) =
-  ## yields all attribute keys and their values as `JsonNode`. This way
-  ## we can actually return all values to the user with one iterator.
-  ## And for attributes the variant object overhead does not matter anyways.
-  attrs.read_all_attributes
-  for key, att in pairs(attrs.attr_tab):
-    attrs.withAttr(key):
-      if not withType:
-        yield (key, % attr)
-      else:
-        yield (key, %* {
-          "value" : attr,
-          "type" : att.dtypeAnyKind
-        })
-    att.close()
 
-iterator attrsJson*[T: H5File | H5Group | H5DataSet](h5o: T, withType = false): (string, JsonNode) =
-  for key, val in attrsJson(h5o.attrs, withType = withType):
-    yield (key, val)
+type
+  BufferWrapperObj = object
+    buf: Buffer
+    shape: seq[int]
+    dtypeID: DatatypeID
+    dspaceID: DataspaceID
+    cleanup: proc(buf: Buffer, dtype_c: DatatypeID, dspaceID: DataspaceID)
+    tab: MemberSizeTable
+  BufferWrapper* = ref BufferWrapperObj
 
-proc attrsToJson*[T: H5Group | H5DataSet](h5o: T, withType = false): JsonNode =
-  ## returns all attributes as a json node of kind `JObject`
-  result = newJObject()
-  for key, jval in h5o.attrsJson(withType = withType):
-    result[key] = jval
+  MemberSizeTable = OrderedTable[string, (int, int, DtypeKind)]
 
-## And code to read also datasets and groups as JSON:
+proc `=destroy`(buf: BufferWrapperObj) =
+  buf.cleanup(buf.buf, buf.dtypeID, buf.dspaceID)
+  `=destroy`(buf.buf)
+
+## Code to read also datasets and groups as JSON:
 
 proc read[T](buf: Buffer, _: typedesc[T]): T =
   ## Wrapper around `copyflat.fromFlat`
   fromFlat(result, buf)
+
+proc write[T](buf: var Buffer, val: T) =
+  ## Wrapper around `copyflat.copyflat`
+  copyFlat(buf, val)
 
 proc readElement(buf: Buffer, dtype: DtypeKind): JsonNode =
   case dtype
@@ -58,7 +52,7 @@ proc readElement(buf: Buffer, dtype: DtypeKind): JsonNode =
   of dkObject:   doAssert false, "Implement nested objects!"
   else: doAssert false
 
-proc readCompoundElement(buf: Buffer, tab: OrderedTable[string, (int, int, DtypeKind)]): JsonNode =
+proc readCompoundElement(buf: Buffer, tab: MemberSizeTable): JsonNode =
   ## Process a single compound element at current `offsetOf`
   result = newJObject()
   var i = 0
@@ -68,7 +62,7 @@ proc readCompoundElement(buf: Buffer, tab: OrderedTable[string, (int, int, Dtype
     doAssert i == idx
     inc i
 
-proc assign(buf: Buffer, tab: OrderedTable[string, (int, int, DtypeKind)], shape: seq[int]): JsonNode =
+proc assign(buf: Buffer, tab: MemberSizeTable, shape: seq[int]): JsonNode =
   if shape.len == 1:
     # assign this row
     result = newJArray()
@@ -82,9 +76,29 @@ proc assign(buf: Buffer, tab: OrderedTable[string, (int, int, DtypeKind)], shape
 
 import ./datasets
 from hdf5_wrapper import H5Dvlen_reclaim, H5P_DEFAULT
-proc readCompoundJson(d: H5Dataset): JsonNode =
-  result = newJObject()
-  let numMembers = d.dtype_c.getNumberMembers()
+proc reclaim(buf: Buffer, dtype_c: DatatypeID, dspaceID: DataspaceID) =
+  ## IMPORTANT: We must assign a `DatatypeID` instead of a raw `hid_t`, because `dataspaceID`
+  ## is a `proc`. If we were to write `else: dset.dataspaceId.id` the returned value would
+  ## be `=destroy`-ed before the `H5Dvlen_reclaim` call again!
+  let err = H5Dvlen_reclaim(dtype_c.id, dspaceId.id, H5P_DEFAULT, buf.data)
+  if err != 0:
+    raise newException(HDF5LibraryError, "HDF5 library failed to reclaim variable length memory.")
+
+proc read(attr: H5Attr, buf: pointer) =
+  ## Wrapper to have same API for both H5Dataset and H5Attr
+  attr.readAttribute(buf)
+
+proc readCompoundToBuffer[T: H5Dataset | H5Attr](h5o: T): BufferWrapper =
+  ## Reads the given compound data into a `Buffer` for further consumption. Can be converted
+  ## to JSON using `toJson` or reused i.e. to copy data using the same memory.
+  ##
+  ## NOTE: It returns a *wrapped* `Buffer` object, which has a `cleanup` field that contains
+  ## a call to `reclaim` so that we return tell the HDF5 lib to reclaim its memory, that is
+  ## used in the buffer. It also contains the dataspace ID and shape information.
+  let dtype_c = h5o.dtype_c
+  let shape = when T is H5Dataset: h5o.shape else: @[getNumberOfPoints(h5o.attr_dspace_id)]
+  let dspaceId = when T is H5Dataset: h5o.dataspaceID() else: h5o.attr_dspace_id
+  let numMembers = dtype_c.getNumberMembers()
   ## NOTE: In order to support nested objects / seqs, we need to change this approach slightly.
   ## We need to check if a `typ` itself is COMPOUND and instead of constructing a simple table
   ## like this, we'd need a nested data structure so that inside of the data reading from the
@@ -93,18 +107,24 @@ proc readCompoundJson(d: H5Dataset): JsonNode =
   ## know it's a sequence.
   var tab = initOrderedTable[string, (int, int, DtypeKind)]()
   for i in 0 ..< numMembers:
-    let name = getMemberName(d.dtype_c, i)
-    let typ = getMemberType(d.dtype_c, i)
+    let name = getMemberName(dtype_c, i)
+    let typ = getMemberType(dtype_c, i)
     let size = getSize(typ)
     tab[name] = (i, size, typ.h5toNimType())
   # Read the compound data into a buffer
-  let buf = newBuffer(getSize(d.dtype_c) * d.shape.prod)
+  result = BufferWrapper(shape: shape,
+                         dspaceID: dspaceID,
+                         dtypeID: dtype_c,
+                         tab: tab,
+                         cleanup: reclaim)
+  result.buf = newBuffer(getSize(dtype_c) * shape.prod)
   # read data
-  read(d, buf.data)
+  read(h5o, result.buf.data)
+
+proc toJson(buf: BufferWrapper): JsonNode =
   # copy data to JSON
-  result = assign(buf, tab, d.shape)
-  let dspaceId = d.dataspaceId()
-  doAssert H5Dvlen_reclaim(d.dtype_c.id, dspaceId.id, H5P_DEFAULT, buf.data) >= 0
+  result = assign(buf.buf, buf.tab, buf.shape)
+  # Reclaim run automatically on `=destroy` of `BufferWrapper`
 
 proc assign[T](data: seq[T], shape: seq[int], idx: var int): JsonNode =
   ## Similar proc to `assign` above but working with a flat 1D array of `shape`
@@ -125,29 +145,37 @@ proc assign[T](data: seq[T], shape: seq[int]): JsonNode =
   var idx = 0
   result = assign(data, shape, idx)
 
-proc readJson*(d: H5Dataset): JsonNode =
-  case d.dtypeAnyKind
-  of dkBool:     result = assign(d[bool]            , d.shape)
-  of dkChar:     result = assign(d[char].mapIt($it) , d.shape)
-  of dkEnum:     result = assign(d[string]          , d.shape)
-  of dkString:   result = assign(d[string]          , d.shape)
-  of dkCString:  result = assign(d[string]          , d.shape)
-  of dkInt:      result = assign(d[int]             , d.shape)
-  of dkInt8:     result = assign(d[int8]            , d.shape)
-  of dkInt16:    result = assign(d[int16]           , d.shape)
-  of dkInt32:    result = assign(d[int32]           , d.shape)
-  of dkInt64:    result = assign(d[int64]           , d.shape)
-  of dkFloat:    result = assign(d[float]           , d.shape)
-  of dkFloat32:  result = assign(d[float32]         , d.shape)
-  of dkFloat64:  result = assign(d[float]           , d.shape)
-  of dkUInt:     result = assign(d[uint]            , d.shape)
-  of dkUInt8:    result = assign(d[uint8]           , d.shape)
-  of dkUInt16:   result = assign(d[uint16]          , d.shape)
-  of dkUInt32:   result = assign(d[uint32]          , d.shape)
-  of dkUInt64:   result = assign(d[uint64]          , d.shape)
-  of dkObject, dkTuple: result = readCompoundJson(d)
-  of dkRef:      result = % d[int]      ## XXX: H5Reference!
-  of dkSequence: result = % d[int]      ## XXX: VLEN or ND data
+proc assign[T: not seq](data: T, shape: seq[int]): JsonNode =
+  var idx = 0
+  result = assign(@[data], shape, idx)
+
+proc readJson*[T: H5Dataset | H5Attr](h5o: T): JsonNode =
+  let shape = when T is H5Dataset: h5o.shape else: @[getNumberOfPoints(h5o.attr_dspace_id)]
+  template mapChr(s: untyped): untyped =
+    when typeof(s) is seq: s.mapIt($it)
+    else: $s
+  case h5o.dtypeAnyKind
+  of dkBool:     result = assign(h5o[bool]          , shape)
+  of dkChar:     result = assign(h5o[char].mapChr() , shape)
+  of dkEnum:     result = assign(h5o[string]        , shape)
+  of dkString:   result = assign(h5o[string]        , shape)
+  of dkCString:  result = assign(h5o[string]        , shape)
+  of dkInt:      result = assign(h5o[int]           , shape)
+  of dkInt8:     result = assign(h5o[int8]          , shape)
+  of dkInt16:    result = assign(h5o[int16]         , shape)
+  of dkInt32:    result = assign(h5o[int32]         , shape)
+  of dkInt64:    result = assign(h5o[int64]         , shape)
+  of dkFloat:    result = assign(h5o[float]         , shape)
+  of dkFloat32:  result = assign(h5o[float32]       , shape)
+  of dkFloat64:  result = assign(h5o[float]         , shape)
+  of dkUInt:     result = assign(h5o[uint]          , shape)
+  of dkUInt8:    result = assign(h5o[uint8]         , shape)
+  of dkUInt16:   result = assign(h5o[uint16]        , shape)
+  of dkUInt32:   result = assign(h5o[uint32]        , shape)
+  of dkUInt64:   result = assign(h5o[uint64]        , shape)
+  of dkObject, dkTuple: result = toJson readCompoundToBuffer(h5o)
+  of dkRef:      result = % h5o[int]      ## XXX: H5Reference!
+  of dkSequence: result = toJson readCompoundToBuffer(h5o)      ## XXX: VLEN or ND data
   of dkNone, dkArray, dkSet, dkRange, dkPtr, dkFloat128, dkProc, dkPointer: result = newJNull()
 
 import h5_iterators
