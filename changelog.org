@@ -1,3 +1,14 @@
+* v0.6.0
+- *PARTIALLY BREAKING*: Nim support for 1.6 is a bit wonky. It's still
+  supported, but when running on ~refc~ there seem to be cases where
+  destructors are being called too early, leading to subtle bugs. And
+  on ORC one test case (~tWithDset~) does not compile. So please upgrade.
+- refactor ~attributes~ read / write logic
+- add support for more types in attributes (compound types etc.)
+- add support to read all types in ~withAttr~, including compound and
+  ~seq[dkObject>~ types. Note that in those two cases the data is
+  available as ~attr~ as a ~JsonNode~!
+- make ~copy_attributes~ work for all types      
 * v0.5.12
 - better handle empty inputs in ~add~ / ~write_hyperslab~. Do nothing
   in that case
