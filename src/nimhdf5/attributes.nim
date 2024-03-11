@@ -161,13 +161,13 @@ proc deleteAttribute*[T: (H5File | H5Group | H5DataSet)](h5o: T, name: string): 
   # if successful also lower the number of attributes
   h5o.attrs.num_attrs = h5o.attrs.getNumAttrs
 
-proc createAttribute(pid: ParentID, name: string, dtype: DatatypeID,
+proc createAttribute*(pid: ParentID, name: string, dtype: DatatypeID,
                      dspace: DataspaceID): AttributeID =
   ## Creates an attribute `name` under `pid` with default properties.
   result = H5Acreate2(pid.to_hid_t, name.cstring, dtype.id,
                       dspace.id, H5P_DEFAULT, H5P_DEFAULT).toAttributeID
 
-proc writeAttribute(attr_id: AttributeID, dtype: DatatypeID, data: pointer) =
+proc writeAttribute*(attr_id: AttributeID, dtype: DatatypeID, data: pointer) =
   ## Writes the given daat to the attribute.
   ##
   ## Note: This proc is inherently unsafe. The callee needs to make sure the
