@@ -105,7 +105,8 @@ proc toH5*[T: object](h5f: H5File, x: T, name = "", path = "/", exclude: seq[str
 proc toH5*[T: ref object](h5f: H5File, x: T, name = "", path = "/") =
   ## Ref objects are dereferenced and the underlying object stored. Be careful with
   ## nested reference objects that might by cyclic!
-  h5f.toH5(x[], name, path)
+  if x != nil:
+    h5f.toH5(x[], name, path)
 
 proc toH5*[T](x: T,
               file: string,
