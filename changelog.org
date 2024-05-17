@@ -1,3 +1,9 @@
+* v0.6.1
+- fixes an issue where ~serialize~ (~toH5~) would cause a crash if a
+  reference type was contained with ~nil~ value
+- fixes a possible crash when trying to write an attribute of string /
+  seq type with zero length (simply does not call into the H5 function
+  now; attribute is still created though!)  
 * v0.6.0
 - *PARTIALLY BREAKING*: Nim support for 1.6 is a bit wonky. It's still
   supported, but when running on ~refc~ there seem to be cases where
