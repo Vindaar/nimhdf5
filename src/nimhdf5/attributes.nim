@@ -236,9 +236,10 @@ template writeData(buf: untyped): untyped {.dirty.} =
                    dtypeId,
                    buf)
   elif typeof(buf) is string or typeof(buf) is seq:
-    writeAttribute(attr.attr_id,
-                   dtypeId,
-                   address(buf[0]))
+    if buf.len > 0:
+      writeAttribute(attr.attr_id,
+                     dtypeId,
+                     address(buf[0]))
   else:
     writeAttribute(attr.attr_id,
                    dtypeId,
