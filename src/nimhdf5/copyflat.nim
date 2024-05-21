@@ -76,11 +76,6 @@ proc copyFlat*[T: SimpleTypes](buf: var Buffer, x: T) =
   var target = buf.data +% buf.offsetOf
   target.copyMem(address(x), size)
 
-proc copyFlat*[T: distinct](buf: var Buffer, x: T) =
-  let size = calcSize(x)
-  var target = buf.data +% buf.offsetOf
-  target.copyMem(address(x), size)
-
 proc copyFlat*[T; N: static int](buf: var Buffer, x: array[N, T]) =
   let size = calcSize(x)
   var target = buf.data +% buf.offsetOf
@@ -102,6 +97,9 @@ proc copyFlat*[T](buf: var Buffer, x: seq[T]) =
   buf.children.add child
   # copy child address
   buf.copyFlat((csize_t(x.len), cast[uint](child.data))) # `hvl_t` like data structure
+
+proc copyFlat*[T: distinct](buf: var Buffer, x: T) =
+  buf.copyFlat(distinctBase(x))
 
 import ./type_utils
 proc copyFlat*[T: object | tuple](buf: var Buffer, x: T) =
@@ -137,6 +135,9 @@ proc fromFlat*[T: SimpleTypes | pointer](x: var T, buf: Buffer) =
   let size = calcSize(x)
   var source = buf.data +% buf.offsetOf
   copyMem(addr(x), source, size)
+
+proc fromFlat*[T: distinct](x: var T, buf: Buffer) =
+  fromFlat(distinctBase(x), buf)
 
 ## XXX: `fromFlat` for fixed length arrays!
 proc fromFlat*[T: array](x: var T, buf: Buffer) =
