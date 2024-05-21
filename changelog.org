@@ -3,7 +3,8 @@
   reference type was contained with ~nil~ value
 - fixes a possible crash when trying to write an attribute of string /
   seq type with zero length (simply does not call into the H5 function
-  now; attribute is still created though!)  
+  now; attribute is still created though!)
+- correctly handle ~distinct~ types in ~copyflat~  
 * v0.6.0
 - *PARTIALLY BREAKING*: Nim support for 1.6 is a bit wonky. It's still
   supported, but when running on ~refc~ there seem to be cases where
