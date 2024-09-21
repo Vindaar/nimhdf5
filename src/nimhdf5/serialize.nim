@@ -292,6 +292,11 @@ proc fromH5*[T: object](h5f: H5File, res: var T, name = "", path = "/", exclude:
   for field, val in fieldPairs(res):
     if field notin exclude:
       h5f.fromH5(val, field, grp)
+proc fromH5*[T: ref object](h5f: H5File, res: var T, name = "", path = "/", exclude: seq[string] = @[]) =
+  bind `/`
+  let grp = path / name
+  res = T()
+  fromH5(h5f, res[], name, path, exclude)
 
 proc deserializeH5*[T](h5f: H5File, name = "", path = "/", exclude: seq[string] = @[]): T =
   ## Cannot name it same as `fromH5` because that causes the compiler to get confused. I don't understand,
