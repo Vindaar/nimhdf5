@@ -7,6 +7,8 @@ on:
       - 'docs/**'
       - 'nimhdf5.nimble'
       - '.github/workflows/ci.yml'
+    branches:
+      - 'master'
   pull_request:
     paths:
       - 'tests/**'
