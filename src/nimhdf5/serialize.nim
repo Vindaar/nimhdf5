@@ -293,13 +293,13 @@ proc fromH5*[T: object](h5f: H5File, res: var T, name = "", path = "/", exclude:
     if field notin exclude:
       h5f.fromH5(val, field, grp)
 
-proc deserializeH5*[T: object](h5f: H5File, name = "", path = "/", exclude: seq[string] = @[]): T =
+proc deserializeH5*[T](h5f: H5File, name = "", path = "/", exclude: seq[string] = @[]): T =
   ## Cannot name it same as `fromH5` because that causes the compiler to get confused. I don't understand,
   ## but with `LikelihoodContext` it ends up calling the `var set[LikelihoodContext]` overload, which does
   ## not make any sense.
   h5f.fromH5(result, name, path, exclude)
 
-proc deserializeH5*[T: object](fname: string, name = "", path = "/", exclude: seq[string] = @[]): T =
+proc deserializeH5*[T](fname: string, name = "", path = "/", exclude: seq[string] = @[]): T =
   ## Cannot name it same as `fromH5` because that causes the compiler to get confused. I don't understand,
   ## but with `LikelihoodContext` it ends up calling the `var set[LikelihoodContext]` overload, which does
   ## not make any sense.
