@@ -398,7 +398,7 @@ proc readStringArrayAttribute(attr: H5Attr, npoints: hssize_t): seq[string] =
   result = newSeq[string](npoints)
   for i, s in buf:
     result[i] = $s
-    discard H5free_memory(s[0].addr)
+    discard H5free_memory(s[0].address)
 
 proc readStringAttribute(attr: H5Attr): string =
   ## proc to read a string attribute from a H5 file, for an existing
