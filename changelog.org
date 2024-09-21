@@ -1,3 +1,7 @@
+* v0.6.2
+- fix a small memory leak related to ~cstrings~ not being freed
+- fix the ~-d:DEBUG_HDF5~ option for debug information
+- add support for ~ref object~ in ~fromH5~ deserialization  
 * v0.6.1
 - fixes an issue where ~serialize~ (~toH5~) would cause a crash if a
   reference type was contained with ~nil~ value
