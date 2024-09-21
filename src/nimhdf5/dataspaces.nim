@@ -43,7 +43,7 @@ func simple_dataspace*[T: (seq | int)](shape: T, maxshape: seq[int] = @[]): Data
   ## TODO: rewrite this
   var m_maxshape: seq[hsize_t] = parseMaxShape(maxshape)
   withDebug:
-    echo "Creating memory dataspace of shape ", shape
+    debugecho "Creating memory dataspace of shape ", shape
   when T is seq:
     # convert ints to hsize_t (== culonglong) and create mutable copy (need
     # an address to hand it to C function as pointer)
