@@ -398,6 +398,7 @@ proc readStringArrayAttribute(attr: H5Attr, npoints: hssize_t): seq[string] =
   result = newSeq[string](npoints)
   for i, s in buf:
     result[i] = $s
+    discard H5free_memory(s[0].addr)
 
 proc readStringAttribute(attr: H5Attr): string =
   ## proc to read a string attribute from a H5 file, for an existing
@@ -413,6 +414,7 @@ proc readStringAttribute(attr: H5Attr): string =
     var buf: cstring
     readAttribute(attr, nativeType, buf.addr)
     result = $buf
+    discard H5free_memory(buf.addr)
   else:
     let nativeType = getNativeType(attr.dtype_c)
     let string_len = H5Aget_storage_size(attr.attr_id.id)

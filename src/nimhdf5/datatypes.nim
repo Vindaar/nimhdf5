@@ -519,7 +519,9 @@ proc getMemberType*(typ: DatatypeID, idx: int): DatatypeID =
 proc getMemberName*(typ: DatatypeID, idx: int): string =
   ## Get the name of the member of the H5T_COMPOUND type at index `idx`
   ## The argument *must* correspond to a compound datatype. We do not check.
-  result = $H5Tget_member_name(typ.id, idx.cuint)
+  var name = H5Tget_member_name(typ.id, idx.cuint)
+  result = $name
+  discard H5free_memory(name[0].addr)
 
 proc getSize*(typ: DatatypeID): int =
   result = H5Tget_size(typ.id).int
