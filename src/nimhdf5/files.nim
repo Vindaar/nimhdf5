@@ -131,7 +131,7 @@ proc activateSWMR*(h5f: H5File) =
     h5f.accessFlags.incl akWriteSWMR
   elif akWriteSWMR in h5f.accessFlags:
     withDebug:
-      echo "File was already in SWMR mode: ", h5f
+      echo "File was already in SWMR mode: ", $(h5f[])
     discard # already activated
   else:
     raise newException(IOError, "Cannot activate SWMR mode for an input file that misses " &

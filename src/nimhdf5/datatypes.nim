@@ -725,11 +725,11 @@ proc getNumAttrs*(h5attr: H5Attributes): int =
   if err >= 0:
     # successful
     withDebug:
-      debugEcho "getNumAttrs(): ", h5attr
+      debugEcho "getNumAttrs(): ", $(h5attr[])
     result = int(h5info.num_attrs)
   else:
     withDebug:
-      debugEcho "getNumAttrs(): ", h5attr
+      debugEcho "getNumAttrs(): ", $(h5attr[])
     raise newException(HDF5LibraryError, "Call to HDF5 library failed in `getNumAttr` when reading $#" % $h5attr.parent_name)
 
 proc initH5Attributes*(p_id: sink ParentID, p_name: string = "", p_type: string = ""): H5Attributes =

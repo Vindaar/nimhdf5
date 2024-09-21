@@ -18,8 +18,9 @@ template withDebug*(actions: untyped) =
   ## to this template are only performed, if the
   ## -d:DEBUG_HDF5
   ## compiler flag is set.
-  when defined(DEBUG_HDF5):
-    actions
+  block:
+    when defined(DEBUG_HDF5):
+      actions
 
 proc formatName*(name: string): string =
   # this procedure formats a given group / dataset name by prepending
