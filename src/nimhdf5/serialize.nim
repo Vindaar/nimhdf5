@@ -180,7 +180,7 @@ proc fromH5*[T: char | string | cstring | bool](h5f: H5File, res: var T, name = 
       res = parseBool(obj.attrs[name, string])
     elif T is char:
       let s = obj.attrs[name, string]
-      doASsert s.len == 0, "Trying to read a char from a string with more than one element."
+      doAssert s.len == 1, "Trying to read a char from a string with more than one element."
       res = s[0]
     elif T is string:
       res = obj.attrs[name, string]
