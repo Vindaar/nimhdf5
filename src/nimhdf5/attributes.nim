@@ -101,28 +101,6 @@ proc readAttributeInfo(h5attr: H5Attributes,
   # add to this attribute object
   h5attr.attr_tab[name] = attr
 
-proc readAttributeInfo(h5attr: H5Attributes, key: string) =
-  ## reads all information about the attribute `key` from the H5 file
-  ## NOTE: this does ``not`` read the value of that attribute!
-  var attr = newH5Attr()
-  attr.attr_id = openAttribute(h5attr, key)
-  attr.opened = true
-  readAttributeInfo(h5attr, attr, key)
-
-proc read_all_attributes*(h5attr: H5Attributes) =
-  ## proc to read all attributes of the parent from file and store the names
-  ## and attribute ids in `h5attr`.
-  ## NOTE: If possible try to avoid using this proc! However, if you must, make
-  ## sure to close all attributes after usage, otherwise memory leaks might happen.
-  # first get how many objects there are
-  h5attr.num_attrs = h5attr.getNumAttrs
-  for i in 0 ..< h5attr.num_attrs:
-    var attr = newH5Attr()
-    attr.attr_id = openAttrByIdx(h5attr, i)
-    attr.opened = true
-    let name = getAttrName(attr.attr_id)
-    readAttributeInfo(h5attr, attr, name)
-
 proc existsAttribute*(parent: ParentID, name: string): bool =
   ## simply check if the given attribute name corresponds to an attribute
   ## of the given object
@@ -146,6 +124,38 @@ proc contains*(attr: H5Attributes, key: string): bool =
   ## proc to check whether a given attribute with name `key` exists in the attribute
   ## field of a group or dataset
   result = attr.parent_id.existsAttribute(key)
+
+proc readAttributeInfo*(h5attr: H5Attributes, key: string, closeAttribute = false) =
+  ## Checks if the given attribute `key` exists in the set of attributes
+  ## and raises if not.
+  ## If it exists, it reads the attribute information, making it available
+  ## in the `attr_tab`.
+  ##
+  ## NOTE: this does ``not`` read the value of that attribute!
+  let attr_exists = key in h5attr
+  if attr_exists:
+    var attr = newH5Attr()
+    attr.attr_id = openAttribute(h5attr, key)
+    attr.opened = true
+    readAttributeInfo(h5attr, attr, key)
+    if closeAttribute: # close again
+      attr.close()
+  else:
+    raise newException(KeyError, "No attribute `$#` exists in object `$#`" % [key, h5attr.parent_name])
+
+proc read_all_attributes*(h5attr: H5Attributes) =
+  ## proc to read all attributes of the parent from file and store the names
+  ## and attribute ids in `h5attr`.
+  ## NOTE: If possible try to avoid using this proc! However, if you must, make
+  ## sure to close all attributes after usage, otherwise memory leaks might happen.
+  # first get how many objects there are
+  h5attr.num_attrs = h5attr.getNumAttrs
+  for i in 0 ..< h5attr.num_attrs:
+    var attr = newH5Attr()
+    attr.attr_id = openAttrByIdx(h5attr, i)
+    attr.opened = true
+    let name = getAttrName(attr.attr_id)
+    readAttributeInfo(h5attr, attr, name)
 
 proc deleteAttribute*(h5id: ParentID, name: string): bool =
   ## deletes the given attribute `name` on the object defined by
@@ -498,17 +508,11 @@ proc read_attribute*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]):
   ## throws:
   ##   KeyError: In case the key does not exist as an attribute
   # TODO: check err values!
-  let attr_exists = name in h5attr
-  var err: herr_t
-  if attr_exists:
-    # in case of existence, read the data and return
-    h5attr.readAttributeInfo(name)
-    let attr = h5attr.attr_tab[name]
-    result = attr.readAttribute(dtype)
-    # close attribute again after reading
-    h5attr.attr_tab[name].close()
-  else:
-    raise newException(KeyError, "No attribute `$#` exists in object `$#`" % [name, h5attr.parent_name])
+  h5attr.readAttributeInfo(name) # raises KeyError if it does not exist
+  let attr = h5attr.attr_tab[name]
+  result = attr.readAttribute(dtype)
+  # close attribute again after reading
+  h5attr.attr_tab[name].close()
 
 proc `[]`*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
   # convenience access to read_attribute
@@ -517,7 +521,8 @@ proc `[]`*[T](h5attr: H5Attributes, name: string, dtype: typedesc[T]): T =
 proc `[]`*(h5attr: H5Attributes, name: string): DtypeKind =
   # accessing H5Attributes by string simply returns the datatype of the stored
   # attribute as an AnyKind value
-  h5attr.attr_tab[name].dtypeAnyKind
+  h5attr.readAttributeInfo(name, closeAttribute = true) # raises KeyError if it does not exist
+  result = h5attr.attr_tab[name].dtypeAnyKind
 
 proc `[]`*[T](attr: H5Attr, dtype: typedesc[T]): T =
   # convenience access to readAttribute for the actual attribute
