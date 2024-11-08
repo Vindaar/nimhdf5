@@ -204,6 +204,9 @@ template withAttr*(h5attr: H5Attributes, name: string, actions: untyped) =
   ## to get access to the data as Nim objects, but also when copying attributes.
   ## Copying itself can also be done by simply getting the size, reading into a buffer,
   ## copying data type and space and writing the same buffer to a new location.
+
+  # read attribute info so that `attr_tab` knows it
+  h5attr.readAttributeInfo(name, closeAttribute = true) # raises KeyError if it does not exist
   let attrObj {.inject.} = h5attr.attr_tab[name]
   case attrObj.dtypeAnyKind
   of dkBool:
