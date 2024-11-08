@@ -32,19 +32,20 @@ proc write_attrs(grp: var H5Group) =
   grp.attrs["ComplexNamedSeqTuple"] = NamedTupSeqComplexAttr
 
 proc assert_attrs(grp: var H5Group) =
-  template readAndCheck(arg, typ, exp): untyped =
+  template readAndCheck(arg, typ, exp, kind): untyped =
     let data = grp.attrs[arg, typ]
     echo "Read: ", data
     doAssert data == exp, "Mismatch, was = " & $data & ", but expected = " & $exp
+    doAssert grp.attrs[arg] == kind, "Mismatch, was = " & $grp.attrs[arg] & ", but expected = " & $kind
 
-  readAndCheck("Time", string, TimeStr)
-  readAndCheck("Counter", int, Counter)
-  readAndCheck("Seq", seq[int], SeqAttr)
-  readAndCheck("SeqStr", seq[string], SeqStrAttr)
-  readAndCheck("Tuple", (float, int), TupAttr)
-  readAndCheck("NamedTuple", tuple[foo: float, bar: int], NamedTupAttr)
-  readAndCheck("ComplexNamedTuple", tuple[foo: string, bar: float], NamedTupStrAttr)
-  readAndCheck("ComplexNamedSeqTuple", seq[tuple[foo: string, bar: float]], NamedTupSeqComplexAttr)
+  readAndCheck("Time", string, TimeStr, dkString)
+  readAndCheck("Counter", int, Counter, dkInt64)
+  readAndCheck("Seq", seq[int], SeqAttr, dkSequence)
+  readAndCheck("SeqStr", seq[string], SeqStrAttr, dkSequence)
+  readAndCheck("Tuple", (float, int), TupAttr, dkObject)
+  readAndCheck("NamedTuple", tuple[foo: float, bar: int], NamedTupAttr, dkObject)
+  readAndCheck("ComplexNamedTuple", tuple[foo: string, bar: float], NamedTupStrAttr, dkObject)
+  readAndCheck("ComplexNamedSeqTuple", seq[tuple[foo: string, bar: float]], NamedTupSeqComplexAttr, dkSequence)
 
   doAssert("Time" in grp.attrs)
   doAssert("NoTime" notin grp.attrs)
