@@ -565,7 +565,8 @@ proc close*(attr: var H5AttrObj) =
         $(attr.attr_id.id) & "!")
     withDebug:
       echo "Closed attribute with status ", err
-    attr.opened = false
+  # close state regardless of object, to make sure we don't leave it open accidentally
+  attr.opened = false
 
 proc close*(attr: H5Attr) = attr[].close()
 
