@@ -206,7 +206,7 @@ template withAttr*(h5attr: H5Attributes, name: string, actions: untyped) =
   ## copying data type and space and writing the same buffer to a new location.
 
   # read attribute info so that `attr_tab` knows it
-  h5attr.readAttributeInfo(name, closeAttribute = true) # raises KeyError if it does not exist
+  h5attr.readAttributeInfo(name) # raises KeyError if it does not exist
   let attrObj {.inject.} = h5attr.attr_tab[name]
   case attrObj.dtypeAnyKind
   of dkBool:
@@ -290,6 +290,8 @@ template withAttr*(h5attr: H5Attributes, name: string, actions: untyped) =
   else:
     let attr {.inject.} = readJson(attrObj)
     actions
+  # close the attribute again
+  h5attr.attr_tab[name].close()
 
 ## The following JSON related procs are placeholders. We might implement them fully to be
 ## able to write compound data at runtime baesd on JSON data.
