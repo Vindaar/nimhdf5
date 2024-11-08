@@ -1,3 +1,10 @@
+* v0.6.3
+- make ~[]~ for attributes taking a string only for the data type kind
+  to check if the key exist, raise if not.
+  Previously if the attribute hadn't been opened before, the call
+  would fail even if it exists in the file
+- make ~withAttr~ check if the attribute exists in the file
+  first. Previously would fail if it hadn't been opened before
 * v0.6.2
 - fix a small memory leak related to ~cstrings~ not being freed
 - fix the ~-d:DEBUG_HDF5~ option for debug information
